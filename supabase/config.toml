@@ -1,0 +1,19 @@
+# Extrait de configuration Supabase CLI pour Vitrine (fusionner avec `supabase init` si besoin).
+project_id = "vitrine"
+
+[auth]
+site_url = "vitrine://"
+additional_redirect_urls = ["vitrine://**", "exp://**"]
+
+[auth.email]
+enable_signup = true
+# Connexion par code à 6 chiffres reçu par e-mail (pas de mot de passe).
+otp_length = 6
+
+# Ces deux fonctions sont appelées par Meta (pas par l'app) : pas de jeton utilisateur.
+# Elles vérifient elles-mêmes une signature HMAC.
+[functions.meta-oauth]
+verify_jwt = false
+
+[functions.meta-data-deletion]
+verify_jwt = false

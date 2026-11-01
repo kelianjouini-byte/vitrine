@@ -1,0 +1,39 @@
+{
+  "version": "5",
+  "specifiers": {
+    "jsr:@supabase/supabase-js@2": "2.118.0"
+  },
+  "jsr": {
+    "@supabase/supabase-js@2.118.0": {
+      "integrity": "42009f9d5b35997f35bba560d509f42608057cae647bd5a25b9b4a06ec3ffad0"
+    }
+  },
+  "workspace": {
+    "packageJson": {
+      "dependencies": [
+        "npm:@expo/metro-runtime@~58.0.16",
+        "npm:@react-native-async-storage/async-storage@2.2.0",
+        "npm:@supabase/supabase-js@^2.118.0",
+        "npm:@types/react@19.3",
+        "npm:expo-auth-session@~58.0.16",
+        "npm:expo-constants@~58.0.14",
+        "npm:expo-crypto@~58.0.7",
+        "npm:expo-haptics@~58.0.7",
+        "npm:expo-image-picker@~58.0.10",
+        "npm:expo-notifications@~58.1.7",
+        "npm:expo-status-bar@~58.0.4",
+        "npm:expo-web-browser@~58.0.7",
+        "npm:expo@~58.0.22",
+        "npm:react-dom@19.3.0",
+        "npm:react-native-safe-area-context@~5.10.1",
+        "npm:react-native-screens@~4.30.1",
+        "npm:react-native-svg@15.16.0",
+        "npm:react-native-url-polyfill@4",
+        "npm:react-native-web@~0.21.4",
+        "npm:react-native@0.88.1",
+        "npm:react@19.3.0",
+        "npm:typescript@~6.0.3"
+      ]
+    }
+  }
+}

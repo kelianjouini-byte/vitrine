@@ -1,0 +1,125 @@
+import React from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View, type TextInputProps, type ViewStyle, type StyleProp } from 'react-native';
+import { colors, fonts, radius } from '../lib/theme';
+
+export function Title({ children, size = 26, style }: { children: React.ReactNode; size?: number; style?: StyleProp<any> }) {
+  return <Text style={[{ fontFamily: fonts.title, fontSize: size, color: colors.text, fontWeight: '600' }, style]}>{children}</Text>;
+}
+
+export function Body({ children, soft, size = 16, style, center }: { children: React.ReactNode; soft?: boolean; size?: number; style?: StyleProp<any>; center?: boolean }) {
+  return (
+    <Text style={[{ fontFamily: fonts.body, fontSize: size, lineHeight: size * 1.4, color: soft ? colors.textSoft : colors.text, textAlign: center ? 'center' : 'left' }, style]}>
+      {children}
+    </Text>
+  );
+}
+
+export function Label({ children }: { children: React.ReactNode }) {
+  return <Text style={s.label}>{children}</Text>;
+}
+
+type BtnKind = 'primary' | 'secondary' | 'ghost' | 'danger';
+export function Button({ title, onPress, kind = 'primary', loading, disabled, icon, style }: { title: string; onPress?: () => void; kind?: BtnKind; loading?: boolean; disabled?: boolean; icon?: React.ReactNode; style?: StyleProp<ViewStyle> }) {
+  const bg = { primary: colors.green, secondary: colors.white, ghost: 'transparent', danger: colors.white }[kind];
+  const fg = { primary: colors.white, secondary: colors.green, ghost: colors.textSoft, danger: colors.red }[kind];
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      disabled={disabled || loading}
+      style={({ pressed }) => [
+        s.btn,
+        { backgroundColor: bg, opacity: disabled ? 0.45 : pressed ? 0.85 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] },
+        kind === 'secondary' && { borderWidth: 1.5, borderColor: colors.green },
+        kind === 'danger' && { borderWidth: 1.5, borderColor: colors.red },
+        kind === 'ghost' && { minHeight: 44 },
+        style,
+      ]}
+    >
+      {loading ? <ActivityIndicator color={fg} /> : (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          {icon}
+          <Text style={{ color: fg, fontSize: kind === 'ghost' ? 16 : 18, fontWeight: '700', fontFamily: fonts.body }}>{title}</Text>
+        </View>
+      )}
+    </Pressable>
+  );
+}
+
+export function Card({ children, style, onPress }: { children: React.ReactNode; style?: StyleProp<ViewStyle>; onPress?: () => void }) {
+  const inner = <View style={[s.card, style]}>{children}</View>;
+  return onPress ? <Pressable onPress={onPress} accessibilityRole="button" style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}>{inner}</Pressable> : inner;
+}
+
+const BADGES = {
+  green: [colors.greenSoft, colors.green],
+  orange: [colors.orangeSoft, colors.orangeText],
+  blue: [colors.blueSoft, colors.blueText],
+  grey: ['#EEF1ED', colors.textSoft],
+  red: [colors.redSoft, colors.red],
+} as const;
+export function Badge({ text, tone = 'grey' }: { text: string; tone?: keyof typeof BADGES }) {
+  const [bg, fg] = BADGES[tone];
+  return (
+    <View style={{ backgroundColor: bg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 }}>
+      <Text style={{ color: fg, fontSize: 13, fontWeight: '700', fontFamily: fonts.body }}>{text}</Text>
+    </View>
+  );
+}
+
+export function DateTile({ date, tone = 'orange' }: { date: Date; tone?: keyof typeof BADGES }) {
+  const [bg, fg] = BADGES[tone];
+  const months = ['JANV', 'FÉVR', 'MARS', 'AVR', 'MAI', 'JUIN', 'JUIL', 'AOÛT', 'SEPT', 'OCT', 'NOV', 'DÉC'];
+  return (
+    <View style={{ width: 54, height: 58, borderRadius: 14, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={{ fontFamily: fonts.title, fontSize: 22, fontWeight: '700', color: fg }}>{date.getDate()}</Text>
+      <Text style={{ fontSize: 11, fontWeight: '700', color: fg, letterSpacing: 0.5 }}>{months[date.getMonth()]}</Text>
+    </View>
+  );
+}
+
+export function Field({ label, hint, error, ...props }: TextInputProps & { label: string; hint?: string; error?: string }) {
+  return (
+    <View style={{ gap: 6 }}>
+      <Text style={{ fontSize: 16, fontWeight: '600', color: colors.text, fontFamily: fonts.body }}>{label}</Text>
+      <TextInput
+        placeholderTextColor="#A3ABA5"
+        {...props}
+        style={[s.input, error ? { borderColor: colors.red } : null, props.multiline ? { minHeight: 96, textAlignVertical: 'top', paddingTop: 14 } : null]}
+      />
+      {error ? <Text style={{ color: colors.red, fontSize: 14 }}>{error}</Text> : hint ? <Text style={{ color: colors.textSoft, fontSize: 14 }}>{hint}</Text> : null}
+    </View>
+  );
+}
+
+export function Chip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      style={{ paddingHorizontal: 16, paddingVertical: 12, borderRadius: 999, borderWidth: 1.5, borderColor: selected ? colors.green : colors.border, backgroundColor: selected ? colors.greenSoft : colors.white }}
+    >
+      <Text style={{ fontSize: 16, color: selected ? colors.green : colors.text, fontWeight: selected ? '700' : '500', fontFamily: fonts.body }}>{label}</Text>
+    </Pressable>
+  );
+}
+
+/** Bandeau d'information honnête : fonctionnalité pas encore branchée, erreur, etc. */
+export function Notice({ tone = 'orange', title, text }: { tone?: 'orange' | 'red' | 'green'; title: string; text?: string }) {
+  const bg = { orange: colors.orangeSoft, red: colors.redSoft, green: colors.greenSoft }[tone];
+  const fg = { orange: colors.orangeText, red: colors.red, green: colors.green }[tone];
+  return (
+    <View style={{ backgroundColor: bg, borderRadius: radius.md, padding: 14, gap: 4 }}>
+      <Text style={{ color: fg, fontWeight: '700', fontSize: 15, fontFamily: fonts.body }}>{title}</Text>
+      {text ? <Text style={{ color: colors.text, fontSize: 14, lineHeight: 20, fontFamily: fonts.body }}>{text}</Text> : null}
+    </View>
+  );
+}
+
+const s = StyleSheet.create({
+  label: { fontSize: 13, fontWeight: '700', letterSpacing: 1.2, color: colors.textSoft, textTransform: 'uppercase', fontFamily: fonts.body },
+  btn: { minHeight: 58, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 },
+  card: { backgroundColor: colors.white, borderRadius: radius.md + 2, borderWidth: 1, borderColor: colors.border, padding: 16 },
+  input: { minHeight: 54, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.white, paddingHorizontal: 16, fontSize: 17, color: colors.text, fontFamily: fonts.body },
+});

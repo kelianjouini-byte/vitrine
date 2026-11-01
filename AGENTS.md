@@ -1,3 +1,5 @@
+> **Projet Vitrine :** lire d'abord `CLAUDE.md`. Exception volontaire : la navigation n'utilise pas Expo Router (voir CLAUDE.md §2).
+
 This is an Expo/React Native mobile application. Prioritize mobile-first patterns, performance, and cross-platform compatibility.
 
 ## Expo has changed — do not trust your training data
