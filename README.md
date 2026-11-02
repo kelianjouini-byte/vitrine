@@ -69,6 +69,7 @@ Tables `plans`, `subscriptions`, `stripe_events` déjà prêtes. À venir : Stri
 - App : `npx eas-cli@latest build -p all` (compte Expo nécessaire, compte Apple Developer 99 $/an, compte Google Play 25 $ une fois), puis `eas submit`.
 - Démo web : `npm run build:web && node scripts/build-demo.mjs` → `demo/index.html`.
 - Icônes et écran d'ouverture (logo « La devanture ») : `NODE_PATH=$(npm root -g) node scripts/build-icons.mjs` → `assets/*.png`.
+- Recommencer depuis l'inscription (test web) : ouvrir `https://kelianjouini-byte.github.io/vitrine/?nouveau` (efface les données de cet appareil seulement).
 
 ## 8. Tests
 

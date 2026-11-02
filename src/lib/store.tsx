@@ -1,7 +1,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { load, save, clearAll } from './storage';
 import { scheduleReminders } from './notifications';
-import { socialConnections } from './api';
+import { signOut, socialConnections } from './api';
+import { Platform } from 'react-native';
 import type { Business, NotificationPrefs, Post, SocialConnection } from './types';
 import type { PickedPhoto } from './photo';
 
@@ -45,6 +46,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     (async () => {
+      // Lien de test « …/vitrine/?nouveau » : on repart de zéro sur cet appareil (rien n'est supprimé sur le serveur).
+      if (Platform.OS === 'web' && typeof window !== 'undefined' && /[?&]nouveau\b/.test(window.location.search)) {
+        await clearAll();
+        await signOut().catch(() => {});
+        window.history.replaceState(null, '', window.location.pathname);
+      }
       setBusiness(await load<Business | null>('business', null));
       setPosts(await load<Post[]>('posts', []));
       setPrefsState(await load('prefs', DEFAULT_PREFS));
