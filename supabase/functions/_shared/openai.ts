@@ -80,37 +80,51 @@ export async function generate(
   const dataUri = `data:${img.headers.get('content-type') ?? 'image/jpeg'};base64,${btoa(bin)}`;
   const isOpenAI = baseUrl.includes('api.openai.com');
   const avoid = input.avoid.length ? `\nTextes déjà publiés récemment (ne pas répéter les mêmes tournures) :\n- ${input.avoid.join('\n- ')}` : '';
-  let res: Response;
-  try {
-    res = await fetch(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      // On n'attend jamais plus de 45 secondes : au-delà, on affiche une erreur claire.
-      signal: AbortSignal.timeout(45_000),
-      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model,
-        temperature: 0.8,
-        // Gemini « réfléchit » avant d'écrire : on limite cette réflexion pour aller vite.
-        ...(isGeminiKey ? { reasoning_effort: 'low', max_tokens: 4000 } : { max_tokens: 900 }),
-        response_format: responseFormat,
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: input.context + avoid + `\nRéponds en JSON avec exactement ces clés : ${SCHEMA.schema.required.join(', ')}.` },
-              { type: 'image_url', image_url: isOpenAI ? { url: dataUri, detail: 'low' } : { url: dataUri } },
-            ],
-          },
-        ],
-      }),
-    });
-  } catch (e) {
-    console.error('[vitrine] ia délai dépassé ou réseau', baseUrl, model, e instanceof Error ? e.name : '');
-    throw new HttpError(504, 'ai_timeout', "L'IA met trop de temps à répondre. Réessayez dans un instant.");
+  // Si un modèle gratuit est saturé (503), limité (429) ou trop lent, on essaie le suivant.
+  const models = env('AI_MODEL') || env('OPENAI_MODEL') ? [model] : isGeminiKey ? [model, 'gemini-3.5-flash-lite', 'gemini-2.5-flash'] : [model];
+  let res: Response | undefined;
+  let timedOut = false;
+  for (const m of models) {
+    try {
+      res = await fetch(`${baseUrl}/chat/completions`, {
+        method: 'POST',
+        // On n'attend jamais trop longtemps un modèle : au-delà, on passe au suivant.
+        signal: AbortSignal.timeout(m === models[0] ? 40_000 : 30_000),
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: m,
+          temperature: 0.8,
+          // Gemini « réfléchit » avant d'écrire : on limite cette réflexion pour aller vite.
+          ...(isGeminiKey ? { reasoning_effort: 'low', max_tokens: 4000 } : { max_tokens: 900 }),
+          response_format: responseFormat,
+          messages: [
+            { role: 'system', content: SYSTEM_PROMPT },
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: input.context + avoid + `\nRéponds en JSON avec exactement ces clés : ${SCHEMA.schema.required.join(', ')}.` },
+                { type: 'image_url', image_url: isOpenAI ? { url: dataUri, detail: 'low' } : { url: dataUri } },
+              ],
+            },
+          ],
+        }),
+      });
+    } catch (e) {
+      console.error('[vitrine] ia délai dépassé ou réseau', baseUrl, m, e instanceof Error ? e.name : '');
+      timedOut = true;
+      res = undefined;
+      continue;
+    }
+    if (res.ok) break;
+    console.error('[vitrine] ia', baseUrl, m, res.status, (await res.text()).slice(0, 300));
+    // Erreur de clé ou de requête : inutile d'essayer un autre modèle.
+    if (![404, 429, 500, 503].includes(res.status)) break;
   }
+  if (!res) throw new HttpError(504, 'ai_timeout', "L'IA met trop de temps à répondre. Réessayez dans un instant.");
   if (!res.ok) {
-    console.error('[vitrine] ia', baseUrl, model, res.status, (await res.text()).slice(0, 300));
+    if ([429, 503].includes(res.status) || timedOut) {
+      throw new HttpError(503, 'ai_busy', "L'IA gratuite est très demandée en ce moment. Réessayez dans une minute.");
+    }
     throw new HttpError(502, 'ai_failed', "L'IA n'a pas pu écrire votre texte. Réessayez.");
   }
   const data = await res.json();
