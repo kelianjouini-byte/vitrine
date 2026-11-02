@@ -11,8 +11,11 @@
 
 ## Flux serveur
 ```
+App ──business-ai (inscription)──► detect : nom + ville → recherche Google de Gemini (2.5, gratuite 500/jour) → métier proposé, à confirmer
+                                ──► occasions : métier hors liste → l'IA choisit ses occasions dans le calendrier vérifié
+                                    (limite 15/h/compte, journal ai_lookups lisible par le serveur seul)
 App ──upload──► Storage post-images/<user_id>/<uuid>.jpg (privé)
-App ──generate-post──► vérifie l'utilisateur, limite 20/h, URL signée 10 min
+App ──generate-post──► vérifie l'utilisateur, limite 20/h, URL signée 10 min, métier exact + consigne du métier (src/lib/trades.ts)
                        ──► OpenAI (JSON strict) ──► contrôle « pas de prix/promo inventés »
                        ──► posts (awaiting_approval) + ai_generations
 App ──publish-post──► verrou status=publishing ──► pour chaque réseau :

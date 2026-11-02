@@ -37,7 +37,7 @@ export async function scheduleReminders(b: Business, prefs: NotificationPrefs): 
   if (!(await askPermission())) return 0;
   const now = new Date();
   let count = 0;
-  for (const e of upcomingEvents(b.businessType, now, 12, b.postalCode)) {
+  for (const e of upcomingEvents(b, now, 12, b.postalCode)) {
     const when = new Date(e.date.getFullYear(), e.date.getMonth(), e.date.getDate() - Math.max(prefs.daysBefore, 1), prefs.hour, 0);
     if (when <= now) continue;
     await Notifications.scheduleNotificationAsync({

@@ -1,14 +1,18 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Body, Button, Chip, Field, Title } from '../components/ui';
 import { NetworkCards } from '../components/NetworkCards';
 import { LogoMark } from '../components/icons';
-import { BUSINESS_TYPES, TONES } from '../lib/business';
+import { TONES } from '../lib/business';
+import { TradePicker } from '../components/TradePicker';
+import { matchTrade } from '../lib/trades';
+import { occasionCatalog } from '../lib/events';
 import { colors } from '../lib/theme';
 import { useApp } from '../lib/store';
-import { saveBusinessRemote, FriendlyError } from '../lib/api';
-import type { Business, BusinessType, Tone } from '../lib/types';
+import { detectTrade, saveBusinessRemote, suggestOccasionKeys, FriendlyError } from '../lib/api';
+import { isBackendConfigured } from '../lib/config';
+import type { Business, Tone } from '../lib/types';
 
 const STEPS = 4;
 
@@ -21,12 +25,41 @@ export function Onboarding() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const set = <K extends keyof Business>(k: K, v: Business[K]) => setForm((f) => ({ ...f, [k]: v }));
+  const [detecting, setDetecting] = useState(false);
+  const [detected, setDetected] = useState(false);
+  const triedFor = useRef('');
+
+  // Dès que le nom et la ville sont écrits, l'IA cherche la boutique sur internet pour pré-remplir le métier.
+  useEffect(() => {
+    const name = form.businessName?.trim() ?? '';
+    const city = form.city?.trim() ?? '';
+    const cp = form.postalCode?.trim() ?? '';
+    const key = `${name}|${city}|${cp}`.toLowerCase();
+    if (!isBackendConfigured || form.businessType || name.length < 2 || city.length < 2 || triedFor.current === key) return;
+    const t = setTimeout(async () => {
+      triedFor.current = key;
+      setDetecting(true);
+      try {
+        const found = await detectTrade({ businessName: name, city, postalCode: cp });
+        if (found) {
+          const m = matchTrade(found);
+          setForm((f) => (f.businessType ? f : { ...f, businessType: m?.id ?? 'autre', trade: m?.label ?? found }));
+          setDetected(true);
+        }
+      } catch {
+        /* pas grave : le commerçant choisit son métier lui-même */
+      } finally {
+        setDetecting(false);
+      }
+    }, 1200);
+    return () => clearTimeout(t);
+  }, [form.businessName, form.city, form.postalCode, form.businessType]);
 
   function validateStep1(): boolean {
     const e: Record<string, string> = {};
     if (!form.ownerFirstName?.trim()) e.ownerFirstName = 'Indiquez votre prénom.';
     if (!form.businessName?.trim()) e.businessName = 'Indiquez le nom de votre boutique.';
-    if (!form.businessType) e.businessType = 'Choisissez votre type de commerce.';
+    if (!form.businessType) e.businessType = 'Choisissez ou écrivez votre métier.';
     if (!form.city?.trim()) e.city = 'Indiquez votre ville.';
     if (!/^\d{5}$/.test(form.postalCode?.trim() ?? '')) e.postalCode = 'Le code postal a 5 chiffres.';
     setErrors(e);
@@ -40,6 +73,7 @@ export function Onboarding() {
       ownerFirstName: form.ownerFirstName!.trim(),
       businessName: form.businessName!.trim(),
       businessType: form.businessType!,
+      trade: form.trade?.trim() || undefined,
       city: form.city!.trim(),
       postalCode: form.postalCode!.trim(),
       tone: form.tone ?? 'chaleureux',
@@ -48,6 +82,15 @@ export function Onboarding() {
       specialties: form.specialties?.trim() || undefined,
     };
     try {
+      // Métier hors liste : l'IA choisit les occasions qui lui conviennent (sinon, toutes restent proposées).
+      if (b.businessType === 'autre' && b.trade) {
+        try {
+          const keys = await suggestOccasionKeys(b.trade, occasionCatalog());
+          if (keys.length) b.occasionKeys = keys;
+        } catch {
+          /* on garde toutes les occasions */
+        }
+      }
       b.id = await saveBusinessRemote(b);
       await saveBusiness(b);
     } catch (e) {
@@ -77,19 +120,17 @@ export function Onboarding() {
             <Body soft>Quelques informations pour écrire des posts qui vous ressemblent.</Body>
             <Field label="Votre prénom" value={form.ownerFirstName} onChangeText={(v) => set('ownerFirstName', v)} placeholder="Marie" error={errors.ownerFirstName} autoComplete="given-name" />
             <Field label="Nom de la boutique" value={form.businessName} onChangeText={(v) => set('businessName', v)} placeholder="Fleurs de Marie" error={errors.businessName} />
-            <View style={{ gap: 10 }}>
-              <Body style={{ fontWeight: '600' }}>Type de commerce</Body>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                {BUSINESS_TYPES.map((t) => (
-                  <Chip key={t.id} label={`${t.emoji} ${t.label}`} selected={form.businessType === t.id} onPress={() => set('businessType', t.id as BusinessType)} />
-                ))}
-              </View>
-              {errors.businessType ? <Body size={14} style={{ color: colors.red }}>{errors.businessType}</Body> : null}
-            </View>
             <View style={{ flexDirection: 'row', gap: 12 }}>
               <View style={{ flex: 2 }}><Field label="Ville" value={form.city} onChangeText={(v) => set('city', v)} placeholder="Lyon" error={errors.city} /></View>
               <View style={{ flex: 1.3 }}><Field label="Code postal" value={form.postalCode} onChangeText={(v) => set('postalCode', v.replace(/\D/g, '').slice(0, 5))} placeholder="69002" keyboardType="number-pad" error={errors.postalCode} /></View>
             </View>
+            <TradePicker
+              value={{ businessType: form.businessType, trade: form.trade }}
+              onChange={(v) => { setForm((f) => ({ ...f, businessType: v.businessType, trade: v.trade })); setDetected(false); }}
+              detecting={detecting}
+              detectedFrom={detected}
+              error={errors.businessType}
+            />
             <Button title="Continuer" onPress={() => validateStep1() && setStep(2)} />
           </>
         )}

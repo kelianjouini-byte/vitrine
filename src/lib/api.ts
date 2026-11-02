@@ -8,7 +8,7 @@
 import * as Crypto from 'expo-crypto';
 import { supabase } from './supabase';
 import type { Business, GeneratedPost, Platform, PublicationResult, SocialConnection } from './types';
-import { businessTypeLabel } from './business';
+import { tradeLabel } from './business';
 import type { CommercialEvent } from './events';
 
 export class NotConfiguredError extends Error {
@@ -91,6 +91,8 @@ export async function saveBusinessRemote(b: Business): Promise<string | undefine
     owner_first_name: b.ownerFirstName,
     business_name: b.businessName,
     business_type: b.businessType,
+    trade: b.trade?.trim() || null,
+    occasion_keys: b.occasionKeys ?? null,
     city: b.city,
     postal_code: b.postalCode,
     tone: b.tone,
@@ -125,6 +127,8 @@ export async function uploadPhoto(base64: string): Promise<string> {
 
 export interface GenerateInput {
   imagePath: string;
+  /** Consigne du métier pour l'IA (catalogue src/lib/trades.ts). */
+  tradeHint?: string;
   occasion?: Pick<CommercialEvent, 'name' | 'date'> | null;
   merchantNote?: string;
   postId?: string;
@@ -136,6 +140,7 @@ export async function generatePost(input: GenerateInput): Promise<GeneratedPost 
     post_id: input.postId,
     occasion: input.occasion ? { name: input.occasion.name, date: input.occasion.date.toISOString().slice(0, 10) } : null,
     merchant_note: input.merchantNote ?? null,
+    trade_hint: input.tradeHint ?? null,
   });
 }
 
@@ -146,7 +151,7 @@ export async function generatePost(input: GenerateInput): Promise<GeneratedPost 
  */
 export function exampleCaption(b: Business, occasion?: Pick<CommercialEvent, 'name' | 'emoji'> | null): GeneratedPost {
   const cityTag = b.city.replace(/[^A-Za-zÀ-ÿ]/g, '');
-  const typeTag = businessTypeLabel(b.businessType).replace(/[^A-Za-zÀ-ÿ]/g, '');
+  const typeTag = tradeLabel(b).replace(/[^A-Za-zÀ-ÿ]/g, '');
   const intro = occasion ? `${occasion.emoji} ${occasion.name} approche !` : '✨ Du nouveau chez nous !';
   const text = `${intro}\nUn aperçu de ce qui vous attend chez ${b.businessName}, préparé avec soin.\nPassez nous voir à ${b.city} 😊`;
   return {
@@ -155,6 +160,29 @@ export function exampleCaption(b: Business, occasion?: Pick<CommercialEvent, 'na
     hashtags: [`#${typeTag}${cityTag}`, `#${cityTag}`, `#${typeTag}`, '#CommerceLocal'],
     isExample: true,
   };
+}
+
+// ---------------------------------------------------------------- Métier (inscription)
+
+/** Cherche le métier du commerce sur internet à partir de son nom et de sa ville. null = pas trouvé. */
+export async function detectTrade(input: { businessName: string; city: string; postalCode: string }): Promise<string | null> {
+  if (!supabase) return null;
+  if (!(await ensureSession())) return null;
+  const res = await callFunction<{ trade: string | null }>('business-ai', {
+    action: 'detect',
+    business_name: input.businessName,
+    city: input.city,
+    postal_code: input.postalCode,
+  });
+  return res.trade;
+}
+
+/** Pour un métier hors liste : l'IA choisit les occasions qui lui conviennent. */
+export async function suggestOccasionKeys(trade: string, catalog: { key: string; name: string; description: string }[]): Promise<string[]> {
+  if (!supabase) return [];
+  if (!(await ensureSession())) return [];
+  const res = await callFunction<{ keys: string[] }>('business-ai', { action: 'occasions', trade, catalog });
+  return res.keys;
 }
 
 // ---------------------------------------------------------------- Publication

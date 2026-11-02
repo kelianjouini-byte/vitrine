@@ -12,7 +12,7 @@ import { initials } from '../lib/business';
 export function Home() {
   const { business, posts, connections, go } = useApp();
   const b = business!;
-  const next = useMemo(() => upcomingEvents(b.businessType, new Date(), 12, b.postalCode)[0], [b]);
+  const next = useMemo(() => upcomingEvents(b, new Date(), 12, b.postalCode)[0], [b]);
   const now = new Date();
   const thisMonth = posts.filter((p) => p.status === 'published' || p.status === 'partially_published')
     .filter((p) => { const d = new Date(p.publishedAt ?? p.createdAt); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); }).length;

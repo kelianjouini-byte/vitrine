@@ -1,19 +1,5 @@
-import type { BusinessType, Tone } from './types';
-
-export const BUSINESS_TYPES: { id: BusinessType; label: string; emoji: string }[] = [
-  { id: 'fleuriste', label: 'Fleuriste', emoji: '💐' },
-  { id: 'boulangerie', label: 'Boulangerie', emoji: '🥖' },
-  { id: 'patisserie', label: 'Pâtisserie', emoji: '🍰' },
-  { id: 'coiffure', label: 'Coiffure', emoji: '💇' },
-  { id: 'beaute', label: 'Institut de beauté', emoji: '💅' },
-  { id: 'restaurant', label: 'Restaurant', emoji: '🍽️' },
-  { id: 'vetements', label: 'Vêtements', emoji: '👗' },
-  { id: 'epicerie', label: 'Épicerie', emoji: '🧺' },
-  { id: 'chocolatier', label: 'Chocolatier', emoji: '🍫' },
-  { id: 'caviste', label: 'Caviste', emoji: '🍷' },
-  { id: 'artisan', label: 'Artisan', emoji: '🛠️' },
-  { id: 'autre', label: 'Autre commerce', emoji: '🏪' },
-];
+import type { Business, Tone } from './types';
+import { tradeById } from './trades';
 
 export const TONES: { id: Tone; label: string }[] = [
   { id: 'chaleureux', label: 'Chaleureux' },
@@ -25,8 +11,9 @@ export const TONES: { id: Tone; label: string }[] = [
   { id: 'traditionnel', label: 'Traditionnel' },
 ];
 
-export function businessTypeLabel(t: BusinessType): string {
-  return BUSINESS_TYPES.find((b) => b.id === t)?.label ?? 'Commerce';
+/** Le métier à afficher : celui que le commerçant a écrit, sinon celui du catalogue. */
+export function tradeLabel(b: Pick<Business, 'businessType' | 'trade'>): string {
+  return b.trade?.trim() || tradeById(b.businessType)?.label || 'Commerce';
 }
 
 export function initials(name: string): string {

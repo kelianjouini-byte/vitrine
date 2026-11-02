@@ -21,6 +21,7 @@
         "npm:expo-haptics@~58.0.7",
         "npm:expo-image-picker@~58.0.10",
         "npm:expo-notifications@~58.1.7",
+        "npm:expo-splash-screen@~58.0.12",
         "npm:expo-status-bar@~58.0.4",
         "npm:expo-web-browser@~58.0.7",
         "npm:expo@~58.0.22",

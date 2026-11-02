@@ -5,7 +5,7 @@ import { BackIcon } from '../components/icons';
 import { NetworkCards } from '../components/NetworkCards';
 import { colors } from '../lib/theme';
 import { useApp } from '../lib/store';
-import { businessTypeLabel } from '../lib/business';
+import { tradeLabel } from '../lib/business';
 import { isBackendConfigured } from '../lib/config';
 import { notificationsSupported } from '../lib/notifications';
 import { currentUserId, deleteAccountRemote, FriendlyError, saveBusinessRemote, sendLoginCode, signOut, verifyLoginCode } from '../lib/api';
@@ -43,7 +43,7 @@ export function Settings() {
 
       <Card style={{ gap: 4 }}>
         <Body style={{ fontWeight: '700' }} size={18}>{b.businessName}</Body>
-        <Body soft>{businessTypeLabel(b.businessType)} · {b.city} ({b.postalCode})</Body>
+        <Body soft>{tradeLabel(b)} · {b.city} ({b.postalCode})</Body>
         <Body soft size={14}>Ton : {b.tone}</Body>
       </Card>
 

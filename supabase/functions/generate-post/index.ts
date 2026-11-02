@@ -11,6 +11,8 @@ Deno.serve(handler(async (req) => {
   // L'image doit être dans le dossier de l'utilisateur (validation d'accès).
   if (!imagePath.startsWith(`${userId}/`) || imagePath.includes('..')) throw new HttpError(400, 'bad_image', 'Photo invalide.');
   const merchantNote = String(body.merchant_note ?? '').slice(0, 500);
+  // Consigne du catalogue des métiers (src/lib/trades.ts), envoyée par l'app.
+  const tradeHint = String(body.trade_hint ?? '').slice(0, 300);
 
   // Limitation des coûts : 20 générations / heure / boutique (les limites par offre viendront de public.plans).
   await rateLimit(db, 'ai_generations', business.id, 20, 60);
@@ -34,7 +36,9 @@ Deno.serve(handler(async (req) => {
   const avoid = (recent ?? []).map((r) => String(r.instagram_caption).slice(0, 140));
 
   const context = [
-    `Commerce : ${business.business_name} (${business.business_type}) à ${business.city} (${business.postal_code}).`,
+    `Commerce : ${business.business_name} à ${business.city} (${business.postal_code}).`,
+    `Métier exact : ${business.trade || business.business_type}.`,
+    tradeHint ? `Ce que ce métier met en valeur : ${tradeHint}` : '',
     `Ton souhaité : ${business.tone}.`,
     business.specialties ? `Spécialités : ${business.specialties}.` : '',
     business.description ? `Présentation : ${business.description}.` : '',

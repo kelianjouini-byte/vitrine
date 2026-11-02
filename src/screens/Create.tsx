@@ -9,6 +9,7 @@ import { upcomingEvents } from '../lib/events';
 import { isBackendConfigured } from '../lib/config';
 import { ensureSession, exampleCaption, FriendlyError, generatePost, NotConfiguredError, publishPost, saveBusinessRemote, uploadPhoto } from '../lib/api';
 import { takePhoto, type PickedPhoto } from '../lib/photo';
+import { tradeById } from '../lib/trades';
 import type { GeneratedPost, Platform, Post, PublicationResult } from '../lib/types';
 
 type Phase = 'pick' | 'generating' | 'preview' | 'publishing';
@@ -16,7 +17,7 @@ type Phase = 'pick' | 'generating' | 'preview' | 'publishing';
 export function Create({ occasionId, initialPhoto }: { occasionId?: string; initialPhoto?: PickedPhoto }) {
   const { business, back, go, upsertPost, connections, saveBusiness } = useApp();
   const b = business!;
-  const occasion = useMemo(() => (occasionId ? upcomingEvents(b.businessType, new Date(), 13, b.postalCode).find((e) => e.id === occasionId) : null), [occasionId, b]);
+  const occasion = useMemo(() => (occasionId ? upcomingEvents(b, new Date(), 13, b.postalCode).find((e) => e.id === occasionId) : null), [occasionId, b]);
 
   const [phase, setPhase] = useState<Phase>('pick');
   const [photo, setPhoto] = useState<{ uri: string; base64?: string | null } | null>(null);
@@ -74,7 +75,7 @@ export function Create({ occasionId, initialPhoto }: { occasionId?: string; init
       }
       const path = existingPath ?? (await uploadPhoto(p.base64));
       setImagePath(path);
-      const out = await generatePost({ imagePath: path, occasion: occasion ?? null, postId });
+      const out = await generatePost({ imagePath: path, occasion: occasion ?? null, postId, tradeHint: tradeById(b.businessType)?.aiHint });
       setPostId(out.postId);
       apply(out);
     } catch (e) {

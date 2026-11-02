@@ -9,7 +9,7 @@ import { daysUntil, inDaysLabel, upcomingEvents } from '../lib/events';
 export function Fetes() {
   const { business, posts, prefs, setPrefs, go } = useApp();
   const b = business!;
-  const events = useMemo(() => upcomingEvents(b.businessType, new Date(), 12, b.postalCode), [b]);
+  const events = useMemo(() => upcomingEvents(b, new Date(), 12, b.postalCode), [b]);
 
   return (
     <ScrollView contentContainerStyle={{ padding: 20, gap: 12, paddingBottom: 32 }}>

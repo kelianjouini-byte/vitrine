@@ -16,6 +16,8 @@ Règles absolues :
 - N'invente JAMAIS de prix, promotion, réduction, disponibilité, horaire, stock ou caractéristique invisible sur la photo.
 - N'utilise que les informations fournies par le commerçant et ce qui est visible.
 - Si la photo est inexploitable (floue, sans rapport), dis-le dans improvement_tip et reste prudent.
+- Adapte le vocabulaire et ce que tu mets en valeur au métier exact du commerce.
+- Si la photo montre le lieu, la devanture, l'atelier ou l'équipe plutôt qu'un produit, présente ce lieu ou cette équipe en lien avec le métier, sans inventer ce qui n'est pas visible.
 Réponds uniquement en JSON selon le schéma fourni.
 Le texte Instagram peut être un peu plus court et visuel ; le texte Facebook un peu plus descriptif.`;
 
@@ -53,9 +55,11 @@ export function containsInventedCommercialInfo(text: string, merchantNote: strin
   return PRICE_PATTERN.test(text) && !PRICE_PATTERN.test(merchantNote);
 }
 
-export async function generate(
-  input: { imageUrl: string; context: string; avoid: string[] },
-): Promise<{ out: AiOutput; usage?: { prompt_tokens: number; completion_tokens: number } }> {
+type Message = { role: 'system' | 'user'; content: unknown };
+type Usage = { prompt_tokens: number; completion_tokens: number };
+
+/** Réglages du fournisseur d'IA, lus dans les secrets du serveur. */
+function aiConfig() {
   // Fournisseur au choix : OpenAI par défaut, ou tout service « compatible OpenAI »
   // (ex. offre gratuite Google Gemini ou Groq) via AI_BASE_URL + AI_API_KEY + AI_MODEL.
   const apiKey = env('AI_API_KEY') ?? env('OPENAI_API_KEY');
@@ -68,20 +72,19 @@ export async function generate(
     '',
   );
   const model = env('AI_MODEL') ?? env('OPENAI_MODEL') ?? (isGeminiKey ? 'gemini-3.8-flash' : 'gpt-4.1-mini');
-  // Certains fournisseurs ne gèrent pas json_schema : AI_JSON_MODE=object -> JSON simple, validé ici.
-  const jsonMode = env('AI_JSON_MODE') ?? (isGeminiKey ? 'object' : 'schema');
-  const responseFormat = jsonMode === 'object' ? { type: 'json_object' } : { type: 'json_schema', json_schema: SCHEMA };
-  // On envoie la photo en « data URI » : tous les fournisseurs l'acceptent (certains refusent les liens).
-  const img = await fetch(input.imageUrl);
-  if (!img.ok) throw new HttpError(400, 'bad_image', 'La photo est introuvable. Reprenez-la.');
-  const bytes = new Uint8Array(await img.arrayBuffer());
-  let bin = '';
-  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  const dataUri = `data:${img.headers.get('content-type') ?? 'image/jpeg'};base64,${btoa(bin)}`;
-  const isOpenAI = baseUrl.includes('api.openai.com');
-  const avoid = input.avoid.length ? `\nTextes déjà publiés récemment (ne pas répéter les mêmes tournures) :\n- ${input.avoid.join('\n- ')}` : '';
   // Si un modèle gratuit est saturé (503), limité (429) ou trop lent, on essaie le suivant.
   const models = env('AI_MODEL') || env('OPENAI_MODEL') ? [model] : isGeminiKey ? [model, 'gemini-3.5-flash-lite', 'gemini-2.5-flash'] : [model];
+  // Certains fournisseurs ne gèrent pas json_schema : AI_JSON_MODE=object -> JSON simple, validé ici.
+  const jsonMode = env('AI_JSON_MODE') ?? (isGeminiKey ? 'object' : 'schema');
+  return { apiKey, isGeminiKey, baseUrl, models, jsonMode, isOpenAI: baseUrl.includes('api.openai.com') };
+}
+
+/** Appel « chat » avec modèles de secours. Retourne le texte de la réponse. */
+async function chatCompletion(
+  messages: Message[],
+  opts: { responseFormat: unknown; maxTokens: number; temperature?: number },
+): Promise<{ content: string; usage?: Usage }> {
+  const { apiKey, isGeminiKey, baseUrl, models } = aiConfig();
   let res: Response | undefined;
   let timedOut = false;
   for (const m of models) {
@@ -93,20 +96,11 @@ export async function generate(
         headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: m,
-          temperature: 0.8,
+          temperature: opts.temperature ?? 0.8,
           // Gemini « réfléchit » avant d'écrire : on limite cette réflexion pour aller vite.
-          ...(isGeminiKey ? { reasoning_effort: 'low', max_tokens: 4000 } : { max_tokens: 900 }),
-          response_format: responseFormat,
-          messages: [
-            { role: 'system', content: SYSTEM_PROMPT },
-            {
-              role: 'user',
-              content: [
-                { type: 'text', text: input.context + avoid + `\nRéponds en JSON avec exactement ces clés : ${SCHEMA.schema.required.join(', ')}.` },
-                { type: 'image_url', image_url: isOpenAI ? { url: dataUri, detail: 'low' } : { url: dataUri } },
-              ],
-            },
-          ],
+          ...(isGeminiKey ? { reasoning_effort: 'low', max_tokens: Math.max(opts.maxTokens, 4000) } : { max_tokens: opts.maxTokens }),
+          response_format: opts.responseFormat,
+          messages,
         }),
       });
     } catch (e) {
@@ -128,14 +122,101 @@ export async function generate(
     throw new HttpError(502, 'ai_failed', "L'IA n'a pas pu écrire votre texte. Réessayez.");
   }
   const data = await res.json();
-  if (!data.choices?.[0]?.message?.content) console.error('[vitrine] ia réponse vide', model, JSON.stringify(data).slice(0, 300));
-  let out: AiOutput;
+  const content = data.choices?.[0]?.message?.content;
+  if (!content) console.error('[vitrine] ia réponse vide', JSON.stringify(data).slice(0, 300));
+  return { content: String(content ?? ''), usage: data.usage };
+}
+
+function parseJson<T>(content: string): T {
   try {
-    out = JSON.parse(String(data.choices[0].message.content).replace(/^```(json)?\s*|\s*```$/g, ''));
+    return JSON.parse(content.replace(/^```(json)?\s*|\s*```$/g, ''));
   } catch {
     throw new HttpError(502, 'ai_failed', "L'IA a donné une réponse illisible. Réessayez.");
   }
+}
+
+export async function generate(input: { imageUrl: string; context: string; avoid: string[] }): Promise<{ out: AiOutput; usage?: Usage }> {
+  const { jsonMode, isOpenAI } = aiConfig();
+  const responseFormat = jsonMode === 'object' ? { type: 'json_object' } : { type: 'json_schema', json_schema: SCHEMA };
+  // On envoie la photo en « data URI » : tous les fournisseurs l'acceptent (certains refusent les liens).
+  const img = await fetch(input.imageUrl);
+  if (!img.ok) throw new HttpError(400, 'bad_image', 'La photo est introuvable. Reprenez-la.');
+  const bytes = new Uint8Array(await img.arrayBuffer());
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  const dataUri = `data:${img.headers.get('content-type') ?? 'image/jpeg'};base64,${btoa(bin)}`;
+  const avoid = input.avoid.length ? `\nTextes déjà publiés récemment (ne pas répéter les mêmes tournures) :\n- ${input.avoid.join('\n- ')}` : '';
+  const { content, usage } = await chatCompletion([
+    { role: 'system', content: SYSTEM_PROMPT },
+    {
+      role: 'user',
+      content: [
+        { type: 'text', text: input.context + avoid + `\nRéponds en JSON avec exactement ces clés : ${SCHEMA.schema.required.join(', ')}.` },
+        { type: 'image_url', image_url: isOpenAI ? { url: dataUri, detail: 'low' } : { url: dataUri } },
+      ],
+    },
+  ], { responseFormat, maxTokens: 900 });
+  const out = parseJson<AiOutput>(content);
   if (!out.instagram_caption?.trim() || !Array.isArray(out.hashtags)) throw new HttpError(502, 'ai_failed', "L'IA a donné une réponse incomplète. Réessayez.");
   out.hashtags = out.hashtags.map((h) => (h.startsWith('#') ? h : `#${h}`).replace(/\s+/g, '')).slice(0, 12);
-  return { out, usage: data.usage };
+  return { out, usage };
+}
+
+/**
+ * Cherche le commerce sur internet (recherche Google de Gemini) et retourne son métier, ou null.
+ * Ne marche qu'avec une clé Gemini. Modèles 2.5 : la recherche y est gratuite (500 par jour).
+ */
+export async function searchTrade(input: { name: string; city: string; postalCode: string }): Promise<string | null> {
+  const { apiKey, isGeminiKey } = aiConfig();
+  if (!isGeminiKey) return null;
+  const prompt = `Recherche sur internet le commerce « ${input.name} » situé à ${input.city} (${input.postalCode}), en France.
+Quel est son métier ou son type de commerce ?
+Réponds UNIQUEMENT par ce métier, en 1 à 4 mots, en français (exemples : « Épicerie fine », « Tatoueur », « Boulangerie »).
+Si tu ne trouves pas ce commerce précis avec certitude, réponds exactement : INCONNU`;
+  for (const model of ['gemini-2.5-flash-lite', 'gemini-2.5-flash']) {
+    let res: Response;
+    try {
+      res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+        method: 'POST',
+        signal: AbortSignal.timeout(20_000),
+        headers: { 'x-goog-api-key': apiKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], tools: [{ google_search: {} }] }),
+      });
+    } catch (e) {
+      console.error('[vitrine] recherche métier délai dépassé', model, e instanceof Error ? e.name : '');
+      continue;
+    }
+    if (!res.ok) {
+      console.error('[vitrine] recherche métier', model, res.status, (await res.text()).slice(0, 300));
+      if ([404, 429, 500, 503].includes(res.status)) continue;
+      return null;
+    }
+    const data = await res.json();
+    const parts: { text?: string }[] = data.candidates?.[0]?.content?.parts ?? [];
+    const text = parts.map((p) => p.text ?? '').join(' ').trim();
+    const line = text.split('\n').map((l) => l.trim()).filter(Boolean).pop() ?? '';
+    const trade = line.replace(/^[«"'\s]+|[»"'.\s]+$/g, '').trim();
+    if (!trade || /inconnu/i.test(trade) || trade.length > 40 || trade.split(/\s+/).length > 5) return null;
+    return trade;
+  }
+  return null;
+}
+
+/** Choisit, dans la liste des occasions, celles qui conviennent à un métier hors catalogue. */
+export async function pickOccasions(trade: string, catalog: { key: string; name: string; description: string }[]): Promise<string[]> {
+  const list = catalog.map((o) => `- ${o.key} : ${o.name} (${o.description})`).join('\n');
+  const { content } = await chatCompletion([
+    { role: 'system', content: 'Tu aides un petit commerce français à savoir à quelles occasions commerciales il peut publier sur ses réseaux sociaux.' },
+    {
+      role: 'user',
+      content: `Métier du commerce : ${trade}.
+Voici les occasions possibles (clé : nom) :
+${list}
+Choisis uniquement les occasions où ce commerce a vraiment quelque chose à montrer ou à proposer.
+Réponds en JSON : {"keys": ["cle1", "cle2", ...]} avec seulement des clés de la liste.`,
+    },
+  ], { responseFormat: { type: 'json_object' }, maxTokens: 600, temperature: 0.2 });
+  const out = parseJson<{ keys?: unknown }>(content);
+  const allowed = new Set(catalog.map((o) => o.key));
+  return Array.isArray(out.keys) ? [...new Set(out.keys.filter((k): k is string => typeof k === 'string' && allowed.has(k)))] : [];
 }

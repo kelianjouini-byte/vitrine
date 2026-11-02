@@ -1,6 +1,10 @@
+/** Identifiant d'un métier du catalogue (src/lib/trades.ts). 'autre' = métier hors liste. */
 export type BusinessType =
-  | 'fleuriste' | 'boulangerie' | 'patisserie' | 'coiffure' | 'beaute' | 'restaurant'
-  | 'vetements' | 'epicerie' | 'artisan' | 'chocolatier' | 'caviste' | 'autre';
+  | 'fleuriste' | 'boulangerie' | 'patisserie' | 'chocolatier' | 'caviste' | 'coiffure' | 'beaute'
+  | 'restaurant' | 'vetements' | 'epicerie' | 'boucherie' | 'poissonnerie' | 'fromagerie' | 'primeur'
+  | 'bar' | 'barbier' | 'bijouterie' | 'opticien' | 'librairie' | 'cadeaux' | 'jouets' | 'chaussures'
+  | 'toilettage' | 'jardinerie' | 'onglerie' | 'tatoueur' | 'cordonnerie' | 'pressing' | 'artisan'
+  | 'traiteur' | 'autre';
 
 export type Tone = 'chaleureux' | 'elegant' | 'dynamique' | 'humoristique' | 'premium' | 'familial' | 'traditionnel';
 
@@ -11,6 +15,10 @@ export interface Business {
   ownerFirstName: string;
   businessName: string;
   businessType: BusinessType;
+  /** Le métier tel que le commerçant l'a écrit (« Tatoueur », « Épicerie fine »...). Envoyé à l'IA. */
+  trade?: string;
+  /** Occasions choisies pour un métier hors liste (clés d'occasion, sans l'année). */
+  occasionKeys?: string[];
   city: string;
   postalCode: string;
   tone: Tone;

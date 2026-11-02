@@ -11,7 +11,10 @@ import type { BusinessType } from './types';
 export type EventCategory = 'fete' | 'religieux' | 'commercial' | 'saison' | 'soldes';
 
 export interface CommercialEvent {
+  /** Identifiant unique : clé + année (ex. « noel-2026 »). */
   id: string;
+  /** Clé stable d'une année sur l'autre (ex. « noel »). */
+  key: string;
   name: string;
   date: Date;
   /** Dernier jour pour les événements qui durent (soldes). */
@@ -114,9 +117,12 @@ export function sameDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
-const FOOD: BusinessType[] = ['boulangerie', 'patisserie', 'chocolatier', 'epicerie', 'restaurant', 'caviste'];
-const GIFTS: BusinessType[] = ['fleuriste', 'chocolatier', 'patisserie', 'beaute', 'vetements', 'artisan', 'caviste', 'coiffure'];
-const RETAIL: BusinessType[] = ['vetements', 'artisan', 'epicerie', 'beaute', 'autre'];
+const FOOD: BusinessType[] = ['boulangerie', 'patisserie', 'chocolatier', 'epicerie', 'restaurant', 'caviste', 'traiteur'];
+const FRESH: BusinessType[] = ['boucherie', 'poissonnerie', 'fromagerie', 'primeur'];
+const GIFTS: BusinessType[] = ['fleuriste', 'chocolatier', 'patisserie', 'beaute', 'vetements', 'artisan', 'caviste', 'coiffure', 'bijouterie', 'cadeaux', 'chaussures', 'onglerie', 'librairie', 'epicerie'];
+const RETAIL: BusinessType[] = ['vetements', 'chaussures', 'artisan', 'epicerie', 'beaute', 'bijouterie', 'cadeaux', 'jouets', 'opticien', 'jardinerie', 'autre'];
+const SALES: BusinessType[] = ['vetements', 'chaussures', 'artisan', 'beaute', 'bijouterie', 'cadeaux'];
+const BOOKINGS: BusinessType[] = ['coiffure', 'barbier', 'beaute', 'onglerie'];
 
 /** Toutes les occasions d'une année civile. */
 export function eventsForYear(year: number, postalCode?: string): CommercialEvent[] {
@@ -126,47 +132,70 @@ export function eventsForYear(year: number, postalCode?: string): CommercialEven
   const blackFriday = addDays(nthWeekday(year, 11, 4, 4), 1);
   const salesNote = salesNoteFor(postalCode);
 
-  const list: Omit<CommercialEvent, 'id'>[] = [
+  const list: Omit<CommercialEvent, 'id' | 'key'>[] = [
     { name: 'Nouvel An', date: d(year, 1, 1), category: 'fete', emoji: '🥂', description: 'Souhaitez une belle année à vos clients.', notifyDaysBefore: 3, strategy: 'Une photo de votre boutique et un mot de remerciement.', relevantFor: 'all' },
-    { name: 'Épiphanie', date: epiphany(year), category: 'religieux', emoji: '👑', description: 'Le temps des galettes des rois.', notifyDaysBefore: 7, strategy: 'Montrez vos galettes et vos fèves.', relevantFor: ['boulangerie', 'patisserie'] },
-    { name: "Soldes d'hiver", date: winter.start, endDate: winter.end, category: 'soldes', emoji: '🏷️', description: '4 semaines de soldes.', notifyDaysBefore: 5, strategy: 'Annoncez vos soldes (avec vos vrais pourcentages).', relevantFor: ['vetements', 'artisan', 'beaute'], note: salesNote },
-    { name: 'Chandeleur', date: d(year, 2, 2), category: 'fete', emoji: '🥞', description: "C'est le jour des crêpes.", notifyDaysBefore: 5, strategy: 'Une photo de crêpes ou de vos produits pour les crêpes.', relevantFor: ['boulangerie', 'patisserie', 'epicerie', 'restaurant'] },
-    { name: 'Saint-Valentin', date: d(year, 2, 14), category: 'fete', emoji: '❤️', description: 'La fête des amoureux.', notifyDaysBefore: 10, strategy: 'Vos plus belles idées cadeaux.', relevantFor: [...GIFTS, 'restaurant'] },
-    { name: 'Mardi Gras', date: addDays(easter, -47), category: 'fete', emoji: '🎭', description: 'Beignets et déguisements.', notifyDaysBefore: 5, strategy: 'Vos beignets ou une touche festive.', relevantFor: ['boulangerie', 'patisserie', 'restaurant'] },
-    { name: 'Fête des grands-mères', date: nthWeekday(year, 3, 0, 1), category: 'fete', emoji: '👵', description: 'Un cadeau pour mamie.', notifyDaysBefore: 7, strategy: 'Une idée cadeau douce et simple.', relevantFor: ['fleuriste', 'chocolatier', 'patisserie', 'beaute'] },
-    { name: 'Pâques', date: easter, category: 'religieux', emoji: '🐣', description: 'Chocolats et repas de famille.', notifyDaysBefore: 10, strategy: 'Vos créations de Pâques.', relevantFor: [...FOOD, 'fleuriste'] },
-    { name: 'Fête du Travail', date: d(year, 5, 1), category: 'fete', emoji: '🌿', description: 'Le muguet porte-bonheur.', notifyDaysBefore: 5, strategy: 'Vos brins de muguet (ou un mot sur vos horaires si vous les avez précisés).', relevantFor: ['fleuriste'] },
-    { name: 'Fête des mères', date: mothersDay(year), category: 'fete', emoji: '🌸', description: 'Gâtez toutes les mamans.', notifyDaysBefore: 12, strategy: 'Vos plus belles créations pour les mamans.', relevantFor: [...GIFTS, 'restaurant'] },
-    { name: 'Fête des pères', date: nthWeekday(year, 6, 0, 3), category: 'fete', emoji: '👔', description: 'Un cadeau pour papa.', notifyDaysBefore: 10, strategy: 'Une idée cadeau pour les papas.', relevantFor: ['caviste', 'chocolatier', 'vetements', 'coiffure', 'artisan', 'restaurant', 'epicerie'] },
-    { name: 'Fête de la musique', date: d(year, 6, 21), category: 'saison', emoji: '🎶', description: "Le premier soir de l'été.", notifyDaysBefore: 5, strategy: "Une ambiance d'été dans votre boutique.", relevantFor: ['restaurant', 'caviste', 'epicerie'] },
-    { name: "Soldes d'été", date: summer.start, endDate: summer.end, category: 'soldes', emoji: '☀️', description: '4 semaines de soldes.', notifyDaysBefore: 5, strategy: 'Annoncez vos soldes (avec vos vrais pourcentages).', relevantFor: ['vetements', 'artisan', 'beaute'], note: salesNote },
-    { name: 'Rentrée', date: d(year, 9, 1), category: 'saison', emoji: '🎒', description: 'Nouvelle saison, nouvelles envies.', notifyDaysBefore: 7, strategy: 'Un nouveau look, une nouvelle collection.', relevantFor: ['coiffure', 'beaute', 'vetements', 'autre'] },
-    { name: 'Halloween', date: d(year, 10, 31), category: 'fete', emoji: '🎃', description: 'Citrouilles et bonbons.', notifyDaysBefore: 7, strategy: 'Une vitrine ou une création aux couleurs d\'Halloween.', relevantFor: ['patisserie', 'chocolatier', 'boulangerie', 'epicerie'] },
-    { name: 'Toussaint', date: d(year, 11, 1), category: 'religieux', emoji: '🌼', description: 'Chrysanthèmes et compositions.', notifyDaysBefore: 10, strategy: 'Vos compositions pour la Toussaint.', relevantFor: ['fleuriste'] },
-    { name: 'Beaujolais nouveau', date: nthWeekday(year, 11, 4, 3), category: 'saison', emoji: '🍇', description: 'Le 3e jeudi de novembre.', notifyDaysBefore: 7, strategy: 'Vos bouteilles et une idée d\'accord.', relevantFor: ['caviste', 'restaurant', 'epicerie'] },
+    { name: 'Épiphanie', date: epiphany(year), category: 'religieux', emoji: '👑', description: 'Le temps des galettes des rois.', notifyDaysBefore: 7, strategy: 'Montrez vos galettes et vos fèves.', relevantFor: ['boulangerie', 'patisserie', 'traiteur'] },
+    { name: "Soldes d'hiver", date: winter.start, endDate: winter.end, category: 'soldes', emoji: '🏷️', description: '4 semaines de soldes.', notifyDaysBefore: 5, strategy: 'Annoncez vos soldes (avec vos vrais pourcentages).', relevantFor: SALES, note: salesNote },
+    { name: 'Chandeleur', date: d(year, 2, 2), category: 'fete', emoji: '🥞', description: "C'est le jour des crêpes.", notifyDaysBefore: 5, strategy: 'Une photo de crêpes ou de vos produits pour les crêpes.', relevantFor: ['boulangerie', 'patisserie', 'epicerie', 'restaurant', 'fromagerie', 'bar'] },
+    { name: 'Saint-Valentin', date: d(year, 2, 14), category: 'fete', emoji: '❤️', description: 'La fête des amoureux.', notifyDaysBefore: 10, strategy: 'Vos plus belles idées cadeaux.', relevantFor: [...GIFTS, 'restaurant', 'barbier'] },
+    { name: 'Mardi Gras', date: addDays(easter, -47), category: 'fete', emoji: '🎭', description: 'Beignets et déguisements.', notifyDaysBefore: 5, strategy: 'Vos beignets ou une touche festive.', relevantFor: ['boulangerie', 'patisserie', 'restaurant', 'jouets'] },
+    { name: 'Fête des grands-mères', date: nthWeekday(year, 3, 0, 1), category: 'fete', emoji: '👵', description: 'Le premier dimanche de mars : un cadeau pour mamie.', notifyDaysBefore: 7, strategy: 'Une idée cadeau douce et simple.', relevantFor: ['fleuriste', 'chocolatier', 'patisserie', 'beaute', 'bijouterie', 'cadeaux', 'onglerie', 'jardinerie'] },
+    { name: 'Journée des droits des femmes', date: d(year, 3, 8), category: 'fete', emoji: '💜', description: 'Le 8 mars.', notifyDaysBefore: 5, strategy: 'Mettez en avant les femmes de votre équipe ou de vos producteurs.', relevantFor: ['fleuriste', 'beaute', 'onglerie', 'librairie'] },
+    { name: 'Saint-Patrick', date: d(year, 3, 17), category: 'fete', emoji: '☘️', description: 'La fête irlandaise du 17 mars.', notifyDaysBefore: 5, strategy: 'Une ambiance verte et festive.', relevantFor: ['bar', 'restaurant'] },
+    { name: 'Arrivée du printemps', date: d(year, 3, 20), category: 'saison', emoji: '🌷', description: 'Le printemps commence autour du 20 mars.', notifyDaysBefore: 5, strategy: 'Vos nouveautés de printemps.', relevantFor: ['fleuriste', 'jardinerie', 'vetements', 'chaussures', 'primeur', 'toilettage', 'opticien', 'pressing', 'cadeaux'] },
+    { name: "Poisson d'avril", date: d(year, 4, 1), category: 'fete', emoji: '🐠', description: 'Le 1er avril.', notifyDaysBefore: 5, strategy: 'Vos poissons en chocolat ou un clin d\'œil amusant.', relevantFor: ['chocolatier', 'patisserie', 'boulangerie', 'poissonnerie'] },
+    { name: 'Pâques', date: easter, category: 'religieux', emoji: '🐣', description: 'Chocolats et repas de famille.', notifyDaysBefore: 10, strategy: 'Vos créations de Pâques.', relevantFor: [...FOOD, ...FRESH, 'fleuriste', 'jouets'] },
+    { name: 'Journée mondiale du livre', date: d(year, 4, 23), category: 'fete', emoji: '📖', description: 'Le 23 avril.', notifyDaysBefore: 5, strategy: 'Un coup de cœur de lecture.', relevantFor: ['librairie'] },
+    { name: 'Fête du Travail', date: d(year, 5, 1), category: 'fete', emoji: '🌿', description: 'Le muguet porte-bonheur.', notifyDaysBefore: 5, strategy: 'Vos brins de muguet (ou un mot sur vos horaires si vous les avez précisés).', relevantFor: ['fleuriste', 'jardinerie'] },
+    { name: 'Saint-Honoré', date: d(year, 5, 16), category: 'fete', emoji: '🥐', description: 'Le 16 mai, la fête des boulangers et pâtissiers.', notifyDaysBefore: 5, strategy: 'Montrez votre fournil et votre équipe.', relevantFor: ['boulangerie', 'patisserie'] },
+    { name: 'Fête des mères', date: mothersDay(year), category: 'fete', emoji: '🌸', description: 'Gâtez toutes les mamans.', notifyDaysBefore: 12, strategy: 'Vos plus belles créations pour les mamans.', relevantFor: [...GIFTS, 'restaurant', 'jardinerie', 'traiteur'] },
+    { name: 'Fête des pères', date: nthWeekday(year, 6, 0, 3), category: 'fete', emoji: '👔', description: 'Un cadeau pour papa.', notifyDaysBefore: 10, strategy: 'Une idée cadeau pour les papas.', relevantFor: ['caviste', 'chocolatier', 'vetements', 'chaussures', 'coiffure', 'barbier', 'artisan', 'restaurant', 'epicerie', 'boucherie', 'fromagerie', 'bijouterie', 'cadeaux', 'librairie'] },
+    { name: 'Fête de la musique', date: d(year, 6, 21), category: 'saison', emoji: '🎶', description: "Le premier soir de l'été.", notifyDaysBefore: 5, strategy: "Une ambiance d'été dans votre boutique.", relevantFor: ['restaurant', 'caviste', 'epicerie', 'bar'] },
+    { name: "Soldes d'été", date: summer.start, endDate: summer.end, category: 'soldes', emoji: '☀️', description: '4 semaines de soldes.', notifyDaysBefore: 5, strategy: 'Annoncez vos soldes (avec vos vrais pourcentages).', relevantFor: SALES, note: salesNote },
+    { name: 'Saint-Fiacre', date: d(year, 8, 30), category: 'fete', emoji: '🌻', description: 'Le 30 août, la fête des jardiniers.', notifyDaysBefore: 5, strategy: 'Vos plantes et vos conseils de fin d\'été.', relevantFor: ['jardinerie', 'fleuriste'] },
+    { name: 'Rentrée', date: d(year, 9, 1), category: 'saison', emoji: '🎒', description: 'Nouvelle saison, nouvelles envies.', notifyDaysBefore: 7, strategy: 'Un nouveau look, une nouvelle collection.', relevantFor: [...BOOKINGS, 'vetements', 'chaussures', 'librairie', 'opticien', 'jouets', 'cordonnerie', 'pressing', 'tatoueur', 'autre'] },
+    { name: 'Retour des huîtres', date: d(year, 9, 1), category: 'saison', emoji: '🦪', description: 'Les mois en « r » sont de retour.', notifyDaysBefore: 5, strategy: 'Votre premier arrivage de la saison.', relevantFor: ['poissonnerie', 'restaurant', 'caviste', 'traiteur'] },
+    { name: 'Fête des grands-pères', date: nthWeekday(year, 10, 0, 1), category: 'fete', emoji: '👴', description: "Le premier dimanche d'octobre : un cadeau pour papi.", notifyDaysBefore: 7, strategy: 'Une idée cadeau pour les grands-pères.', relevantFor: ['caviste', 'chocolatier', 'librairie', 'cadeaux', 'fromagerie', 'epicerie', 'barbier'] },
+    { name: 'Halloween', date: d(year, 10, 31), category: 'fete', emoji: '🎃', description: 'Citrouilles et bonbons.', notifyDaysBefore: 7, strategy: 'Une vitrine ou une création aux couleurs d\'Halloween.', relevantFor: ['patisserie', 'chocolatier', 'boulangerie', 'epicerie', 'primeur', 'jouets', 'onglerie', 'tatoueur', 'bar'] },
+    { name: 'Toussaint', date: d(year, 11, 1), category: 'religieux', emoji: '🌼', description: 'Chrysanthèmes et compositions.', notifyDaysBefore: 10, strategy: 'Vos compositions pour la Toussaint.', relevantFor: ['fleuriste', 'jardinerie'] },
+    { name: 'Movember', date: d(year, 11, 1), endDate: d(year, 11, 30), category: 'saison', emoji: '🥸', description: 'Le mois de la moustache.', notifyDaysBefore: 5, strategy: 'Vos plus belles moustaches et barbes.', relevantFor: ['barbier'] },
+    { name: 'Beaujolais nouveau', date: nthWeekday(year, 11, 4, 3), category: 'saison', emoji: '🍇', description: 'Le 3e jeudi de novembre.', notifyDaysBefore: 7, strategy: 'Vos bouteilles et une idée d\'accord.', relevantFor: ['caviste', 'restaurant', 'epicerie', 'bar', 'fromagerie'] },
     { name: 'Black Friday', date: blackFriday, category: 'commercial', emoji: '🛍️', description: 'Le grand jour des bonnes affaires.', notifyDaysBefore: 10, strategy: 'Seulement si vous faites une vraie offre : annoncez-la.', relevantFor: RETAIL },
     { name: 'Cyber Monday', date: addDays(blackFriday, 3), category: 'commercial', emoji: '💻', description: 'Le lundi après le Black Friday.', notifyDaysBefore: 5, strategy: 'Rappelez vos offres si vous en avez.', relevantFor: ['vetements', 'artisan'] },
+    { name: 'Saint-Nicolas', date: d(year, 12, 6), category: 'fete', emoji: '🎅', description: "Le 6 décembre, fêté surtout dans l'Est et le Nord.", notifyDaysBefore: 7, strategy: 'Vos pains d\'épices, chocolats ou cadeaux pour les enfants.', relevantFor: ['chocolatier', 'boulangerie', 'patisserie', 'jouets'] },
     { name: 'Noël', date: d(year, 12, 25), category: 'fete', emoji: '🎄', description: 'La période la plus importante de l\'année.', notifyDaysBefore: 21, strategy: 'Vos idées cadeaux et vos créations de fêtes.', relevantFor: 'all' },
-    { name: 'Réveillon', date: d(year, 12, 31), category: 'fete', emoji: '🎉', description: 'La dernière soirée de l\'année.', notifyDaysBefore: 7, strategy: 'Tout pour une belle soirée.', relevantFor: [...FOOD, 'fleuriste', 'coiffure', 'beaute'] },
+    { name: 'Réveillon', date: d(year, 12, 31), category: 'fete', emoji: '🎉', description: 'La dernière soirée de l\'année.', notifyDaysBefore: 7, strategy: 'Tout pour une belle soirée.', relevantFor: [...FOOD, ...FRESH, 'fleuriste', 'bar', ...BOOKINGS] },
   ];
 
-  return list.map((e) => ({ ...e, id: `${slug(e.name)}-${year}` }));
+  return list.map((e) => ({ ...e, key: slug(e.name), id: `${slug(e.name)}-${year}` }));
 }
 
 function slug(s: string): string {
   return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 }
 
-export function isRelevant(e: CommercialEvent, type: BusinessType): boolean {
-  return e.relevantFor === 'all' || e.relevantFor.includes(type) || type === 'autre';
+/** Ce qui définit le calendrier d'un commerce : son métier, et ses occasions choisies s'il est hors liste. */
+export type CalendarProfile = BusinessType | { businessType: BusinessType; occasionKeys?: string[] };
+
+export function isRelevant(e: CommercialEvent, profile: CalendarProfile): boolean {
+  const type = typeof profile === 'string' ? profile : profile.businessType;
+  const keys = typeof profile === 'string' ? undefined : profile.occasionKeys;
+  if (e.relevantFor === 'all') return true;
+  if (keys?.length) return keys.includes(e.key);
+  return e.relevantFor.includes(type) || type === 'autre';
+}
+
+/** Toutes les occasions possibles (une par clé), pour que l'IA choisisse celles d'un métier hors liste. */
+export function occasionCatalog(year = new Date().getFullYear()): { key: string; name: string; description: string }[] {
+  return eventsForYear(year).map((e) => ({ key: e.key, name: e.name, description: e.description }));
 }
 
 /** Occasions à venir (aujourd'hui inclus), filtrées par métier, sur les `months` prochains mois. */
-export function upcomingEvents(type: BusinessType, from: Date = new Date(), months = 12, postalCode?: string): CommercialEvent[] {
+export function upcomingEvents(profile: CalendarProfile, from: Date = new Date(), months = 12, postalCode?: string): CommercialEvent[] {
   const today = new Date(from.getFullYear(), from.getMonth(), from.getDate());
   const limit = new Date(today.getFullYear(), today.getMonth() + months, today.getDate());
   return [...eventsForYear(today.getFullYear(), postalCode), ...eventsForYear(today.getFullYear() + 1, postalCode)]
-    .filter((e) => isRelevant(e, type))
+    .filter((e) => isRelevant(e, profile))
     .filter((e) => (e.endDate ?? e.date) >= today && e.date <= limit)
     .sort((a, b) => a.date.getTime() - b.date.getTime());
 }
