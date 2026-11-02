@@ -54,29 +54,34 @@ export function containsInventedCommercialInfo(text: string, merchantNote: strin
 }
 
 export async function generate(input: { imageUrl: string; context: string; avoid: string[] }): Promise<{ out: AiOutput; usage?: { prompt_tokens: number; completion_tokens: number } }> {
-  const apiKey = env('OPENAI_API_KEY');
+  // Fournisseur au choix : OpenAI par défaut, ou tout service « compatible OpenAI »
+  // (ex. offre gratuite Google Gemini ou Groq) via AI_BASE_URL + AI_API_KEY + AI_MODEL.
+  const apiKey = env('AI_API_KEY') ?? env('OPENAI_API_KEY');
   if (!apiKey) throw new HttpError(503, 'openai_not_configured', "L'écriture par l'IA n'est pas encore configurée.");
-  const model = env('OPENAI_MODEL') ?? 'gpt-4.1-mini';
+  const baseUrl = (env('AI_BASE_URL') ?? 'https://api.openai.com/v1').replace(/\/$/, '');
+  const model = env('AI_MODEL') ?? env('OPENAI_MODEL') ?? 'gpt-4.1-mini';
+  // Certains fournisseurs ne gèrent pas json_schema : AI_JSON_MODE=object -> JSON simple, validé ici.
+  const responseFormat = env('AI_JSON_MODE') === 'object' ? { type: 'json_object' } : { type: 'json_schema', json_schema: SCHEMA };
   const avoid = input.avoid.length ? `\nTextes déjà publiés récemment (ne pas répéter les mêmes tournures) :\n- ${input.avoid.join('\n- ')}` : '';
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+  const res = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model,
       temperature: 0.8,
       max_tokens: 900,
-      response_format: { type: 'json_schema', json_schema: SCHEMA },
+      response_format: responseFormat,
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: [
-          { type: 'text', text: input.context + avoid },
+          { type: 'text', text: input.context + avoid + `\nRéponds en JSON avec exactement ces clés : ${SCHEMA.schema.required.join(', ')}.` },
           { type: 'image_url', image_url: { url: input.imageUrl, detail: 'low' } },
         ] },
       ],
     }),
   });
   if (!res.ok) {
-    console.error('[vitrine] openai', res.status);
+    console.error('[vitrine] ia', baseUrl, res.status);
     throw new HttpError(502, 'ai_failed', "L'IA n'a pas pu écrire votre texte. Réessayez.");
   }
   const data = await res.json();
