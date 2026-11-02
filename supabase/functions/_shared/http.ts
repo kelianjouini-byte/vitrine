@@ -31,5 +31,6 @@ export function handler(fn: (req: Request) => Promise<Response>) {
 
 export function env(name: string): string | undefined {
   const v = Deno.env.get(name);
-  return v && v.trim() ? v : undefined;
+  // On retire les espaces / retours à la ligne collés par erreur avec une clé.
+  return v && v.trim() ? v.trim() : undefined;
 }

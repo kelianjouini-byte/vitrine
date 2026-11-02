@@ -58,8 +58,9 @@ export async function generate(input: { imageUrl: string; context: string; avoid
   // (ex. offre gratuite Google Gemini ou Groq) via AI_BASE_URL + AI_API_KEY + AI_MODEL.
   const apiKey = env('AI_API_KEY') ?? env('OPENAI_API_KEY');
   if (!apiKey) throw new HttpError(503, 'openai_not_configured', "L'écriture par l'IA n'est pas encore configurée.");
-  // Une clé Google Gemini (commence par « AIza ») suffit : l'adresse et le modèle sont choisis automatiquement.
-  const isGeminiKey = apiKey.startsWith('AIza');
+  // Les clés OpenAI commencent par « sk- ». Toute autre clé est traitée comme une clé Google Gemini :
+  // l'adresse et le modèle sont alors choisis automatiquement.
+  const isGeminiKey = !apiKey.startsWith('sk-');
   const baseUrl = (env('AI_BASE_URL') ?? (isGeminiKey ? 'https://generativelanguage.googleapis.com/v1beta/openai' : 'https://api.openai.com/v1')).replace(/\/$/, '');
   const model = env('AI_MODEL') ?? env('OPENAI_MODEL') ?? (isGeminiKey ? 'gemini-3.8-flash' : 'gpt-4.1-mini');
   // Certains fournisseurs ne gèrent pas json_schema : AI_JSON_MODE=object -> JSON simple, validé ici.
@@ -92,7 +93,7 @@ export async function generate(input: { imageUrl: string; context: string; avoid
     }),
   });
   if (!res.ok) {
-    console.error('[vitrine] ia', baseUrl, res.status);
+    console.error('[vitrine] ia', baseUrl, model, res.status, (await res.text()).slice(0, 300));
     throw new HttpError(502, 'ai_failed', "L'IA n'a pas pu écrire votre texte. Réessayez.");
   }
   const data = await res.json();
