@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Platform as RNPlatform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
 import * as Crypto from 'expo-crypto';
 import { Body, Button, Notice, Title } from '../components/ui';
 import { BackIcon, CameraIcon, CheckIcon, ImageIcon, PencilIcon, RefreshIcon, SparkIcon } from '../components/icons';
@@ -9,11 +8,12 @@ import { useApp } from '../lib/store';
 import { upcomingEvents } from '../lib/events';
 import { isBackendConfigured } from '../lib/config';
 import { ensureSession, exampleCaption, FriendlyError, generatePost, NotConfiguredError, publishPost, saveBusinessRemote, uploadPhoto } from '../lib/api';
+import { takePhoto, type PickedPhoto } from '../lib/photo';
 import type { GeneratedPost, Platform, Post, PublicationResult } from '../lib/types';
 
 type Phase = 'pick' | 'generating' | 'preview' | 'publishing';
 
-export function Create({ occasionId }: { occasionId?: string }) {
+export function Create({ occasionId, initialPhoto }: { occasionId?: string; initialPhoto?: PickedPhoto }) {
   const { business, back, go, upsertPost, connections, saveBusiness } = useApp();
   const b = business!;
   const occasion = useMemo(() => (occasionId ? upcomingEvents(b.businessType, new Date(), 13, b.postalCode).find((e) => e.id === occasionId) : null), [occasionId, b]);
@@ -32,35 +32,30 @@ export function Create({ occasionId }: { occasionId?: string }) {
   const [publishStep, setPublishStep] = useState(0);
   const idempotencyKey = useRef<string>(Crypto.randomUUID());
 
-  // Ouvre directement l'appareil photo sur téléphone (sur le web, il faut un clic).
+  // Photo déjà prise depuis l'accueil : l'IA démarre tout de suite.
+  // Sinon (depuis une fête), on ouvre directement l'appareil photo sur téléphone.
   useEffect(() => {
-    if (RNPlatform.OS !== 'web') pick('camera');
+    if (initialPhoto) start(initialPhoto);
+    else if (RNPlatform.OS !== 'web') pick('camera');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function pick(source: 'camera' | 'library') {
     setError(null);
-    const opts: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], allowsEditing: true, aspect: [4, 5], quality: 0.8, base64: true };
     try {
-      if (source === 'camera' && RNPlatform.OS !== 'web') {
-        const perm = await ImagePicker.requestCameraPermissionsAsync();
-        if (!perm.granted) {
-          setError("Vitrine a besoin de l'appareil photo. Vous pouvez aussi choisir une photo dans la galerie.");
-          return;
-        }
-      }
-      const res = source === 'camera' ? await ImagePicker.launchCameraAsync(opts) : await ImagePicker.launchImageLibraryAsync(opts);
-      if (res.canceled || !res.assets?.[0]) return;
-      const a = res.assets[0];
-      const base64 = a.base64 ?? (a.uri.startsWith('data:') ? a.uri.split(',')[1] : null);
-      setPhoto({ uri: a.uri, base64 });
-      setImagePath(null);
-      setPostId(Crypto.randomUUID());
-      idempotencyKey.current = Crypto.randomUUID();
-      await generate({ uri: a.uri, base64 }, null);
-    } catch {
-      setError("La photo n'a pas pu être ouverte. Réessayez.");
+      const p = await takePhoto(source);
+      if (p) await start(p);
+    } catch (e) {
+      setError(e instanceof FriendlyError ? e.message : "La photo n'a pas pu être ouverte. Réessayez.");
     }
+  }
+
+  async function start(p: PickedPhoto) {
+    setPhoto(p);
+    setImagePath(null);
+    setPostId(Crypto.randomUUID());
+    idempotencyKey.current = Crypto.randomUUID();
+    await generate(p, null);
   }
 
   async function generate(p = photo, existingPath = imagePath) {

@@ -3,6 +3,7 @@ import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Body, Button, Chip, Field, Title } from '../components/ui';
 import { NetworkCards } from '../components/NetworkCards';
+import { LogoMark } from '../components/icons';
 import { BUSINESS_TYPES, TONES } from '../lib/business';
 import { colors } from '../lib/theme';
 import { useApp } from '../lib/store';
@@ -68,6 +69,10 @@ export function Onboarding() {
 
         {step === 1 && (
           <>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <LogoMark size={44} />
+              <Title size={26} style={{ color: colors.green }}>Vitrine</Title>
+            </View>
             <Title size={30}>Votre boutique</Title>
             <Body soft>Quelques informations pour écrire des posts qui vous ressemblent.</Body>
             <Field label="Votre prénom" value={form.ownerFirstName} onChangeText={(v) => set('ownerFirstName', v)} placeholder="Marie" error={errors.ownerFirstName} autoComplete="given-name" />

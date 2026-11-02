@@ -1,10 +1,11 @@
-import React from 'react';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Pressable, Text, View } from 'react-native';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppProvider, TAB_ROUTES, useApp } from './src/lib/store';
 import { colors, fonts } from './src/lib/theme';
-import { CalendarIcon, GridIcon, HomeIcon } from './src/components/icons';
+import { CalendarIcon, GridIcon, HomeIcon, LogoMark } from './src/components/icons';
 import { Onboarding } from './src/screens/Onboarding';
 import { Home } from './src/screens/Home';
 import { Create } from './src/screens/Create';
@@ -12,6 +13,9 @@ import { Published } from './src/screens/Published';
 import { Fetes } from './src/screens/Fetes';
 import { Posts } from './src/screens/Posts';
 import { Settings } from './src/screens/Settings';
+
+// L'écran d'ouverture natif reste affiché jusqu'à ce que l'app soit prête.
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function App() {
   return (
@@ -27,9 +31,14 @@ export default function App() {
 function Root() {
   const { ready, business, route } = useApp();
   const insets = useSafeAreaInsets();
-  if (!ready) {
-    return <View style={{ flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={colors.green} /></View>;
-  }
+  // Écran d'ouverture court : le temps de charger, avec un minimum pour ne pas « clignoter ».
+  const [minDone, setMinDone] = useState(false);
+  useEffect(() => {
+    SplashScreen.hideAsync().catch(() => {});
+    const t = setTimeout(() => setMinDone(true), 700);
+    return () => clearTimeout(t);
+  }, []);
+  if (!ready || !minDone) return <Splash />;
   if (!business) return <Onboarding />;
 
   const isTab = (TAB_ROUTES as readonly string[]).includes(route.name);
@@ -40,10 +49,20 @@ function Root() {
         {route.name === 'fetes' && <Fetes />}
         {route.name === 'posts' && <Posts />}
         {route.name === 'settings' && <Settings />}
-        {route.name === 'create' && <Create key={route.occasionId ?? 'new'} occasionId={route.occasionId} />}
+        {route.name === 'create' && <Create key={route.occasionId ?? 'new'} occasionId={route.occasionId} initialPhoto={route.photo} />}
         {route.name === 'published' && <Published postId={route.postId} />}
       </View>
       {isTab && <TabBar />}
+    </View>
+  );
+}
+
+function Splash() {
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.green, alignItems: 'center', justifyContent: 'center', gap: 14, padding: 24 }}>
+      <LogoMark size={130} onGreen />
+      <Text style={{ color: colors.white, fontSize: 42, fontFamily: fonts.title, fontWeight: '600' }}>Vitrine</Text>
+      <Text style={{ color: colors.white, fontSize: 17, fontFamily: fonts.body, textAlign: 'center' }}>Une photo, on s'occupe du reste.</Text>
     </View>
   );
 }

@@ -3,13 +3,14 @@ import { load, save, clearAll } from './storage';
 import { scheduleReminders } from './notifications';
 import { socialConnections } from './api';
 import type { Business, NotificationPrefs, Post, SocialConnection } from './types';
+import type { PickedPhoto } from './photo';
 
 export type Route =
   | { name: 'home' }
   | { name: 'fetes' }
   | { name: 'posts' }
   | { name: 'settings' }
-  | { name: 'create'; occasionId?: string }
+  | { name: 'create'; occasionId?: string; photo?: PickedPhoto }
   | { name: 'published'; postId: string };
 
 export const TAB_ROUTES = ['home', 'fetes', 'posts'] as const;
@@ -47,8 +48,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setBusiness(await load<Business | null>('business', null));
       setPosts(await load<Post[]>('posts', []));
       setPrefsState(await load('prefs', DEFAULT_PREFS));
-      setConnections(await socialConnections());
+      // On affiche l'app tout de suite ; l'état des réseaux arrive juste après.
       setReady(true);
+      setConnections(await socialConnections());
     })();
   }, []);
 

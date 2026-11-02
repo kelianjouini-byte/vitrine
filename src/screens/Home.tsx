@@ -1,6 +1,8 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
-import { Body, Card, DateTile, Label, Title } from '../components/ui';
+import { Body, Card, DateTile, Label, Notice, Title } from '../components/ui';
+import { takePhoto } from '../lib/photo';
+import { FriendlyError } from '../lib/api';
 import { CameraIcon, CheckIcon } from '../components/icons';
 import { colors, fonts, radius } from '../lib/theme';
 import { useApp } from '../lib/store';
@@ -17,6 +19,18 @@ export function Home() {
   const connected = connections.filter((c) => c.status === 'connected').length;
   const scheduled = posts.find((p) => p.status === 'scheduled');
   const days = next ? daysUntil(next.date) : 0;
+  const [photoError, setPhotoError] = useState<string | null>(null);
+
+  // Un seul geste : le bouton ouvre directement l'appareil photo, puis l'IA écrit.
+  async function shoot() {
+    setPhotoError(null);
+    try {
+      const photo = await takePhoto('camera');
+      if (photo) go({ name: 'create', photo });
+    } catch (e) {
+      setPhotoError(e instanceof FriendlyError ? e.message : "La photo n'a pas pu être ouverte. Réessayez.");
+    }
+  }
 
   return (
     <ScrollView contentContainerStyle={{ padding: 20, gap: 18, paddingBottom: 32 }}>
@@ -31,7 +45,7 @@ export function Home() {
         </Pressable>
       </View>
 
-      <Pressable onPress={() => go({ name: 'create' })} accessibilityRole="button" accessibilityLabel="Prendre une photo"
+      <Pressable onPress={shoot} accessibilityRole="button" accessibilityLabel="Prendre une photo"
         style={({ pressed }) => ({ backgroundColor: colors.greenDark, borderRadius: radius.lg + 4, paddingVertical: 34, alignItems: 'center', gap: 14, transform: [{ scale: pressed ? 0.98 : 1 }] })}>
         <View style={{ width: 92, height: 92, borderRadius: 46, backgroundColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center' }}>
           <CameraIcon size={42} />
@@ -39,6 +53,14 @@ export function Home() {
         <Text style={{ color: colors.white, fontSize: 24, fontWeight: '700', letterSpacing: 0.5, fontFamily: fonts.body }}>PRENDRE UNE PHOTO</Text>
         <Text style={{ color: '#CFE6D8', fontSize: 16, fontFamily: fonts.body }}>Votre prochain post est à portée de main.</Text>
       </Pressable>
+      {photoError && (
+        <View style={{ gap: 10 }}>
+          <Notice tone="red" title="Nous avons besoin de votre attention" text={photoError} />
+          <Pressable onPress={() => go({ name: 'create' })} accessibilityRole="button">
+            <Text style={{ color: colors.green, fontWeight: '700', fontSize: 16, fontFamily: fonts.body }}>Choisir une photo dans la galerie →</Text>
+          </Pressable>
+        </View>
+      )}
 
       {next && (
         <View style={{ gap: 10 }}>

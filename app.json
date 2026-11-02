@@ -12,7 +12,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#DCEFE3",
+        "backgroundColor": "#2F7658",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -24,7 +24,7 @@
       "favicon": "./assets/favicon.png",
       "name": "Vitrine",
       "themeColor": "#2F7658",
-      "backgroundColor": "#F8FAF7"
+      "backgroundColor": "#2F7658"
     },
     "plugins": [
       "expo-web-browser",
@@ -35,7 +35,16 @@
           "photosPermission": "Vitrine accède à vos photos pour préparer vos publications."
         }
       ],
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "backgroundColor": "#2F7658",
+          "imageWidth": 180,
+          "resizeMode": "contain"
+        }
+      ]
     ],
     "scheme": "vitrine",
     "experiments": {

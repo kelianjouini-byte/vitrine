@@ -35,3 +35,24 @@ export const InstagramIcon = ({ size, color = '#000' }: P) => (
 );
 export const FacebookIcon = ({ size, color = '#000' }: P) => (<S size={size}><Path d="M14 8h3V4h-3a4 4 0 0 0-4 4v3H7v4h3v6h4v-6h3l1-4h-4V8Z" {...st(color)} /></S>);
 export const AlertIcon = ({ size, color = '#000' }: P) => (<S size={size}><Circle cx={12} cy={12} r={9} {...st(color)} /><Path d="M12 7v6M12 16.5v.5" {...st(color)} /></S>);
+
+/** Logo Vitrine « La devanture ». `onGreen` : version blanche pour fond vert. */
+export const LogoMark = ({ size = 64, onGreen = false }: { size?: number; onGreen?: boolean }) => {
+  const bar = onGreen ? '#FFFFFF' : '#1F5F45';
+  const a = onGreen ? '#FFFFFF' : '#2F7658';
+  const b = onGreen ? '#A9D4BC' : '#DCEFE3';
+  const win = onGreen ? '#FFFFFF' : '#2F7658';
+  return (
+    <Svg width={size} height={size} viewBox="0 0 120 120" accessibilityLabel="Vitrine">
+      <Rect x={12} y={16} width={96} height={14} rx={5} fill={bar} />
+      <Path d="M12 30 H36 V44 A12 12 0 0 1 12 44 Z" fill={a} />
+      <Path d="M36 30 H60 V44 A12 12 0 0 1 36 44 Z" fill={b} />
+      <Path d="M60 30 H84 V44 A12 12 0 0 1 60 44 Z" fill={a} />
+      <Path d="M84 30 H108 V44 A12 12 0 0 1 84 44 Z" fill={b} />
+      <Rect x={22} y={61} width={76} height={43} rx={8} fill={onGreen ? 'none' : '#DCEFE3'} stroke={win} strokeWidth={6} />
+      <Path d="M34 92 L50 70" stroke="#FFFFFF" strokeWidth={5} strokeLinecap="round" />
+      <Path d="M46 94 L56 80" stroke="#FFFFFF" strokeWidth={4} strokeLinecap="round" />
+      <Path d="M78 62 Q80 70 88 72 Q80 74 78 82 Q76 74 68 72 Q76 70 78 62 Z" fill="#F2B66D" />
+    </Svg>
+  );
+};
