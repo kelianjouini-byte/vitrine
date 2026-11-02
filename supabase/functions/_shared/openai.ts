@@ -53,7 +53,9 @@ export function containsInventedCommercialInfo(text: string, merchantNote: strin
   return PRICE_PATTERN.test(text) && !PRICE_PATTERN.test(merchantNote);
 }
 
-export async function generate(input: { imageUrl: string; context: string; avoid: string[] }): Promise<{ out: AiOutput; usage?: { prompt_tokens: number; completion_tokens: number } }> {
+export async function generate(
+  input: { imageUrl: string; context: string; avoid: string[] },
+): Promise<{ out: AiOutput; usage?: { prompt_tokens: number; completion_tokens: number } }> {
   // Fournisseur au choix : OpenAI par défaut, ou tout service « compatible OpenAI »
   // (ex. offre gratuite Google Gemini ou Groq) via AI_BASE_URL + AI_API_KEY + AI_MODEL.
   const apiKey = env('AI_API_KEY') ?? env('OPENAI_API_KEY');
@@ -61,7 +63,10 @@ export async function generate(input: { imageUrl: string; context: string; avoid
   // Les clés OpenAI commencent par « sk- ». Toute autre clé est traitée comme une clé Google Gemini :
   // l'adresse et le modèle sont alors choisis automatiquement.
   const isGeminiKey = !apiKey.startsWith('sk-');
-  const baseUrl = (env('AI_BASE_URL') ?? (isGeminiKey ? 'https://generativelanguage.googleapis.com/v1beta/openai' : 'https://api.openai.com/v1')).replace(/\/$/, '');
+  const baseUrl = (env('AI_BASE_URL') ?? (isGeminiKey ? 'https://generativelanguage.googleapis.com/v1beta/openai' : 'https://api.openai.com/v1')).replace(
+    /\/$/,
+    '',
+  );
   const model = env('AI_MODEL') ?? env('OPENAI_MODEL') ?? (isGeminiKey ? 'gemini-3.8-flash' : 'gpt-4.1-mini');
   // Certains fournisseurs ne gèrent pas json_schema : AI_JSON_MODE=object -> JSON simple, validé ici.
   const jsonMode = env('AI_JSON_MODE') ?? (isGeminiKey ? 'object' : 'schema');
@@ -75,28 +80,41 @@ export async function generate(input: { imageUrl: string; context: string; avoid
   const dataUri = `data:${img.headers.get('content-type') ?? 'image/jpeg'};base64,${btoa(bin)}`;
   const isOpenAI = baseUrl.includes('api.openai.com');
   const avoid = input.avoid.length ? `\nTextes déjà publiés récemment (ne pas répéter les mêmes tournures) :\n- ${input.avoid.join('\n- ')}` : '';
-  const res = await fetch(`${baseUrl}/chat/completions`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model,
-      temperature: 0.8,
-      max_tokens: 900,
-      response_format: responseFormat,
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: [
-          { type: 'text', text: input.context + avoid + `\nRéponds en JSON avec exactement ces clés : ${SCHEMA.schema.required.join(', ')}.` },
-          { type: 'image_url', image_url: isOpenAI ? { url: dataUri, detail: 'low' } : { url: dataUri } },
-        ] },
-      ],
-    }),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      // On n'attend jamais plus de 45 secondes : au-delà, on affiche une erreur claire.
+      signal: AbortSignal.timeout(45_000),
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model,
+        temperature: 0.8,
+        // Gemini « réfléchit » avant d'écrire : on limite cette réflexion pour aller vite.
+        ...(isGeminiKey ? { reasoning_effort: 'low', max_tokens: 4000 } : { max_tokens: 900 }),
+        response_format: responseFormat,
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: input.context + avoid + `\nRéponds en JSON avec exactement ces clés : ${SCHEMA.schema.required.join(', ')}.` },
+              { type: 'image_url', image_url: isOpenAI ? { url: dataUri, detail: 'low' } : { url: dataUri } },
+            ],
+          },
+        ],
+      }),
+    });
+  } catch (e) {
+    console.error('[vitrine] ia délai dépassé ou réseau', baseUrl, model, e instanceof Error ? e.name : '');
+    throw new HttpError(504, 'ai_timeout', "L'IA met trop de temps à répondre. Réessayez dans un instant.");
+  }
   if (!res.ok) {
     console.error('[vitrine] ia', baseUrl, model, res.status, (await res.text()).slice(0, 300));
     throw new HttpError(502, 'ai_failed', "L'IA n'a pas pu écrire votre texte. Réessayez.");
   }
   const data = await res.json();
+  if (!data.choices?.[0]?.message?.content) console.error('[vitrine] ia réponse vide', model, JSON.stringify(data).slice(0, 300));
   let out: AiOutput;
   try {
     out = JSON.parse(String(data.choices[0].message.content).replace(/^```(json)?\s*|\s*```$/g, ''));
