@@ -37,6 +37,9 @@
       ],
       "expo-notifications"
     ],
-    "scheme": "vitrine"
+    "scheme": "vitrine",
+    "experiments": {
+      "baseUrl": "/vitrine"
+    }
   }
 }
