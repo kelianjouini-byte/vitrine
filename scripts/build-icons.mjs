@@ -1,28 +1,24 @@
-// Génère les icônes de l'app (PNG) à partir du logo vectoriel « La devanture ».
+// Génère les icônes de l'app (PNG) à partir du logo vectoriel « la boutique qui reçoit un j'aime ».
 // Usage : node scripts/build-icons.mjs   (utilise Chromium via Playwright)
 import { createRequire } from 'node:module';
 const { chromium } = createRequire(import.meta.url)('playwright');
 
-const GREEN = '#2F7658', DARK = '#1F5F45', SOFT = '#DCEFE3', MID = '#A9D4BC', ORANGE = '#F2B66D', WHITE = '#FFFFFF';
-const spark = (fill) => `<path d="M60 70 Q62.5 81 73 84 Q62.5 87 60 98 Q57.5 87 47 84 Q57.5 81 60 70 Z" fill="${fill}"/>`;
-// Version simplifiée (3 rayures) : lisible à toutes les tailles d'icône.
-const simple = ({ bar, s1, s2, win, winFill = 'none', sp }) => `
-  <rect x="12" y="16" width="96" height="14" rx="5" fill="${bar}"/>
-  <path d="M12 30 H44 V42 A16 16 0 0 1 12 42 Z" fill="${s1}"/>
-  <path d="M44 30 H76 V42 A16 16 0 0 1 44 42 Z" fill="${s2}"/>
-  <path d="M76 30 H108 V42 A16 16 0 0 1 76 42 Z" fill="${s1}"/>
-  <rect x="22" y="64" width="76" height="40" rx="8" fill="${winFill}" stroke="${win}" stroke-width="8"/>${spark(sp)}`;
-// Version complète (4 rayures + reflet) : écran d'ouverture.
-const full = `
-  <rect x="12" y="16" width="96" height="14" rx="5" fill="${WHITE}"/>
-  <path d="M12 30 H36 V44 A12 12 0 0 1 12 44 Z" fill="${WHITE}"/><path d="M36 30 H60 V44 A12 12 0 0 1 36 44 Z" fill="${MID}"/>
-  <path d="M60 30 H84 V44 A12 12 0 0 1 60 44 Z" fill="${WHITE}"/><path d="M84 30 H108 V44 A12 12 0 0 1 84 44 Z" fill="${MID}"/>
-  <rect x="22" y="61" width="76" height="43" rx="8" fill="none" stroke="${WHITE}" stroke-width="6"/>
-  <path d="M34 92 L50 70" stroke="${WHITE}" stroke-width="5" stroke-linecap="round"/><path d="M46 94 L56 80" stroke="${WHITE}" stroke-width="4" stroke-linecap="round"/>
-  <path d="M78 62 Q80 70 88 72 Q80 74 78 82 Q76 74 68 72 Q76 70 78 62 Z" fill="${ORANGE}"/>`;
-const onGreen = simple({ bar: WHITE, s1: WHITE, s2: MID, win: WHITE, sp: ORANGE });
-const color = simple({ bar: DARK, s1: GREEN, s2: MID, win: GREEN, winFill: SOFT, sp: ORANGE });
-const mono = simple({ bar: WHITE, s1: WHITE, s2: WHITE, win: WHITE, sp: WHITE });
+const GREEN = '#2F7658', ORANGE = '#F2B66D', WHITE = '#FFFFFF';
+// Logo « la boutique qui reçoit un j'aime » (viewBox 120). fg = traits, bg = couleur du fond (découpe autour de la pastille).
+const logo = ({ fg, bg, reflet = ORANGE, badge = ORANGE, heart = bg }) => `
+  <rect x="10" y="34" width="84" height="7" rx="2.5" fill="${fg}"/>
+  <path d="M10 40 H94 V46 Q83.5 58.6 73 46 Q62.5 58.6 52 46 Q41.5 58.6 31 46 Q20.5 58.6 10 46 Z" fill="${fg}"/>
+  <rect x="16" y="66" width="48" height="38" rx="5" stroke="${fg}" stroke-width="6" fill="none"/>
+  <path d="M26 94 L40 76 M38 96 L46 86" stroke="${reflet}" stroke-width="5" stroke-linecap="round"/>
+  <path d="M72 106 V68 H88 V106" stroke="${fg}" stroke-width="6" stroke-linejoin="round" fill="none"/>
+  <path d="M8 106 H96" stroke="${fg}" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="96" cy="26" r="18" fill="${badge}" stroke="${bg}" stroke-width="5"/>
+  <path d="M96 32.7 C88.4 27 86.5 23.2 86.5 20.4 A4.7 4.7 0 0 1 96 18.5 A4.7 4.7 0 0 1 105.5 20.4 C105.5 23.2 103.6 27 96 32.7 Z" fill="${heart}"/>`;
+const onGreen = logo({ fg: WHITE, bg: GREEN });
+const full = onGreen;
+const color = logo({ fg: GREEN, bg: '#F8FAF7' });
+// Monochrome Android : tout en blanc (la pastille devient un simple rond plein).
+const mono = logo({ fg: WHITE, bg: 'none', reflet: WHITE, badge: WHITE, heart: 'none' });
 
 // [fichier, taille, fond (ou null = transparent), contenu, part de la taille occupée par le logo]
 const out = [
