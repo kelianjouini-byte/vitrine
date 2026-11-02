@@ -58,10 +58,21 @@ export async function generate(input: { imageUrl: string; context: string; avoid
   // (ex. offre gratuite Google Gemini ou Groq) via AI_BASE_URL + AI_API_KEY + AI_MODEL.
   const apiKey = env('AI_API_KEY') ?? env('OPENAI_API_KEY');
   if (!apiKey) throw new HttpError(503, 'openai_not_configured', "L'écriture par l'IA n'est pas encore configurée.");
-  const baseUrl = (env('AI_BASE_URL') ?? 'https://api.openai.com/v1').replace(/\/$/, '');
-  const model = env('AI_MODEL') ?? env('OPENAI_MODEL') ?? 'gpt-4.1-mini';
+  // Une clé Google Gemini (commence par « AIza ») suffit : l'adresse et le modèle sont choisis automatiquement.
+  const isGeminiKey = apiKey.startsWith('AIza');
+  const baseUrl = (env('AI_BASE_URL') ?? (isGeminiKey ? 'https://generativelanguage.googleapis.com/v1beta/openai' : 'https://api.openai.com/v1')).replace(/\/$/, '');
+  const model = env('AI_MODEL') ?? env('OPENAI_MODEL') ?? (isGeminiKey ? 'gemini-3.8-flash' : 'gpt-4.1-mini');
   // Certains fournisseurs ne gèrent pas json_schema : AI_JSON_MODE=object -> JSON simple, validé ici.
-  const responseFormat = env('AI_JSON_MODE') === 'object' ? { type: 'json_object' } : { type: 'json_schema', json_schema: SCHEMA };
+  const jsonMode = env('AI_JSON_MODE') ?? (isGeminiKey ? 'object' : 'schema');
+  const responseFormat = jsonMode === 'object' ? { type: 'json_object' } : { type: 'json_schema', json_schema: SCHEMA };
+  // On envoie la photo en « data URI » : tous les fournisseurs l'acceptent (certains refusent les liens).
+  const img = await fetch(input.imageUrl);
+  if (!img.ok) throw new HttpError(400, 'bad_image', 'La photo est introuvable. Reprenez-la.');
+  const bytes = new Uint8Array(await img.arrayBuffer());
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  const dataUri = `data:${img.headers.get('content-type') ?? 'image/jpeg'};base64,${btoa(bin)}`;
+  const isOpenAI = baseUrl.includes('api.openai.com');
   const avoid = input.avoid.length ? `\nTextes déjà publiés récemment (ne pas répéter les mêmes tournures) :\n- ${input.avoid.join('\n- ')}` : '';
   const res = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
@@ -75,7 +86,7 @@ export async function generate(input: { imageUrl: string; context: string; avoid
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: [
           { type: 'text', text: input.context + avoid + `\nRéponds en JSON avec exactement ces clés : ${SCHEMA.schema.required.join(', ')}.` },
-          { type: 'image_url', image_url: { url: input.imageUrl, detail: 'low' } },
+          { type: 'image_url', image_url: isOpenAI ? { url: dataUri, detail: 'low' } : { url: dataUri } },
         ] },
       ],
     }),
@@ -87,7 +98,7 @@ export async function generate(input: { imageUrl: string; context: string; avoid
   const data = await res.json();
   let out: AiOutput;
   try {
-    out = JSON.parse(data.choices[0].message.content);
+    out = JSON.parse(String(data.choices[0].message.content).replace(/^```(json)?\s*|\s*```$/g, ''));
   } catch {
     throw new HttpError(502, 'ai_failed', "L'IA a donné une réponse illisible. Réessayez.");
   }

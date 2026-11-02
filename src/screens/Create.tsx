@@ -8,13 +8,13 @@ import { colors, fonts, radius } from '../lib/theme';
 import { useApp } from '../lib/store';
 import { upcomingEvents } from '../lib/events';
 import { isBackendConfigured } from '../lib/config';
-import { exampleCaption, FriendlyError, generatePost, NotConfiguredError, publishPost, uploadPhoto } from '../lib/api';
+import { ensureSession, exampleCaption, FriendlyError, generatePost, NotConfiguredError, publishPost, saveBusinessRemote, uploadPhoto } from '../lib/api';
 import type { GeneratedPost, Platform, Post, PublicationResult } from '../lib/types';
 
 type Phase = 'pick' | 'generating' | 'preview' | 'publishing';
 
 export function Create({ occasionId }: { occasionId?: string }) {
-  const { business, back, go, upsertPost, connections } = useApp();
+  const { business, back, go, upsertPost, connections, saveBusiness } = useApp();
   const b = business!;
   const occasion = useMemo(() => (occasionId ? upcomingEvents(b.businessType, new Date(), 13, b.postalCode).find((e) => e.id === occasionId) : null), [occasionId, b]);
 
@@ -71,6 +71,12 @@ export function Create({ occasionId }: { occasionId?: string }) {
     try {
       if (!isBackendConfigured) throw new NotConfiguredError('serveur');
       if (!p.base64) throw new FriendlyError("La photo n'a pas pu être lue. Réessayez.");
+      if (!(await ensureSession())) throw new NotConfiguredError('compte');
+      if (!b.id) {
+        // Boutique créée avant que le serveur soit branché : on l'enregistre maintenant.
+        const id = await saveBusinessRemote(b);
+        if (id) await saveBusiness({ ...b, id });
+      }
       const path = existingPath ?? (await uploadPhoto(p.base64));
       setImagePath(path);
       const out = await generatePost({ imagePath: path, occasion: occasion ?? null, postId });

@@ -63,6 +63,20 @@ export async function currentUserId(): Promise<string | null> {
   return data.session?.user.id ?? null;
 }
 
+/**
+ * Garantit une session. Si le commerçant ne s'est pas encore identifié par e-mail,
+ * on ouvre une session « invitée » (connexion anonyme Supabase) : il peut tout tester
+ * tout de suite, et sécuriser son compte par e-mail plus tard dans Réglages.
+ */
+export async function ensureSession(): Promise<string | null> {
+  if (!supabase) return null;
+  const existing = await currentUserId();
+  if (existing) return existing;
+  const { data, error } = await supabase.auth.signInAnonymously();
+  if (error) return null; // connexion invitée désactivée dans Supabase : il faudra se connecter par e-mail
+  return data.user?.id ?? null;
+}
+
 export async function signOut(): Promise<void> {
   await supabase?.auth.signOut();
 }
@@ -70,7 +84,7 @@ export async function signOut(): Promise<void> {
 /** Enregistre (ou met à jour) la boutique dans la base. */
 export async function saveBusinessRemote(b: Business): Promise<string | undefined> {
   if (!supabase) return undefined;
-  const userId = await currentUserId();
+  const userId = await ensureSession();
   if (!userId) return undefined;
   const row = {
     owner_id: userId,
