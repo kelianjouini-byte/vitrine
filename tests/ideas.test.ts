@@ -61,3 +61,17 @@ test('👍 / 👎 : un 2e appui retire l\'avis', () => {
   assert.deepEqual(v, { A: -1 });
   assert.deepEqual(toggleVote(v, 'A', -1), {});
 });
+
+import { normalizePost } from '../supabase/functions/_shared/post.ts';
+
+test('réponse de l\'IA pour un post : on accepte les petites variations', () => {
+  const ok = normalizePost('```json\n{"instagram_caption":"Nouvelle coupe du jour ✂️","hashtags":"#Coiffure Eguilles, #CoiffeurEguilles"}\n```');
+  assert.ok(ok);
+  assert.equal(ok.facebook_caption, 'Nouvelle coupe du jour ✂️');
+  assert.deepEqual(ok.hashtags, ['#Coiffure', '#Eguilles', '#CoiffeurEguilles']);
+  const wrapped = normalizePost('Voici : {"post": {"facebook_caption": "Un beau bouquet pour la semaine", "hashtags": ["Lyon"]}}');
+  assert.equal(wrapped?.instagram_caption, 'Un beau bouquet pour la semaine');
+  assert.deepEqual(wrapped?.hashtags, ['#Lyon']);
+  assert.equal(normalizePost('{"hashtags": []}'), null);
+  assert.equal(normalizePost('pas de json'), null);
+});
