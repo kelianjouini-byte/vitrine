@@ -26,7 +26,7 @@ export function Published({ postId }: { postId: string }) {
           </View>
         </View>
         <Title size={32} style={{ textAlign: 'center' }}>
-          {allOk ? "C'est publié ! 🎉" : someOk ? 'Publié en partie' : notConfigured ? 'Pas encore publié' : 'La publication a échoué'}
+          {allOk ? "C'est publié !" : someOk ? 'Publié en partie' : notConfigured ? 'Pas encore publié' : 'La publication a échoué'}
         </Title>
         <Body soft center>
           {allOk

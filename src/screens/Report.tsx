@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from 'react-native';
-import { Badge, Body, Button, Card, Label, Notice, Title } from '../components/ui';
-import { BackIcon, ChartUpIcon, RefreshIcon } from '../components/icons';
-import { colors, fonts, radius } from '../lib/theme';
+import { Badge, Body, Button, Card, IconTile, Label, Notice, Title, BackButton } from '../components/ui';
+import { BulbIcon, CameraIcon, ChartUpIcon, ClockIcon, EyeIcon, RefreshIcon, StarIcon } from '../components/icons';
+import { colors, fonts, glass, radius } from '../lib/theme';
 import { useApp } from '../lib/store';
 import { upcomingEvents } from '../lib/events';
 import { tradeById } from '../lib/trades';
@@ -61,9 +61,7 @@ export function Report({ initialMonth }: { initialMonth?: Month }) {
   return (
     <ScrollView contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 40 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        <Pressable onPress={back} accessibilityLabel="Retour" style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
-          <BackIcon color={colors.text} size={20} />
-        </Pressable>
+        <BackButton onPress={back} />
         <Title size={24} style={{ flex: 1 }}>Mon bilan</Title>
         <ChartUpIcon size={26} color={colors.green} />
       </View>
@@ -78,12 +76,12 @@ export function Report({ initialMonth }: { initialMonth?: Month }) {
       </View>
 
       <View style={{ flexDirection: 'row', gap: 12 }}>
-        <Tile emoji="📸" value={String(s.count)} label={s.count > 1 ? 'posts publiés' : 'post publié'} />
-        <Tile emoji="⏱️" value={durationLabel(s.minutesSaved)} label="de temps gagné" hint={`environ ${MINUTES_SAVED_PER_POST} min par post`} />
+        <Tile icon={<CameraIcon size={22} color={colors.green} />} value={String(s.count)} label={s.count > 1 ? 'posts publiés' : 'post publié'} />
+        <Tile icon={<ClockIcon size={22} color={colors.green} />} value={durationLabel(s.minutesSaved)} label="de temps gagné" hint={`environ ${MINUTES_SAVED_PER_POST} min par post`} />
       </View>
       <View style={{ flexDirection: 'row', gap: 12 }}>
-        <Tile emoji="👀" soon label="personnes touchées" hint="Vues et nouveaux abonnés, dès qu'Instagram et Facebook seront branchés." />
-        <Tile emoji="⭐" soon label="meilleur post" hint="Vitrine saura quel post vos clients ont préféré grâce aux statistiques." />
+        <Tile icon={<EyeIcon size={22} color={colors.orangeText} />} tone="orange" soon label="personnes touchées" hint="Vues et nouveaux abonnés, dès qu'Instagram et Facebook seront branchés." />
+        <Tile icon={<StarIcon size={22} color={colors.orangeText} />} tone="orange" soon label="meilleur post" hint="Vitrine saura quel post vos clients ont préféré grâce aux statistiques." />
       </View>
 
       {s.posts.length > 0 && (
@@ -108,10 +106,13 @@ export function Report({ initialMonth }: { initialMonth?: Month }) {
       </Card>
 
       {advice.kind !== 'none' && (
-        <View style={{ backgroundColor: colors.greenSoft, borderRadius: radius.md + 2, padding: 16, gap: 10 }}>
-          <Text style={{ color: colors.green, fontWeight: '700', fontSize: 15, fontFamily: fonts.body }}>
-            💡 {s.trend === 'down' ? 'Un petit coup de pouce' : 'Mon conseil'} pour {monthName(adviceFor)}
+        <View style={{ backgroundColor: 'rgba(220,239,227,0.8)', borderWidth: 1, borderColor: glass.edge, borderRadius: radius.lg - 2, padding: 16, gap: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <BulbIcon size={20} color={colors.green} />
+          <Text style={{ color: colors.green, fontWeight: '700', fontSize: 15, fontFamily: fonts.body, flex: 1 }}>
+            {s.trend === 'down' ? 'Un petit coup de pouce' : 'Mon conseil'} pour {monthName(adviceFor)}
           </Text>
+          </View>
           {advice.kind === 'loading' && (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <ActivityIndicator color={colors.green} />
@@ -138,10 +139,10 @@ export function Report({ initialMonth }: { initialMonth?: Month }) {
   );
 }
 
-function Tile({ emoji, value, label, hint, soon }: { emoji: string; value?: string; label: string; hint?: string; soon?: boolean }) {
+function Tile({ icon, tone, value, label, hint, soon }: { icon: React.ReactNode; tone?: 'green' | 'orange'; value?: string; label: string; hint?: string; soon?: boolean }) {
   return (
     <Card style={{ flex: 1, gap: 6, minHeight: 150 }}>
-      <Text style={{ fontSize: 24 }}>{emoji}</Text>
+      <IconTile size={42} tone={tone}>{icon}</IconTile>
       {soon ? <View style={{ alignSelf: 'flex-start' }}><Badge text="Bientôt" tone="orange" /></View> : <Title size={30}>{value}</Title>}
       <Body style={{ fontWeight: '700' }} size={15}>{label}</Body>
       {hint ? <Body soft size={13}>{hint}</Body> : null}
@@ -152,7 +153,7 @@ function Tile({ emoji, value, label, hint, soon }: { emoji: string; value?: stri
 function MonthArrow({ label, a11y, enabled, onPress }: { label: string; a11y: string; enabled: boolean; onPress: () => void }) {
   return (
     <Pressable onPress={onPress} disabled={!enabled} accessibilityRole="button" accessibilityLabel={a11y} accessibilityState={{ disabled: !enabled }}
-      style={{ width: 52, height: 52, borderRadius: 26, borderWidth: 1.5, borderColor: enabled ? colors.green : colors.border, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center', opacity: enabled ? 1 : 0.4 }}>
+      style={{ width: 52, height: 52, borderRadius: 26, borderWidth: 1.5, borderColor: enabled ? colors.green : glass.line, backgroundColor: glass.bgStrong, alignItems: 'center', justifyContent: 'center', opacity: enabled ? 1 : 0.4 }}>
       <Text style={{ color: enabled ? colors.green : colors.textSoft, fontSize: 26, fontWeight: '700', lineHeight: 28 }}>{label}</Text>
     </Pressable>
   );

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Switch, View } from 'react-native';
-import { Body, Button, Card, Chip, Field, Label, Notice, Title } from '../components/ui';
+import { Body, Button, Card, Chip, Field, Label, Notice, Title, BackButton } from '../components/ui';
 import { BackIcon } from '../components/icons';
 import { NetworkCards } from '../components/NetworkCards';
 import { IdentityFields, type Identity } from '../components/IdentityFields';
@@ -36,9 +36,7 @@ export function Settings() {
   return (
     <ScrollView contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 48 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        <Pressable onPress={back} accessibilityLabel="Retour" style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
-          <BackIcon color={colors.text} size={20} />
-        </Pressable>
+        <BackButton onPress={back} />
         <Title size={26}>Ma boutique</Title>
       </View>
 

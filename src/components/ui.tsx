@@ -1,6 +1,7 @@
 import React from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View, type TextInputProps, type ViewStyle, type StyleProp } from 'react-native';
-import { colors, fonts, radius } from '../lib/theme';
+import { colors, fonts, glass, glassSurface, greenGradient, radius } from '../lib/theme';
+import { BackIcon, ChevronIcon } from './icons';
 
 export function Title({ children, size = 26, style }: { children: React.ReactNode; size?: number; style?: StyleProp<any> }) {
   return <Text style={[{ fontFamily: fonts.title, fontSize: size, color: colors.text, fontWeight: '600' }, style]}>{children}</Text>;
@@ -20,7 +21,7 @@ export function Label({ children }: { children: React.ReactNode }) {
 
 type BtnKind = 'primary' | 'secondary' | 'ghost' | 'danger';
 export function Button({ title, onPress, kind = 'primary', loading, disabled, icon, style }: { title: string; onPress?: () => void; kind?: BtnKind; loading?: boolean; disabled?: boolean; icon?: React.ReactNode; style?: StyleProp<ViewStyle> }) {
-  const bg = { primary: colors.green, secondary: colors.white, ghost: 'transparent', danger: colors.white }[kind];
+  const bg = { primary: colors.green, secondary: glass.bgStrong, ghost: 'transparent', danger: glass.bgStrong }[kind];
   const fg = { primary: colors.white, secondary: colors.green, ghost: colors.textSoft, danger: colors.red }[kind];
   return (
     <Pressable
@@ -29,7 +30,9 @@ export function Button({ title, onPress, kind = 'primary', loading, disabled, ic
       disabled={disabled || loading}
       style={({ pressed }) => [
         s.btn,
-        { backgroundColor: bg, opacity: disabled ? 0.45 : pressed ? 0.85 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] },
+        kind === 'primary' && s.btnPrimary,
+        kind !== 'primary' && { backgroundColor: bg },
+        { opacity: disabled ? 0.45 : pressed ? 0.85 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] },
         kind === 'secondary' && { borderWidth: 1.5, borderColor: colors.green },
         kind === 'danger' && { borderWidth: 1.5, borderColor: colors.red },
         kind === 'ghost' && { minHeight: 44 },
@@ -48,7 +51,7 @@ export function Button({ title, onPress, kind = 'primary', loading, disabled, ic
 
 export function Card({ children, style, onPress }: { children: React.ReactNode; style?: StyleProp<ViewStyle>; onPress?: () => void }) {
   const inner = <View style={[s.card, style]}>{children}</View>;
-  return onPress ? <Pressable onPress={onPress} accessibilityRole="button" style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}>{inner}</Pressable> : inner;
+  return onPress ? <Pressable onPress={onPress} accessibilityRole="button" style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1, transform: [{ scale: pressed ? 0.99 : 1 }] })}>{inner}</Pressable> : inner;
 }
 
 const BADGES = {
@@ -98,7 +101,7 @@ export function Chip({ label, selected, onPress }: { label: string; selected: bo
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={{ selected }}
-      style={{ paddingHorizontal: 16, paddingVertical: 12, borderRadius: 999, borderWidth: 1.5, borderColor: selected ? colors.green : colors.border, backgroundColor: selected ? colors.greenSoft : colors.white }}
+      style={{ paddingHorizontal: 16, paddingVertical: 12, borderRadius: 999, borderWidth: 1.5, borderColor: selected ? colors.green : glass.line, backgroundColor: selected ? colors.greenSoft : glass.bgStrong }}
     >
       <Text style={{ fontSize: 16, color: selected ? colors.green : colors.text, fontWeight: selected ? '700' : '500', fontFamily: fonts.body }}>{label}</Text>
     </Pressable>
@@ -117,9 +120,32 @@ export function Notice({ tone = 'orange', title, text }: { tone?: 'orange' | 're
   );
 }
 
+/** Bouton rond « Retour » en verre, en haut des écrans secondaires. */
+export function BackButton({ onPress }: { onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel="Retour" style={({ pressed }) => [s.round, { opacity: pressed ? 0.8 : 1 }]}>
+      <BackIcon color={colors.text} size={20} />
+    </Pressable>
+  );
+}
+
+/** Petite pastille colorée qui porte une icône au trait (cartes de l'accueil, bilan...). */
+export function IconTile({ children, tone = 'green', size = 48 }: { children: React.ReactNode; tone?: 'green' | 'orange'; size?: number }) {
+  return (
+    <View style={{ width: size, height: size, borderRadius: size / 3, backgroundColor: tone === 'green' ? 'rgba(220,239,227,0.9)' : 'rgba(252,239,217,0.9)', alignItems: 'center', justifyContent: 'center' }}>
+      {children}
+    </View>
+  );
+}
+
+/** Flèche discrète au bout d'une carte cliquable. */
+export const Chevron = ({ color = colors.green }: { color?: string }) => <ChevronIcon size={20} color={color} />;
+
 const s = StyleSheet.create({
+  round: { ...glassSurface, width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   label: { fontSize: 13, fontWeight: '700', letterSpacing: 1.2, color: colors.textSoft, textTransform: 'uppercase', fontFamily: fonts.body },
-  btn: { minHeight: 58, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 },
-  card: { backgroundColor: colors.white, borderRadius: radius.md + 2, borderWidth: 1, borderColor: colors.border, padding: 16 },
-  input: { minHeight: 54, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.white, paddingHorizontal: 16, fontSize: 17, color: colors.text, fontFamily: fonts.body },
+  btn: { minHeight: 58, borderRadius: radius.md + 2, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 },
+  btnPrimary: { ...greenGradient, boxShadow: '0px 12px 24px -12px rgba(31,95,69,0.6)' },
+  card: { ...glassSurface, borderRadius: radius.lg - 2, padding: 16 },
+  input: { minHeight: 54, borderRadius: 14, borderWidth: 1.5, borderColor: glass.line, backgroundColor: glass.bgStrong, paddingHorizontal: 16, fontSize: 17, color: colors.text, fontFamily: fonts.body },
 });

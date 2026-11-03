@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Platform as RNPlatform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import * as Crypto from 'expo-crypto';
-import { Body, Button, Notice, Title } from '../components/ui';
-import { BackIcon, CameraIcon, CheckIcon, ImageIcon, PencilIcon, RefreshIcon, SparkIcon } from '../components/icons';
-import { colors, fonts, radius } from '../lib/theme';
+import { Body, Button, Notice, Title, BackButton } from '../components/ui';
+import { CameraIcon, CheckIcon, ImageIcon, PencilIcon, RefreshIcon, SparkIcon } from '../components/icons';
+import { colors, fonts, glass, glassSurface, radius } from '../lib/theme';
 import { useApp } from '../lib/store';
 import { upcomingEvents } from '../lib/events';
 import { isBackendConfigured } from '../lib/config';
@@ -299,9 +299,7 @@ export function Create({ occasionId, initialPhoto, idea }: { occasionId?: string
   const ratio = formatRatio(format);
   const header = (title: string, onBack: () => void = back) => (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-      <Pressable onPress={onBack} accessibilityLabel="Retour" style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
-        <BackIcon color={colors.text} size={20} />
-      </Pressable>
+      <BackButton onPress={onBack} />
       <Title size={24} style={{ flex: 1 }}>{title}</Title>
     </View>
   );
@@ -309,8 +307,8 @@ export function Create({ occasionId, initialPhoto, idea }: { occasionId?: string
   if (phase === 'pick') {
     return (
       <ScrollView contentContainerStyle={{ padding: 20, gap: 18 }}>
-        {header(occasion ? `${occasion.name} ${occasion.emoji}` : idea ? idea.title : 'Nouvelle publication')}
-        <Body soft>{idea ? `📸 ${idea.photo}` : 'Prenez votre produit, votre vitrine ou votre équipe en photo. Une belle lumière fait toute la différence.'}</Body>
+        {header(occasion ? occasion.name : idea ? idea.title : 'Nouvelle publication')}
+        <Body soft>{idea ? `À photographier : ${idea.photo}` : 'Prenez votre produit, votre vitrine ou votre équipe en photo. Une belle lumière fait toute la différence.'}</Body>
         <Button title="PRENDRE UNE PHOTO" icon={<CameraIcon size={24} />} onPress={() => pick('camera')} style={{ minHeight: 72 }} />
         <Button title="Choisir dans la galerie" kind="secondary" icon={<ImageIcon size={22} color={colors.green} />} onPress={() => pick('library')} />
         <Body soft size={14} center>Dans la galerie, vous pouvez choisir jusqu'à {MAX_PHOTOS} photos d'un coup.</Body>
@@ -358,7 +356,7 @@ export function Create({ occasionId, initialPhoto, idea }: { occasionId?: string
             : 'Vous pouvez ajouter d\'autres photos : elles défileront comme un diaporama.'}
         </Body>
         {slides.map((s, i) => (
-          <View key={s.key} style={{ flexDirection: 'row', gap: 12, alignItems: 'center', backgroundColor: colors.white, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: 10 }}>
+          <View key={s.key} style={{ flexDirection: 'row', gap: 12, alignItems: 'center', ...glassSurface, borderRadius: radius.md, padding: 10 }}>
             <Image source={{ uri: s.photo.uri }} style={{ width: thumbW, height: thumbW / ratio, borderRadius: radius.sm, backgroundColor: colors.greenSoft }} />
             <View style={{ flex: 1, gap: 8 }}>
               <Text style={{ fontWeight: '700', fontSize: 16, color: colors.text, fontFamily: fonts.body }}>Photo {i + 1}</Text>
@@ -454,7 +452,7 @@ export function Create({ occasionId, initialPhoto, idea }: { occasionId?: string
       </View>
 
       {retryNotice && <Notice tone="orange" title="Pas de nouveau texte cette fois" text={retryNotice} />}
-      {gen?.improvementTip ? <Body soft size={14}>💡 {gen.improvementTip}</Body> : null}
+      {gen?.improvementTip ? <Body soft size={14}>Conseil : {gen.improvementTip}</Body> : null}
 
       <View style={{ gap: 8 }}>
         <Body style={{ fontWeight: '600' }}>Publier sur</Body>
@@ -464,7 +462,7 @@ export function Create({ occasionId, initialPhoto, idea }: { occasionId?: string
             const conn = connections.find((c) => c.platform === p)?.status === 'connected';
             return (
               <Pressable key={p} onPress={() => togglePlatform(p)} accessibilityRole="checkbox" accessibilityState={{ checked: on }}
-                style={{ flex: 1, minHeight: 52, borderRadius: 14, borderWidth: 1.5, borderColor: on ? colors.green : colors.border, backgroundColor: on ? colors.greenSoft : colors.white, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }}>
+                style={{ flex: 1, minHeight: 52, borderRadius: 14, borderWidth: 1.5, borderColor: on ? colors.green : glass.line, backgroundColor: on ? colors.greenSoft : glass.bgStrong, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }}>
                 {on && <CheckIcon size={16} color={colors.green} />}
                 <Text style={{ color: on ? colors.green : colors.textSoft, fontWeight: '700', fontSize: 16, fontFamily: fonts.body }}>{p === 'instagram' ? 'Instagram' : 'Facebook'}</Text>
                 {!conn && <Text style={{ color: colors.textSoft, fontSize: 12 }}>(non connecté)</Text>}

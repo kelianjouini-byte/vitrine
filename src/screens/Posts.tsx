@@ -1,7 +1,7 @@
 import React from 'react';
 import { Image, ScrollView, Text, View } from 'react-native';
-import { Badge, Body, Button, Card, Title } from '../components/ui';
-import { CameraIcon } from '../components/icons';
+import { Badge, Body, Button, Card, IconTile, Title } from '../components/ui';
+import { CameraIcon, ImageIcon } from '../components/icons';
 import { colors } from '../lib/theme';
 import { useApp } from '../lib/store';
 import type { PostStatus } from '../lib/types';
@@ -26,7 +26,7 @@ export function Posts() {
       <Title size={30}>Mes posts</Title>
       {posts.length === 0 ? (
         <Card style={{ alignItems: 'center', gap: 12, paddingVertical: 32 }}>
-          <Body size={40}>📸</Body>
+          <IconTile size={64}><ImageIcon size={32} color={colors.green} /></IconTile>
           <Body center>Vous n'avez pas encore de post.</Body>
           <Button title="Prendre une photo" icon={<CameraIcon size={20} />} onPress={() => go({ name: 'create' })} />
         </Card>
@@ -37,7 +37,7 @@ export function Posts() {
               <Image source={{ uri: p.imageUri }} style={{ width: 64, height: 80, borderRadius: 10, backgroundColor: colors.greenSoft }} />
               {(p.photoCount ?? 1) > 1 && (
                 <View style={{ position: 'absolute', top: 4, right: 4, backgroundColor: 'rgba(20,28,23,0.75)', borderRadius: 8, paddingHorizontal: 5 }}>
-                  <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>{p.photoCount} 📷</Text>
+                  <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>{p.photoCount} photos</Text>
                 </View>
               )}
             </View>
