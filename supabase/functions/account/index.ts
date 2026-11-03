@@ -16,9 +16,12 @@ Deno.serve(handler(async (req) => {
   }
 
   if (action === 'delete') {
-    // 1. photos du stockage
-    const { data: files } = await db.storage.from('post-images').list(userId, { limit: 1000 });
-    if (files?.length) await db.storage.from('post-images').remove(files.map((f) => `${userId}/${f.name}`));
+    // 1. photos du stockage (par paquets : avec les carrousels, il peut y en avoir beaucoup)
+    for (let round = 0; round < 50; round++) {
+      const { data: files } = await db.storage.from('post-images').list(userId, { limit: 1000 });
+      if (!files?.length) break;
+      await db.storage.from('post-images').remove(files.map((f) => `${userId}/${f.name}`));
+    }
     // 2. compte : la suppression cascade sur users -> businesses -> posts, jetons, etc.
     const { error } = await db.auth.admin.deleteUser(userId);
     if (error) throw new HttpError(500, 'delete_failed', 'La suppression a échoué. Réessayez.');

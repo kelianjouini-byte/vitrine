@@ -21,11 +21,11 @@ export function Home() {
   const days = next ? daysUntil(next.date) : 0;
   const [photoError, setPhotoError] = useState<string | null>(null);
 
-  // Un seul geste : le bouton ouvre directement l'appareil photo, puis l'IA écrit.
+  // Un seul geste : le bouton ouvre directement l'appareil photo, puis le recadrage.
   async function shoot() {
     setPhotoError(null);
     try {
-      const photo = await takePhoto('camera');
+      const photo = await takePhoto();
       if (photo) go({ name: 'create', photo });
     } catch (e) {
       setPhotoError(e instanceof FriendlyError ? e.message : "La photo n'a pas pu être ouverte. Réessayez.");

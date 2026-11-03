@@ -67,7 +67,10 @@ export interface GeneratedPost {
 
 export interface Post {
   id: string;
+  /** 1re photo (seule gardée sur le téléphone). */
   imageUri: string;
+  /** Nombre de photos du carrousel (1 si absent : anciens posts). */
+  photoCount?: number;
   caption: string;
   hashtags: string[];
   platforms: Platform[];

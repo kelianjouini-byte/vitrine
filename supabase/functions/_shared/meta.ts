@@ -58,23 +58,53 @@ export function friendlyMetaError(e: unknown): string {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** Instagram : conteneur média -> attente -> publication -> lien. */
-export async function publishInstagram(igUserId: string, token: string, imageUrl: string, caption: string) {
-  const container = await graph<{ id: string }>(`${igUserId}/media`, { image_url: imageUrl, caption, access_token: token }, 'POST');
+/** Attend qu'Instagram ait fini de préparer un conteneur (photo ou carrousel). */
+async function waitContainer(id: string, token: string) {
   for (let i = 0; i < 10; i++) {
-    const s = await graph<{ status_code: string }>(container.id, { fields: 'status_code', access_token: token });
-    if (s.status_code === 'FINISHED') break;
+    const s = await graph<{ status_code: string }>(id, { fields: 'status_code', access_token: token });
+    if (s.status_code === 'FINISHED') return;
     if (s.status_code === 'ERROR' || s.status_code === 'EXPIRED') throw new MetaError(9004, undefined, `conteneur ${s.status_code}`, false);
     await sleep(1500);
   }
-  const published = await graph<{ id: string }>(`${igUserId}/media_publish`, { creation_id: container.id, access_token: token }, 'POST');
+}
+
+/**
+ * Instagram : conteneur média -> attente -> publication -> lien.
+ * Plusieurs photos : un conteneur par photo (« élément de carrousel »), puis un conteneur CAROUSEL qui les regroupe.
+ */
+export async function publishInstagram(igUserId: string, token: string, imageUrls: string[], caption: string) {
+  let containerId: string;
+  if (imageUrls.length === 1) {
+    containerId = (await graph<{ id: string }>(`${igUserId}/media`, { image_url: imageUrls[0], caption, access_token: token }, 'POST')).id;
+  } else {
+    const children: string[] = [];
+    for (const url of imageUrls) {
+      children.push((await graph<{ id: string }>(`${igUserId}/media`, { image_url: url, is_carousel_item: 'true', access_token: token }, 'POST')).id);
+    }
+    for (const id of children) await waitContainer(id, token);
+    containerId = (await graph<{ id: string }>(`${igUserId}/media`, { media_type: 'CAROUSEL', children: children.join(','), caption, access_token: token }, 'POST')).id;
+  }
+  await waitContainer(containerId, token);
+  const published = await graph<{ id: string }>(`${igUserId}/media_publish`, { creation_id: containerId, access_token: token }, 'POST');
   const info = await graph<{ permalink?: string }>(published.id, { fields: 'permalink', access_token: token }).catch(() => ({ permalink: undefined }));
   return { id: published.id, url: info.permalink ?? null };
 }
 
-/** Facebook : photo publiée sur la Page autorisée. */
-export async function publishFacebook(pageId: string, pageToken: string, imageUrl: string, message: string) {
-  const res = await graph<{ id: string; post_id?: string }>(`${pageId}/photos`, { url: imageUrl, message, published: 'true', access_token: pageToken }, 'POST');
-  const postId = res.post_id ?? res.id;
-  return { id: postId, url: `https://www.facebook.com/${postId}` };
+/**
+ * Facebook : photo publiée sur la Page autorisée.
+ * Plusieurs photos : chaque photo est envoyée sans être publiée, puis un seul post les rassemble.
+ */
+export async function publishFacebook(pageId: string, pageToken: string, imageUrls: string[], message: string) {
+  if (imageUrls.length === 1) {
+    const res = await graph<{ id: string; post_id?: string }>(`${pageId}/photos`, { url: imageUrls[0], message, published: 'true', access_token: pageToken }, 'POST');
+    const postId = res.post_id ?? res.id;
+    return { id: postId, url: `https://www.facebook.com/${postId}` };
+  }
+  const params: Record<string, string> = { message, access_token: pageToken };
+  for (const [i, url] of imageUrls.entries()) {
+    const photo = await graph<{ id: string }>(`${pageId}/photos`, { url, published: 'false', access_token: pageToken }, 'POST');
+    params[`attached_media[${i}]`] = JSON.stringify({ media_fbid: photo.id });
+  }
+  const res = await graph<{ id: string }>(`${pageId}/feed`, params, 'POST');
+  return { id: res.id, url: `https://www.facebook.com/${res.id}` };
 }

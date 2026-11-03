@@ -4,7 +4,7 @@ import { onNotificationTap, scheduleReminders } from './notifications';
 import { signOut, socialConnections } from './api';
 import { Platform } from 'react-native';
 import type { Business, NotificationPrefs, Post, PostIdea, SocialConnection } from './types';
-import type { PickedPhoto } from './photo';
+import type { RawPhoto } from './photo';
 
 export type Route =
   | { name: 'home' }
@@ -12,7 +12,7 @@ export type Route =
   | { name: 'posts' }
   | { name: 'settings' }
   | { name: 'ideas' }
-  | { name: 'create'; occasionId?: string; photo?: PickedPhoto; idea?: PostIdea }
+  | { name: 'create'; occasionId?: string; photo?: RawPhoto; idea?: PostIdea }
   | { name: 'published'; postId: string };
 
 export const TAB_ROUTES = ['home', 'fetes', 'posts'] as const;

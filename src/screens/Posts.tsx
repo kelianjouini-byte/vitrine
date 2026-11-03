@@ -1,5 +1,5 @@
 import React from 'react';
-import { Image, ScrollView, View } from 'react-native';
+import { Image, ScrollView, Text, View } from 'react-native';
 import { Badge, Body, Button, Card, Title } from '../components/ui';
 import { CameraIcon } from '../components/icons';
 import { colors } from '../lib/theme';
@@ -33,7 +33,14 @@ export function Posts() {
       ) : (
         posts.map((p) => (
           <Card key={p.id} onPress={() => go({ name: 'published', postId: p.id })} style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
-            <Image source={{ uri: p.imageUri }} style={{ width: 64, height: 80, borderRadius: 10, backgroundColor: colors.greenSoft }} />
+            <View>
+              <Image source={{ uri: p.imageUri }} style={{ width: 64, height: 80, borderRadius: 10, backgroundColor: colors.greenSoft }} />
+              {(p.photoCount ?? 1) > 1 && (
+                <View style={{ position: 'absolute', top: 4, right: 4, backgroundColor: 'rgba(20,28,23,0.75)', borderRadius: 8, paddingHorizontal: 5 }}>
+                  <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>{p.photoCount} 📷</Text>
+                </View>
+              )}
+            </View>
             <View style={{ flex: 1, gap: 4 }}>
               <Body size={15} style={{ fontWeight: '600' }}>{p.caption.split('\n')[0].slice(0, 60)}</Body>
               <Body soft size={13}>{new Date(p.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })} · {p.platforms.map((x) => (x === 'instagram' ? 'Instagram' : 'Facebook')).join(' + ')}</Body>

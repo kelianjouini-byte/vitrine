@@ -1,15 +1,19 @@
-// POST { image_path, post_id?, occasion?, merchant_note?, trade_hint?, idea? }
+// POST { image_paths[] (ou image_path), post_id?, occasion?, merchant_note?, trade_hint?, idea? }
 // -> { postId, instagramCaption, facebookCaption, hashtags, callToAction, photoDescription, improvementTip }
 import { handler, json, HttpError } from '../_shared/http.ts';
 import { requireMerchant, rateLimit } from '../_shared/db.ts';
 import { generate, PROMPT_VERSION, containsInventedCommercialInfo } from '../_shared/openai.ts';
+import { readImagePaths } from '../_shared/photos.ts';
+
+/** Nombre de photos envoyées à l'IA (les suivantes sont publiées mais pas analysées). */
+const AI_MAX_IMAGES = 3;
 
 Deno.serve(handler(async (req) => {
   const { db, userId, business } = await requireMerchant(req);
   const body = await req.json().catch(() => ({}));
-  const imagePath = String(body.image_path ?? '');
-  // L'image doit être dans le dossier de l'utilisateur (validation d'accès).
-  if (!imagePath.startsWith(`${userId}/`) || imagePath.includes('..')) throw new HttpError(400, 'bad_image', 'Photo invalide.');
+  // Photos du carrousel, dans l'ordre (une seule pour un post classique).
+  const imagePaths = readImagePaths(body, userId);
+  const imagePath = imagePaths[0];
   const merchantNote = String(body.merchant_note ?? '').slice(0, 500);
   // Consigne du catalogue des métiers (src/lib/trades.ts), envoyée par l'app.
   const tradeHint = String(body.trade_hint ?? '').slice(0, 300);
@@ -21,18 +25,22 @@ Deno.serve(handler(async (req) => {
   // Limitation des coûts : 20 générations / heure / boutique (les limites par offre viendront de public.plans).
   await rateLimit(db, 'ai_generations', business.id, 20, 60);
 
-  const { data: signed, error: signErr } = await db.storage.from('post-images').createSignedUrl(imagePath, 600);
-  if (signErr || !signed) throw new HttpError(400, 'bad_image', 'La photo est introuvable. Reprenez-la.');
+  // L'IA regarde les 3 premières photos : assez pour comprendre le carrousel, et ça reste rapide et gratuit.
+  const seen = imagePaths.slice(0, AI_MAX_IMAGES);
+  const { data: signedList, error: signErr } = await db.storage.from('post-images').createSignedUrls(seen, 600);
+  const imageUrls = (signedList ?? []).map((x) => x.signedUrl).filter((u): u is string => !!u);
+  if (signErr || imageUrls.length !== seen.length) throw new HttpError(400, 'bad_image', 'Une photo est introuvable. Reprenez-la.');
 
   // Post : on crée le brouillon ou on réutilise celui qui existe (bouton « Refaire »).
   let postId: string | undefined = body.post_id;
   const { data: existing } = postId ? await db.from('posts').select('id').eq('id', postId).eq('business_id', business.id).maybeSingle() : { data: null };
   if (!existing) {
-    const { data: created, error } = await db.from('posts').insert({ ...(postId && /^[0-9a-f-]{36}$/.test(postId) ? { id: postId } : {}), business_id: business.id, image_url: imagePath, status: 'generating', occasion: body.occasion?.name ?? null }).select('id').single();
+    const { data: created, error } = await db.from('posts').insert({ ...(postId && /^[0-9a-f-]{36}$/.test(postId) ? { id: postId } : {}), business_id: business.id, image_url: imagePath, image_urls: imagePaths, status: 'generating', occasion: body.occasion?.name ?? null }).select('id').single();
     if (error) throw new HttpError(500, 'db', 'Impossible de préparer la publication.');
     postId = created.id;
   } else {
-    await db.from('posts').update({ status: 'generating' }).eq('id', postId);
+    // Le commerçant a pu changer les photos avant de demander un nouveau texte.
+    await db.from('posts').update({ status: 'generating', image_url: imagePath, image_urls: imagePaths }).eq('id', postId);
   }
 
   // Personnalisation progressive : on évite de répéter les derniers textes.
@@ -48,18 +56,21 @@ Deno.serve(handler(async (req) => {
     business.strengths ? `Ce qui rend la boutique unique : ${business.strengths}.` : '',
     business.description ? `Présentation : ${business.description}.` : '',
     business.audience ? `Clientèle : ${business.audience}.` : '',
+    imagePaths.length > 1
+      ? `Publication en carrousel de ${imagePaths.length} photos qui défilent${imagePaths.length > seen.length ? ` (tu vois les ${seen.length} premières)` : ''} : écris UN texte qui présente l'ensemble, sans décrire les photos une par une ni parler de ce que tu ne vois pas.`
+      : '',
     idea?.title ? `Idée de publication choisie par le commerçant (le texte doit suivre cette idée, si la photo y correspond) : ${idea.title}${idea.why ? ` — ${idea.why}` : ''}` : '',
     body.occasion ? `Occasion commerciale : ${body.occasion.name} (${body.occasion.date}).` : 'Pas d\'occasion particulière.',
     merchantNote ? `Informations données par le commerçant (seules infos commerciales autorisées) : ${merchantNote}` : 'Le commerçant n\'a donné aucune information commerciale (prix, promo...).',
     `Date du jour : ${new Date().toISOString().slice(0, 10)}.`,
   ].filter(Boolean).join('\n');
 
-  const inputData = { image_path: imagePath, occasion: body.occasion ?? null, merchant_note: merchantNote, idea };
+  const inputData = { image_path: imagePath, image_paths: imagePaths, occasion: body.occasion ?? null, merchant_note: merchantNote, idea };
   try {
-    let { out, usage } = await generate({ imageUrl: signed.signedUrl, context, avoid });
+    let { out, usage } = await generate({ imageUrls, context, avoid });
     // Contrôle du contenu : une seconde tentative si l'IA a inventé un prix / une promo.
     if (containsInventedCommercialInfo(out.instagram_caption + out.facebook_caption, merchantNote)) {
-      ({ out, usage } = await generate({ imageUrl: signed.signedUrl, context: context + '\nATTENTION : ta proposition précédente mentionnait un prix ou une promotion. Retire toute information commerciale.', avoid }));
+      ({ out, usage } = await generate({ imageUrls, context: context + '\nATTENTION : ta proposition précédente mentionnait un prix ou une promotion. Retire toute information commerciale.', avoid }));
       if (containsInventedCommercialInfo(out.instagram_caption + out.facebook_caption, merchantNote)) throw new HttpError(502, 'ai_failed', "L'IA n'a pas proposé un texte satisfaisant. Réessayez.");
     }
     await db.from('ai_generations').insert({ business_id: business.id, post_id: postId, prompt_version: PROMPT_VERSION, input_data: inputData, output_data: out, tokens_in: usage?.prompt_tokens, tokens_out: usage?.completion_tokens });
