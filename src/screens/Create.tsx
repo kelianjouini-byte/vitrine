@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Platform as RNPlatform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import * as Crypto from 'expo-crypto';
-import { Body, Button, Chip, Notice, Title, BackButton } from '../components/ui';
+import { Body, Button, Chip, Field, Notice, Title, BackButton } from '../components/ui';
 import { CameraIcon, CheckIcon, ImageIcon, PencilIcon, RefreshIcon, SparkIcon } from '../components/icons';
 import { colors, fonts, glass, glassSurface, radius } from '../lib/theme';
 import { useApp } from '../lib/store';
@@ -52,6 +52,8 @@ export function Create({ occasionId, initialPhoto, idea }: { occasionId?: string
   const [retryNotice, setRetryNotice] = useState<string | null>(null);
   // Ton de CE post : celui de la boutique au départ, modifiable avec « Changer le ton ».
   const [tone, setTone] = useState<Tone>(b.tone ?? DEFAULT_TONE);
+  // Idées du commerçant, en vrac : l'IA les glisse dans le texte avec ses mots.
+  const [notes, setNotes] = useState('');
   const [publishStep, setPublishStep] = useState(0);
   const idempotencyKey = useRef<string>(Crypto.randomUUID());
   // Toujours la dernière liste de photos (les envois au serveur la complètent pendant l'attente).
@@ -220,7 +222,7 @@ export function Create({ occasionId, initialPhoto, idea }: { occasionId?: string
         if (id) await saveBusiness({ ...b, id });
       }
       const paths = await ensureUploaded();
-      const out = await generatePost({ imagePaths: paths, occasion: occasion ?? null, postId: postIdRef.current, tradeHint: tradeById(b.businessType)?.aiHint, idea: idea ?? null, tone: withTone });
+      const out = await generatePost({ imagePaths: paths, occasion: occasion ?? null, postId: postIdRef.current, tradeHint: tradeById(b.businessType)?.aiHint, idea: idea ?? null, tone: withTone, merchantNote: notes.trim() || undefined });
       setPostId(out.postId);
       apply(out);
     } catch (e) {
@@ -307,6 +309,20 @@ export function Create({ occasionId, initialPhoto, idea }: { occasionId?: string
     </View>
   );
 
+  // Case « Vos idées pour le texte » : sur la page des photos et sous le texte proposé.
+  const notesField = (
+    <Field
+      label="Vos idées pour le texte (facultatif)"
+      hint="Écrivez en vrac ce que vous voulez dire. L'IA le glisse dans le texte avec ses mots. Les prix et les dates sont repris tels quels."
+      placeholder="Ex. : pivoines du marché, pour la fête des mères, petits bouquets aussi"
+      value={notes}
+      onChangeText={setNotes}
+      multiline
+      maxLength={300}
+      accessibilityLabel="Vos idées pour le texte"
+    />
+  );
+
   if (phase === 'pick') {
     return (
       <ScrollView contentContainerStyle={{ padding: 20, gap: 18 }}>
@@ -386,6 +402,8 @@ export function Create({ occasionId, initialPhoto, idea }: { occasionId?: string
           <Body soft size={14} center>{MAX_PHOTOS} photos au maximum : c'est la limite d'Instagram et Facebook.</Body>
         )}
 
+        {notesField}
+
         {error && <Notice tone="red" title="Nous avons besoin de votre attention" text={error} />}
 
         {gen ? (
@@ -456,6 +474,13 @@ export function Create({ occasionId, initialPhoto, idea }: { occasionId?: string
 
       {retryNotice && <Notice tone="orange" title="Pas de nouveau texte cette fois" text={retryNotice} />}
       {gen?.improvementTip ? <Body soft size={14}>Conseil : {gen.improvementTip}</Body> : null}
+
+      {!aiNotice && (
+        <View style={{ gap: 8 }}>
+          {notesField}
+          <Button title="Réécrire avec mes idées" kind="secondary" icon={<SparkIcon size={18} color={colors.green} />} onPress={() => generate()} disabled={!notes.trim()} />
+        </View>
+      )}
 
       {!aiNotice && (
         <View style={{ gap: 8 }}>

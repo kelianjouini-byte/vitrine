@@ -63,7 +63,9 @@ Deno.serve(handler(async (req) => {
       : '',
     idea?.title ? `Idée de publication choisie par le commerçant (le texte doit suivre cette idée, si la photo y correspond) : ${idea.title}${idea.why ? ` — ${idea.why}` : ''}` : '',
     body.occasion ? `Occasion commerciale : ${body.occasion.name} (${body.occasion.date}).` : 'Pas d\'occasion particulière.',
-    merchantNote ? `Informations données par le commerçant (seules infos commerciales autorisées) : ${merchantNote}` : 'Le commerçant n\'a donné aucune information commerciale (prix, promo...).',
+    merchantNote
+      ? `Idées du commerçant pour ce post, écrites en vrac : « ${merchantNote} ».\nIntègre TOUTES ces idées dans le texte, reformulées avec tes mots et dans le ton demandé (pas besoin de reprendre ses mots exacts).\nExceptions : recopie exactement les prix, dates, horaires et promotions qu'il donne. Ce sont les seules infos commerciales autorisées.`
+      : 'Le commerçant n\'a donné aucune idée ni information commerciale (prix, promo...).',
     `Date du jour : ${new Date().toISOString().slice(0, 10)}.`,
   ].filter(Boolean).join('\n');
 
