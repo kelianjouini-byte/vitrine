@@ -3,7 +3,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Body, Card, DateTile, Label, Notice, Title } from '../components/ui';
 import { takePhoto } from '../lib/photo';
 import { FriendlyError } from '../lib/api';
-import { CameraIcon, CheckIcon } from '../components/icons';
+import { CameraIcon, CheckIcon, SparkIcon } from '../components/icons';
 import { colors, fonts, radius } from '../lib/theme';
 import { useApp } from '../lib/store';
 import { daysUntil, inDaysLabel, upcomingEvents } from '../lib/events';
@@ -53,6 +53,18 @@ export function Home() {
         <Text style={{ color: colors.white, fontSize: 24, fontWeight: '700', letterSpacing: 0.5, fontFamily: fonts.body }}>PRENDRE UNE PHOTO</Text>
         <Text style={{ color: '#CFE6D8', fontSize: 16, fontFamily: fonts.body }}>Votre prochain post est à portée de main.</Text>
       </Pressable>
+      <Pressable onPress={() => go({ name: 'ideas' })} accessibilityRole="button" accessibilityLabel="Je ne sais pas quoi poster : voir 3 idées"
+        style={({ pressed }) => ({ backgroundColor: colors.white, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.orange, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 14, transform: [{ scale: pressed ? 0.98 : 1 }] })}>
+        <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: colors.orangeSoft, alignItems: 'center', justifyContent: 'center' }}>
+          <SparkIcon size={24} color={colors.orangeText} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: colors.text, fontSize: 18, fontWeight: '700', fontFamily: fonts.body }}>Je ne sais pas quoi poster</Text>
+          <Text style={{ color: colors.textSoft, fontSize: 15, fontFamily: fonts.body }}>Vitrine vous propose 3 idées de photos</Text>
+        </View>
+        <Text style={{ color: colors.orangeText, fontSize: 22, fontWeight: '700' }}>›</Text>
+      </Pressable>
+
       {photoError && (
         <View style={{ gap: 10 }}>
           <Notice tone="red" title="Nous avons besoin de votre attention" text={photoError} />

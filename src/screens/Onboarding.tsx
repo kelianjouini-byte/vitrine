@@ -6,11 +6,12 @@ import { NetworkCards } from '../components/NetworkCards';
 import { LogoMark } from '../components/icons';
 import { TONES } from '../lib/business';
 import { TradePicker } from '../components/TradePicker';
+import { IdentityFields } from '../components/IdentityFields';
 import { matchTrade } from '../lib/trades';
 import { occasionCatalog } from '../lib/events';
 import { colors } from '../lib/theme';
 import { useApp } from '../lib/store';
-import { detectTrade, saveBusinessRemote, suggestOccasionKeys, FriendlyError } from '../lib/api';
+import { detectBusiness, saveBusinessRemote, suggestOccasionKeys, FriendlyError } from '../lib/api';
 import { isBackendConfigured } from '../lib/config';
 import type { Business, Tone } from '../lib/types';
 
@@ -27,6 +28,7 @@ export function Onboarding() {
   const set = <K extends keyof Business>(k: K, v: Business[K]) => setForm((f) => ({ ...f, [k]: v }));
   const [detecting, setDetecting] = useState(false);
   const [detected, setDetected] = useState(false);
+  const [foundOnline, setFoundOnline] = useState(false);
   const triedFor = useRef('');
 
   // Dès que le nom et la ville sont écrits, l'IA cherche la boutique sur internet pour pré-remplir le métier.
@@ -40,11 +42,20 @@ export function Onboarding() {
       triedFor.current = key;
       setDetecting(true);
       try {
-        const found = await detectTrade({ businessName: name, city, postalCode: cp });
-        if (found) {
-          const m = matchTrade(found);
-          setForm((f) => (f.businessType ? f : { ...f, businessType: m?.id ?? 'autre', trade: m?.label ?? found }));
+        const found = await detectBusiness({ businessName: name, city, postalCode: cp });
+        if (found?.trade) {
+          const m = matchTrade(found.trade);
+          // On pré-remplit seulement ce que le commerçant n'a pas déjà écrit.
+          setForm((f) => (f.businessType ? f : {
+            ...f,
+            businessType: m?.id ?? 'autre',
+            trade: m?.label ?? found.trade!,
+            specialties: f.specialties || found.products || undefined,
+            strengths: f.strengths || found.strengths || undefined,
+            audience: f.audience || found.audience || undefined,
+          }));
           setDetected(true);
+          setFoundOnline(Boolean(found.products || found.strengths || found.audience));
         }
       } catch {
         /* pas grave : le commerçant choisit son métier lui-même */
@@ -80,6 +91,7 @@ export function Onboarding() {
       audience: form.audience?.trim() || undefined,
       description: form.description?.trim() || undefined,
       specialties: form.specialties?.trim() || undefined,
+      strengths: form.strengths?.trim() || undefined,
     };
     try {
       // Métier hors liste : l'IA choisit les occasions qui lui conviennent (sinon, toutes restent proposées).
@@ -144,9 +156,9 @@ export function Onboarding() {
                 <Chip key={t.id} label={t.label} selected={form.tone === t.id} onPress={() => set('tone', t.id as Tone)} />
               ))}
             </View>
-            <Field label="Vos spécialités (facultatif)" value={form.specialties} onChangeText={(v) => set('specialties', v)} placeholder="Bouquets de saison, compositions de mariage" />
-            <Field label="Vos clients (facultatif)" value={form.audience} onChangeText={(v) => set('audience', v)} placeholder="Familles du quartier, jeunes couples" />
-            <Field label="Votre boutique en quelques mots (facultatif)" value={form.description} onChangeText={(v) => set('description', v)} placeholder="Fleuriste de quartier depuis 1998, fleurs françaises" multiline />
+            <Title size={22}>Votre carte d'identité</Title>
+            <Body soft>Ce que l'IA doit savoir pour écrire comme vous et vous proposer des idées. Tout est modifiable plus tard.</Body>
+            <IdentityFields value={form} onChange={(v) => setForm((f) => ({ ...f, ...v }))} foundOnline={foundOnline} />
             <Button title="Continuer" onPress={() => setStep(3)} />
             <Button title="Retour" kind="ghost" onPress={() => setStep(1)} />
           </>

@@ -13,6 +13,7 @@ import { Published } from './src/screens/Published';
 import { Fetes } from './src/screens/Fetes';
 import { Posts } from './src/screens/Posts';
 import { Settings } from './src/screens/Settings';
+import { Ideas } from './src/screens/Ideas';
 
 // L'écran d'ouverture natif reste affiché jusqu'à ce que l'app soit prête.
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -49,7 +50,8 @@ function Root() {
         {route.name === 'fetes' && <Fetes />}
         {route.name === 'posts' && <Posts />}
         {route.name === 'settings' && <Settings />}
-        {route.name === 'create' && <Create key={route.occasionId ?? 'new'} occasionId={route.occasionId} initialPhoto={route.photo} />}
+        {route.name === 'ideas' && <Ideas />}
+        {route.name === 'create' && <Create key={route.occasionId ?? route.idea?.title ?? 'new'} occasionId={route.occasionId} initialPhoto={route.photo} idea={route.idea} />}
         {route.name === 'published' && <Published postId={route.postId} />}
       </View>
       {isTab && <TabBar />}

@@ -29,6 +29,21 @@ export function reminderText(e: CommercialEvent): { title: string; body: string 
   };
 }
 
+export const WEEKLY_IDEAS_TEXT = {
+  title: '💡 3 idées pour votre semaine',
+  body: 'Vous ne savez pas quoi poster ? Vitrine vous propose 3 idées de photos pour votre boutique.',
+};
+
+/** Appelle fn quand le commerçant touche une notification. Retourne de quoi arrêter l'écoute. */
+export function onNotificationTap(fn: (data: Record<string, unknown> | undefined) => void): () => void {
+  if (!notificationsSupported) return () => {};
+  const read = (r: Notifications.NotificationResponse) => fn(r.notification.request.content.data as Record<string, unknown> | undefined);
+  // App ouverte par la notification alors qu'elle était fermée.
+  Notifications.getLastNotificationResponseAsync().then((r) => r && read(r)).catch(() => {});
+  const sub = Notifications.addNotificationResponseReceivedListener(read);
+  return () => sub.remove();
+}
+
 /** Reprogramme tous les rappels selon les préférences. Retourne le nombre de rappels programmés. */
 export async function scheduleReminders(b: Business, prefs: NotificationPrefs): Promise<number> {
   if (!notificationsSupported) return 0;
@@ -37,6 +52,14 @@ export async function scheduleReminders(b: Business, prefs: NotificationPrefs): 
   if (!(await askPermission())) return 0;
   const now = new Date();
   let count = 0;
+  if (prefs.weeklyIdeas !== false) {
+    // Chaque lundi (weekday 2 : 1 = dimanche pour Expo), à l'heure choisie.
+    await Notifications.scheduleNotificationAsync({
+      content: { ...WEEKLY_IDEAS_TEXT, data: { route: 'ideas' } },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.WEEKLY, weekday: 2, hour: prefs.hour, minute: 0 },
+    });
+    count++;
+  }
   for (const e of upcomingEvents(b, now, 12, b.postalCode)) {
     const when = new Date(e.date.getFullYear(), e.date.getMonth(), e.date.getDate() - Math.max(prefs.daysBefore, 1), prefs.hour, 0);
     if (when <= now) continue;

@@ -3,6 +3,7 @@ import { Pressable, ScrollView, Switch, View } from 'react-native';
 import { Body, Button, Card, Chip, Field, Label, Notice, Title } from '../components/ui';
 import { BackIcon } from '../components/icons';
 import { NetworkCards } from '../components/NetworkCards';
+import { IdentityFields, type Identity } from '../components/IdentityFields';
 import { colors } from '../lib/theme';
 import { useApp } from '../lib/store';
 import { tradeLabel } from '../lib/business';
@@ -47,6 +48,9 @@ export function Settings() {
         <Body soft size={14}>Ton : {b.tone}</Body>
       </Card>
 
+      <Label>Carte d'identité de la boutique</Label>
+      <IdentityCard />
+
       <Label>Mon compte</Label>
       <Account onLoggedIn={async () => {
         b.id = await saveBusinessRemote(b);
@@ -75,6 +79,13 @@ export function Settings() {
             </View>
           </>
         )}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <View style={{ flex: 1 }}>
+            <Body style={{ fontWeight: '600' }}>Le lundi : 3 idées pour votre semaine</Body>
+            <Body soft size={14}>Un petit rappel avec des idées de photos.</Body>
+          </View>
+          <Switch value={prefs.weeklyIdeas !== false} onValueChange={(v) => setPrefs({ ...prefs, weeklyIdeas: v })} trackColor={{ true: colors.green, false: '#D6DBD5' }} thumbColor="#fff" />
+        </View>
         {!notificationsSupported && <Body soft size={13}>Les rappels fonctionnent dans l'application sur téléphone.</Body>}
       </Card>
 
@@ -99,6 +110,41 @@ export function Settings() {
         </Card>
       )}
     </ScrollView>
+  );
+}
+
+/** Modifier ce que l'IA sait de la boutique (produits, ce qui la rend unique, clients). */
+function IdentityCard() {
+  const { business, saveBusiness } = useApp();
+  const b = business!;
+  const initial: Identity = { specialties: b.specialties ?? '', strengths: b.strengths ?? '', audience: b.audience ?? '', description: b.description ?? '' };
+  const [form, setForm] = useState<Identity>(initial);
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
+  const changed = (Object.keys(initial) as (keyof Identity)[]).some((k) => (form[k] ?? '').trim() !== (initial[k] ?? '').trim());
+
+  async function submit() {
+    setSaving(true);
+    setStatus(null);
+    const next = { ...b, ...Object.fromEntries(Object.entries(form).map(([k, v]) => [k, v?.trim() || undefined])) };
+    try {
+      const id = await saveBusinessRemote(next);
+      await saveBusiness({ ...next, id: id ?? next.id });
+      setStatus({ ok: true, text: "C'est enregistré. L'IA en tient compte dès maintenant." });
+    } catch (e) {
+      setStatus({ ok: false, text: e instanceof FriendlyError ? e.message : "L'enregistrement a échoué. Réessayez." });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card style={{ gap: 14 }}>
+      <Body soft size={14}>Plus l'IA connaît votre boutique, plus ses textes et ses idées vous ressemblent.</Body>
+      <IdentityFields value={form} onChange={(v) => { setForm(v); setStatus(null); }} />
+      {status && <Notice tone={status.ok ? 'green' : 'red'} title={status.text} />}
+      <Button title="Enregistrer" loading={saving} disabled={!changed} onPress={submit} />
+    </Card>
   );
 }
 

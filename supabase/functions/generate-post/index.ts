@@ -1,4 +1,4 @@
-// POST { image_path, post_id?, occasion?, merchant_note? }
+// POST { image_path, post_id?, occasion?, merchant_note?, trade_hint?, idea? }
 // -> { postId, instagramCaption, facebookCaption, hashtags, callToAction, photoDescription, improvementTip }
 import { handler, json, HttpError } from '../_shared/http.ts';
 import { requireMerchant, rateLimit } from '../_shared/db.ts';
@@ -13,6 +13,10 @@ Deno.serve(handler(async (req) => {
   const merchantNote = String(body.merchant_note ?? '').slice(0, 500);
   // Consigne du catalogue des métiers (src/lib/trades.ts), envoyée par l'app.
   const tradeHint = String(body.trade_hint ?? '').slice(0, 300);
+  // Idée choisie dans l'assistant « Je ne sais pas quoi poster » : le texte suit cette idée.
+  const idea = body.idea && typeof body.idea === 'object'
+    ? { title: String(body.idea.title ?? '').slice(0, 80), why: String(body.idea.why ?? '').slice(0, 240) }
+    : null;
 
   // Limitation des coûts : 20 générations / heure / boutique (les limites par offre viendront de public.plans).
   await rateLimit(db, 'ai_generations', business.id, 20, 60);
@@ -40,15 +44,17 @@ Deno.serve(handler(async (req) => {
     `Métier exact : ${business.trade || business.business_type}.`,
     tradeHint ? `Ce que ce métier met en valeur : ${tradeHint}` : '',
     `Ton souhaité : ${business.tone}.`,
-    business.specialties ? `Spécialités : ${business.specialties}.` : '',
+    business.specialties ? `Produits et spécialités : ${business.specialties}.` : '',
+    business.strengths ? `Ce qui rend la boutique unique : ${business.strengths}.` : '',
     business.description ? `Présentation : ${business.description}.` : '',
     business.audience ? `Clientèle : ${business.audience}.` : '',
+    idea?.title ? `Idée de publication choisie par le commerçant (le texte doit suivre cette idée, si la photo y correspond) : ${idea.title}${idea.why ? ` — ${idea.why}` : ''}` : '',
     body.occasion ? `Occasion commerciale : ${body.occasion.name} (${body.occasion.date}).` : 'Pas d\'occasion particulière.',
     merchantNote ? `Informations données par le commerçant (seules infos commerciales autorisées) : ${merchantNote}` : 'Le commerçant n\'a donné aucune information commerciale (prix, promo...).',
     `Date du jour : ${new Date().toISOString().slice(0, 10)}.`,
   ].filter(Boolean).join('\n');
 
-  const inputData = { image_path: imagePath, occasion: body.occasion ?? null, merchant_note: merchantNote };
+  const inputData = { image_path: imagePath, occasion: body.occasion ?? null, merchant_note: merchantNote, idea };
   try {
     let { out, usage } = await generate({ imageUrl: signed.signedUrl, context, avoid });
     // Contrôle du contenu : une seconde tentative si l'IA a inventé un prix / une promo.

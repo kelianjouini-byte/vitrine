@@ -7,7 +7,7 @@
  */
 import * as Crypto from 'expo-crypto';
 import { supabase } from './supabase';
-import type { Business, GeneratedPost, Platform, PublicationResult, SocialConnection } from './types';
+import type { Business, GeneratedPost, Platform, PostIdea, PublicationResult, SocialConnection } from './types';
 import { tradeLabel } from './business';
 import type { CommercialEvent } from './events';
 
@@ -38,6 +38,8 @@ async function callFunction<T>(name: string, body: Record<string, unknown>): Pro
     }
     if (payload?.code === 'openai_not_configured') throw new NotConfiguredError('ia');
     if (payload?.code === 'meta_not_configured') throw new NotConfiguredError('meta');
+    // Fonction pas encore installée sur le serveur : on le dit honnêtement.
+    if ((error as { context?: Response }).context?.status === 404 && !payload?.code) throw new NotConfiguredError('serveur');
     throw new FriendlyError(payload?.message ?? 'Le serveur ne répond pas. Vérifiez votre connexion et réessayez.');
   }
   return data as T;
@@ -99,6 +101,7 @@ export async function saveBusinessRemote(b: Business): Promise<string | undefine
     audience: b.audience ?? null,
     description: b.description ?? null,
     specialties: b.specialties ?? null,
+    strengths: b.strengths?.trim() || null,
   };
   const { data, error } = await supabase.from('businesses').upsert(row, { onConflict: 'owner_id' }).select('id').single();
   if (error) throw new FriendlyError("Votre boutique n'a pas pu être enregistrée. Réessayez.");
@@ -132,6 +135,8 @@ export interface GenerateInput {
   occasion?: Pick<CommercialEvent, 'name' | 'date'> | null;
   merchantNote?: string;
   postId?: string;
+  /** Idée choisie dans l'assistant : le texte suit cette idée. */
+  idea?: Pick<PostIdea, 'title' | 'why'> | null;
 }
 
 export async function generatePost(input: GenerateInput): Promise<GeneratedPost & { postId: string }> {
@@ -141,6 +146,7 @@ export async function generatePost(input: GenerateInput): Promise<GeneratedPost 
     occasion: input.occasion ? { name: input.occasion.name, date: input.occasion.date.toISOString().slice(0, 10) } : null,
     merchant_note: input.merchantNote ?? null,
     trade_hint: input.tradeHint ?? null,
+    idea: input.idea ? { title: input.idea.title, why: input.idea.why } : null,
   });
 }
 
@@ -164,17 +170,26 @@ export function exampleCaption(b: Business, occasion?: Pick<CommercialEvent, 'na
 
 // ---------------------------------------------------------------- Métier (inscription)
 
-/** Cherche le métier du commerce sur internet à partir de son nom et de sa ville. null = pas trouvé. */
-export async function detectTrade(input: { businessName: string; city: string; postalCode: string }): Promise<string | null> {
+/** Ce que la recherche sur internet a trouvé sur la boutique (pour pré-remplir, le commerçant corrige). */
+export interface FoundBusiness {
+  trade: string | null;
+  products: string | null;
+  strengths: string | null;
+  audience: string | null;
+}
+
+/** Cherche la boutique sur internet à partir de son nom et de sa ville. null = pas trouvée. */
+export async function detectBusiness(input: { businessName: string; city: string; postalCode: string }): Promise<FoundBusiness | null> {
   if (!supabase) return null;
   if (!(await ensureSession())) return null;
-  const res = await callFunction<{ trade: string | null }>('business-ai', {
+  const res = await callFunction<Partial<FoundBusiness>>('business-ai', {
     action: 'detect',
     business_name: input.businessName,
     city: input.city,
     postal_code: input.postalCode,
   });
-  return res.trade;
+  if (!res?.trade) return null;
+  return { trade: res.trade, products: res.products ?? null, strengths: res.strengths ?? null, audience: res.audience ?? null };
 }
 
 /** Pour un métier hors liste : l'IA choisit les occasions qui lui conviennent. */
@@ -183,6 +198,31 @@ export async function suggestOccasionKeys(trade: string, catalog: { key: string;
   if (!(await ensureSession())) return [];
   const res = await callFunction<{ keys: string[] }>('business-ai', { action: 'occasions', trade, catalog });
   return res.keys;
+}
+
+// ---------------------------------------------------------------- Idées de posts
+
+/** L'assistant « Je ne sais pas quoi poster » : 3 idées adaptées à la boutique. */
+export async function fetchPostIdeas(input: { occasions: Pick<CommercialEvent, 'name' | 'date'>[]; tradeHint?: string }): Promise<PostIdea[]> {
+  requireBackend();
+  if (!(await ensureSession())) throw new NotConfiguredError('compte');
+  const res = await callFunction<{ ideas: PostIdea[] }>('post-ideas', {
+    occasions: input.occasions.slice(0, 5).map((o) => ({ name: o.name, date: localDate(o.date) })),
+    trade_hint: input.tradeHint ?? null,
+  });
+  return Array.isArray(res?.ideas) ? res.ideas : [];
+}
+
+/** 👍 (1) ou 👎 (-1) sur une idée. Sans serveur, l'avis reste seulement sur le téléphone. */
+export async function sendIdeaVote(businessId: string | undefined, ideaTitle: string, vote: 1 | -1): Promise<void> {
+  if (!supabase || !businessId) return;
+  const { error } = await supabase.from('post_idea_feedback').insert({ business_id: businessId, idea_title: ideaTitle.slice(0, 160), vote });
+  if (error) throw new FriendlyError("Votre avis n'a pas pu être envoyé. Réessayez.");
+}
+
+/** Date AAAA-MM-JJ dans le fuseau du téléphone (toISOString décalerait d'un jour en France). */
+function localDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 // ---------------------------------------------------------------- Publication
