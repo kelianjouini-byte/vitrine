@@ -1,0 +1,14 @@
+{
+  "name": "Vitrine",
+  "short_name": "Vitrine",
+  "start_url": "/vitrine/",
+  "scope": "/vitrine/",
+  "display": "browser",
+  "background_color": "#2F7658",
+  "theme_color": "#2F7658",
+  "icons": [
+    { "src": "/vitrine/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/vitrine/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/vitrine/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
