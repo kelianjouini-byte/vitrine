@@ -18,6 +18,11 @@ App ──business-ai (inscription)──► detect : nom + ville → recherche 
 App ──post-ideas──► « Je ne sais pas quoi poster » : carte d'identité + prochaines fêtes + 8 derniers posts + 👍/👎
                        (post_idea_feedback) → 3 idées (titre, quoi photographier, pourquoi) ; idées avec prix/promo/horaire écartées
                        limite 12/h/boutique (post_ideas). Une idée choisie est envoyée à generate-post (champ idea).
+App ──monthly-report──► « Mon bilan » : l'app compte ses VRAIS posts publiés (src/lib/report.ts : ce mois, mois d'avant,
+                       20 min gagnées par post) et envoie ces chiffres + les occasions du mois suivant → 1 conseil de l'IA.
+                       Conseil refusé s'il contient un chiffre autre que les vrais, un prix ou un horaire. Cache par mois + chiffres
+                       et limite 10/h/boutique (monthly_reports). Vues, abonnés et meilleur post : « bientôt » (statistiques Meta).
+                       Notification locale le 1er du mois « Votre bilan de [mois] est prêt » (12 mois programmés d'avance).
 App ──upload──► Storage post-images/<user_id>/<uuid>.jpg (privé)
 App ──generate-post──► vérifie l'utilisateur, limite 20/h, URL signée 10 min, métier exact + consigne du métier (src/lib/trades.ts)
                        ──► OpenAI (JSON strict) ──► contrôle « pas de prix/promo inventés »

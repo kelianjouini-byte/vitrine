@@ -5,6 +5,7 @@ import { signOut, socialConnections } from './api';
 import { Platform } from 'react-native';
 import type { Business, NotificationPrefs, Post, PostIdea, SocialConnection } from './types';
 import type { RawPhoto } from './photo';
+import type { Month } from './report';
 
 export type Route =
   | { name: 'home' }
@@ -12,6 +13,7 @@ export type Route =
   | { name: 'posts' }
   | { name: 'settings' }
   | { name: 'ideas' }
+  | { name: 'report'; month?: Month }
   | { name: 'create'; occasionId?: string; photo?: RawPhoto; idea?: PostIdea }
   | { name: 'published'; postId: string };
 
@@ -33,7 +35,7 @@ interface AppState {
   resetAll: () => Promise<void>;
 }
 
-const DEFAULT_PREFS: NotificationPrefs = { enabled: true, daysBefore: 7, hour: 9, weeklyIdeas: true };
+const DEFAULT_PREFS: NotificationPrefs = { enabled: true, daysBefore: 7, hour: 9, weeklyIdeas: true, monthlyReport: true };
 
 const Ctx = createContext<AppState | null>(null);
 
@@ -66,9 +68,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setStack((s) => ((TAB_ROUTES as readonly string[]).includes(r.name) ? [r] : [...s, r]));
   }, []);
 
-  // Appui sur le rappel du lundi : on ouvre directement les idées.
+  // Appui sur une notification : le rappel du lundi ouvre les idées, celui du 1er du mois ouvre le bilan.
   useEffect(() => onNotificationTap((data) => {
     if (data?.route === 'ideas') setStack([{ name: 'home' }, { name: 'ideas' }]);
+    if (data?.route === 'report') {
+      const [y, m] = String(data.month ?? '').split('-').map(Number);
+      setStack([{ name: 'home' }, { name: 'report', month: y && m ? { year: y, month: m - 1 } : undefined }]);
+    }
   }), []);
   const back = useCallback(() => setStack((s) => (s.length > 1 ? s.slice(0, -1) : s)), []);
 

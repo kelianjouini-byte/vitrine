@@ -14,6 +14,7 @@ import { Fetes } from './src/screens/Fetes';
 import { Posts } from './src/screens/Posts';
 import { Settings } from './src/screens/Settings';
 import { Ideas } from './src/screens/Ideas';
+import { Report } from './src/screens/Report';
 
 // L'écran d'ouverture natif reste affiché jusqu'à ce que l'app soit prête.
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -51,6 +52,7 @@ function Root() {
         {route.name === 'posts' && <Posts />}
         {route.name === 'settings' && <Settings />}
         {route.name === 'ideas' && <Ideas />}
+        {route.name === 'report' && <Report key={route.month ? `${route.month.year}-${route.month.month}` : 'now'} initialMonth={route.month} />}
         {route.name === 'create' && <Create key={route.occasionId ?? route.idea?.title ?? 'new'} occasionId={route.occasionId} initialPhoto={route.photo} idea={route.idea} />}
         {route.name === 'published' && <Published postId={route.postId} />}
       </View>

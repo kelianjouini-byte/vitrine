@@ -86,6 +86,13 @@ export function Settings() {
           </View>
           <Switch value={prefs.weeklyIdeas !== false} onValueChange={(v) => setPrefs({ ...prefs, weeklyIdeas: v })} trackColor={{ true: colors.green, false: '#D6DBD5' }} thumbColor="#fff" />
         </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <View style={{ flex: 1 }}>
+            <Body style={{ fontWeight: '600' }}>Le 1er du mois : votre bilan</Body>
+            <Body soft size={14}>Un petit rappel quand le bilan du mois est prêt.</Body>
+          </View>
+          <Switch value={prefs.monthlyReport !== false} onValueChange={(v) => setPrefs({ ...prefs, monthlyReport: v })} trackColor={{ true: colors.green, false: '#D6DBD5' }} thumbColor="#fff" />
+        </View>
         {!notificationsSupported && <Body soft size={13}>Les rappels fonctionnent dans l'application sur téléphone.</Body>}
       </Card>
 

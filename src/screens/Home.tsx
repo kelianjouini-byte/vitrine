@@ -8,14 +8,12 @@ import { colors, fonts, radius } from '../lib/theme';
 import { useApp } from '../lib/store';
 import { daysUntil, inDaysLabel, upcomingEvents } from '../lib/events';
 import { initials } from '../lib/business';
+import { MonthReportCard } from '../components/MonthReportCard';
 
 export function Home() {
   const { business, posts, connections, go } = useApp();
   const b = business!;
   const next = useMemo(() => upcomingEvents(b, new Date(), 12, b.postalCode)[0], [b]);
-  const now = new Date();
-  const thisMonth = posts.filter((p) => p.status === 'published' || p.status === 'partially_published')
-    .filter((p) => { const d = new Date(p.publishedAt ?? p.createdAt); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); }).length;
   const connected = connections.filter((c) => c.status === 'connected').length;
   const scheduled = posts.find((p) => p.status === 'scheduled');
   const days = next ? daysUntil(next.date) : 0;
@@ -94,14 +92,13 @@ export function Home() {
       <View style={{ gap: 10 }}>
         <Label>Ce mois-ci</Label>
         <View style={{ flexDirection: 'row', gap: 10 }}>
-          <Card style={{ flex: 1 }}>
-            <Title size={30}>{thisMonth}</Title>
-            <Body soft size={14}>{thisMonth > 1 ? 'posts publiés' : 'post publié'}</Body>
-          </Card>
-          <Card style={{ flex: 1 }} onPress={() => go({ name: 'settings' })}>
-            <Title size={30}>{connected}/2</Title>
-            <Body soft size={14}>réseaux connectés</Body>
-          </Card>
+          <View style={{ flex: 1 }}><MonthReportCard /></View>
+          <View style={{ flex: 1 }}>
+            <Card onPress={() => go({ name: 'settings' })}>
+              <Title size={30}>{connected}/2</Title>
+              <Body soft size={14}>réseaux connectés</Body>
+            </Card>
+          </View>
         </View>
         <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
           <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.greenSoft, alignItems: 'center', justifyContent: 'center' }}>

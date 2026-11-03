@@ -1,6 +1,7 @@
 // Moteur IA : analyse de la photo + rédaction. Sortie JSON stricte, validée ici.
 import { env, HttpError } from './http.ts';
 import { containsInventedFacts } from './guard.ts';
+import { buildReportPrompt, parseAdvice, REPORT_SYSTEM_PROMPT, type ReportContext } from './report.ts';
 import { allowedFacts, buildIdeasPrompt, IDEAS_SYSTEM_PROMPT, parseIdeas, type IdeasContext, type PostIdea } from './ideas.ts';
 export { containsInventedCommercialInfo } from './guard.ts';
 import { normalizePost, type AiOutput } from './post.ts';
@@ -343,4 +344,15 @@ Réponds en JSON : {"keys": ["cle1", "cle2", ...]} avec seulement des clés de l
   const out = parseJson<{ keys?: unknown }>(content);
   const allowed = new Set(catalog.map((o) => o.key));
   return Array.isArray(out.keys) ? [...new Set(out.keys.filter((k): k is string => typeof k === 'string' && allowed.has(k)))] : [];
+}
+
+/** « Mon bilan » : un conseil simple pour le mois suivant. Un conseil douteux (chiffre inventé, prix...) est écarté. */
+export async function writeAdvice(ctx: ReportContext): Promise<string> {
+  const { content } = await chatCompletion([
+    { role: 'system', content: REPORT_SYSTEM_PROMPT },
+    { role: 'user', content: buildReportPrompt(ctx) },
+  ], { responseFormat: { type: 'json_object' }, maxTokens: 400, temperature: 0.7, valid: (c) => parseAdvice(c, ctx) !== null });
+  const advice = parseAdvice(content, ctx);
+  if (!advice) throw new HttpError(502, 'ai_failed', "L'IA n'a pas pu écrire votre conseil. Réessayez.");
+  return advice;
 }

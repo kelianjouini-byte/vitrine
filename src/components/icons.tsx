@@ -34,6 +34,10 @@ export const InstagramIcon = ({ size, color = '#000' }: P) => (
   <S size={size}><Rect x={3.5} y={3.5} width={17} height={17} rx={5} {...st(color)} /><Circle cx={12} cy={12} r={4} {...st(color)} /><Circle cx={17} cy={7} r={0.8} fill={color} /></S>
 );
 export const FacebookIcon = ({ size, color = '#000' }: P) => (<S size={size}><Path d="M14 8h3V4h-3a4 4 0 0 0-4 4v3H7v4h3v6h4v-6h3l1-4h-4V8Z" {...st(color)} /></S>);
+/** Petit graphique qui monte : purement décoratif, ce n'est PAS une courbe de données. */
+export const ChartUpIcon = ({ size, color = '#000' }: P) => (
+  <S size={size}><Path d="M4 20h16" {...st(color)} /><Path d="m5 16 4.5-4.5 3 3L19 8" {...st(color)} /><Path d="M15 8h4v4" {...st(color)} /></S>
+);
 export const AlertIcon = ({ size, color = '#000' }: P) => (<S size={size}><Circle cx={12} cy={12} r={9} {...st(color)} /><Path d="M12 7v6M12 16.5v.5" {...st(color)} /></S>);
 
 /** Logo Vitrine « la boutique qui reçoit un j'aime » : store, vitrine aux reflets orange, porte et pastille cœur. `onGreen` : version blanche pour fond vert. */
