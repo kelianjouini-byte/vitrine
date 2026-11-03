@@ -196,17 +196,12 @@ function parseJson<T>(content: string): T {
   }
 }
 
-export async function generate(input: { imageUrl: string; context: string; avoid: string[] }): Promise<{ out: AiOutput; usage?: Usage }> {
+export async function generate(input: { imageUrls: string[]; context: string; avoid: string[] }): Promise<{ out: AiOutput; usage?: Usage }> {
   const { jsonMode, routes } = aiConfig();
   const isOpenAI = routes[0].baseUrl.includes('api.openai.com');
   const responseFormat = jsonMode === 'object' ? { type: 'json_object' } : { type: 'json_schema', json_schema: SCHEMA };
-  // On envoie la photo en « data URI » : tous les fournisseurs l'acceptent (certains refusent les liens).
-  const img = await fetch(input.imageUrl);
-  if (!img.ok) throw new HttpError(400, 'bad_image', 'La photo est introuvable. Reprenez-la.');
-  const bytes = new Uint8Array(await img.arrayBuffer());
-  let bin = '';
-  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  const dataUri = `data:${img.headers.get('content-type') ?? 'image/jpeg'};base64,${btoa(bin)}`;
+  // On envoie les photos en « data URI » : tous les fournisseurs l'acceptent (certains refusent les liens).
+  const dataUris = await Promise.all(input.imageUrls.map(toDataUri));
   const avoid = input.avoid.length ? `\nTextes déjà publiés récemment (ne pas répéter les mêmes tournures) :\n- ${input.avoid.join('\n- ')}` : '';
   const { content, usage } = await chatCompletion([
     { role: 'system', content: SYSTEM_PROMPT },
@@ -214,7 +209,7 @@ export async function generate(input: { imageUrl: string; context: string; avoid
       role: 'user',
       content: [
         { type: 'text', text: input.context + avoid + `\nRéponds en JSON avec exactement ces clés : ${SCHEMA.schema.required.join(', ')}.` },
-        { type: 'image_url', image_url: isOpenAI ? { url: dataUri, detail: 'low' } : { url: dataUri } },
+        ...dataUris.map((url) => ({ type: 'image_url', image_url: isOpenAI ? { url, detail: 'low' } : { url } })),
       ],
     },
   ], { responseFormat, maxTokens: 900, valid: (c) => normalizePost(c) !== null });
@@ -222,6 +217,16 @@ export async function generate(input: { imageUrl: string; context: string; avoid
   const out = normalizePost(content);
   if (!out) throw new HttpError(502, 'ai_failed', "L'IA n'a pas pu écrire votre texte. Réessayez.");
   return { out, usage };
+}
+
+/** Télécharge une photo du stockage et la transforme en « data URI ». */
+async function toDataUri(url: string): Promise<string> {
+  const img = await fetch(url);
+  if (!img.ok) throw new HttpError(400, 'bad_image', 'La photo est introuvable. Reprenez-la.');
+  const bytes = new Uint8Array(await img.arrayBuffer());
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return `data:${img.headers.get('content-type') ?? 'image/jpeg'};base64,${btoa(bin)}`;
 }
 
 export interface FoundBusiness {

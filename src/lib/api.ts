@@ -129,7 +129,8 @@ export async function uploadPhoto(base64: string): Promise<string> {
 }
 
 export interface GenerateInput {
-  imagePath: string;
+  /** Chemins des photos dans le stockage, dans l'ordre du carrousel (1 à 10). */
+  imagePaths: string[];
   /** Consigne du métier pour l'IA (catalogue src/lib/trades.ts). */
   tradeHint?: string;
   occasion?: Pick<CommercialEvent, 'name' | 'date'> | null;
@@ -141,7 +142,9 @@ export interface GenerateInput {
 
 export async function generatePost(input: GenerateInput): Promise<GeneratedPost & { postId: string }> {
   return callFunction('generate-post', {
-    image_path: input.imagePath,
+    // image_path : pour un serveur pas encore mis à jour (une seule photo).
+    image_path: input.imagePaths[0],
+    image_paths: input.imagePaths,
     post_id: input.postId,
     occasion: input.occasion ? { name: input.occasion.name, date: input.occasion.date.toISOString().slice(0, 10) } : null,
     merchant_note: input.merchantNote ?? null,
@@ -232,6 +235,8 @@ export interface PublishInput {
   caption: string;
   hashtags: string[];
   platforms: Platform[];
+  /** Les photos, dans l'ordre du carrousel (le commerçant a pu les changer après le texte). */
+  imagePaths: string[];
   /** Clé d'idempotence : la même publication ne partira jamais deux fois. */
   idempotencyKey: string;
 }
@@ -242,6 +247,7 @@ export async function publishPost(input: PublishInput): Promise<PublicationResul
     caption: input.caption,
     hashtags: input.hashtags,
     platforms: input.platforms,
+    image_paths: input.imagePaths,
     idempotency_key: input.idempotencyKey,
   });
   return res.publications;

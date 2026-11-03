@@ -60,7 +60,7 @@ export function Ideas() {
   async function shoot(idea: PostIdea) {
     setPhotoError(null);
     try {
-      const photo = await takePhoto('camera');
+      const photo = await takePhoto();
       if (photo) go({ name: 'create', photo, idea });
     } catch (e) {
       setPhotoError(e instanceof FriendlyError ? e.message : "La photo n'a pas pu être ouverte. Réessayez.");
