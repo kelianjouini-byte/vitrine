@@ -1,9 +1,9 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { load, save, clearAll } from './storage';
-import { scheduleReminders } from './notifications';
+import { onNotificationTap, scheduleReminders } from './notifications';
 import { signOut, socialConnections } from './api';
 import { Platform } from 'react-native';
-import type { Business, NotificationPrefs, Post, SocialConnection } from './types';
+import type { Business, NotificationPrefs, Post, PostIdea, SocialConnection } from './types';
 import type { PickedPhoto } from './photo';
 
 export type Route =
@@ -11,7 +11,8 @@ export type Route =
   | { name: 'fetes' }
   | { name: 'posts' }
   | { name: 'settings' }
-  | { name: 'create'; occasionId?: string; photo?: PickedPhoto }
+  | { name: 'ideas' }
+  | { name: 'create'; occasionId?: string; photo?: PickedPhoto; idea?: PostIdea }
   | { name: 'published'; postId: string };
 
 export const TAB_ROUTES = ['home', 'fetes', 'posts'] as const;
@@ -32,7 +33,7 @@ interface AppState {
   resetAll: () => Promise<void>;
 }
 
-const DEFAULT_PREFS: NotificationPrefs = { enabled: true, daysBefore: 7, hour: 9 };
+const DEFAULT_PREFS: NotificationPrefs = { enabled: true, daysBefore: 7, hour: 9, weeklyIdeas: true };
 
 const Ctx = createContext<AppState | null>(null);
 
@@ -64,6 +65,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const go = useCallback((r: Route) => {
     setStack((s) => ((TAB_ROUTES as readonly string[]).includes(r.name) ? [r] : [...s, r]));
   }, []);
+
+  // Appui sur le rappel du lundi : on ouvre directement les idées.
+  useEffect(() => onNotificationTap((data) => {
+    if (data?.route === 'ideas') setStack([{ name: 'home' }, { name: 'ideas' }]);
+  }), []);
   const back = useCallback(() => setStack((s) => (s.length > 1 ? s.slice(0, -1) : s)), []);
 
   const saveBusiness = useCallback(async (b: Business) => {

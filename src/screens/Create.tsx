@@ -10,11 +10,11 @@ import { isBackendConfigured } from '../lib/config';
 import { ensureSession, exampleCaption, FriendlyError, generatePost, NotConfiguredError, publishPost, saveBusinessRemote, uploadPhoto } from '../lib/api';
 import { takePhoto, type PickedPhoto } from '../lib/photo';
 import { tradeById } from '../lib/trades';
-import type { GeneratedPost, Platform, Post, PublicationResult } from '../lib/types';
+import type { GeneratedPost, Platform, Post, PostIdea, PublicationResult } from '../lib/types';
 
 type Phase = 'pick' | 'generating' | 'preview' | 'publishing';
 
-export function Create({ occasionId, initialPhoto }: { occasionId?: string; initialPhoto?: PickedPhoto }) {
+export function Create({ occasionId, initialPhoto, idea }: { occasionId?: string; initialPhoto?: PickedPhoto; idea?: PostIdea }) {
   const { business, back, go, upsertPost, connections, saveBusiness } = useApp();
   const b = business!;
   const occasion = useMemo(() => (occasionId ? upcomingEvents(b, new Date(), 13, b.postalCode).find((e) => e.id === occasionId) : null), [occasionId, b]);
@@ -75,7 +75,7 @@ export function Create({ occasionId, initialPhoto }: { occasionId?: string; init
       }
       const path = existingPath ?? (await uploadPhoto(p.base64));
       setImagePath(path);
-      const out = await generatePost({ imagePath: path, occasion: occasion ?? null, postId, tradeHint: tradeById(b.businessType)?.aiHint });
+      const out = await generatePost({ imagePath: path, occasion: occasion ?? null, postId, tradeHint: tradeById(b.businessType)?.aiHint, idea: idea ?? null });
       setPostId(out.postId);
       apply(out);
     } catch (e) {
@@ -158,8 +158,8 @@ export function Create({ occasionId, initialPhoto }: { occasionId?: string; init
   if (phase === 'pick') {
     return (
       <ScrollView contentContainerStyle={{ padding: 20, gap: 18 }}>
-        {header(occasion ? `${occasion.name} ${occasion.emoji}` : 'Nouvelle publication')}
-        <Body soft>Prenez votre produit, votre vitrine ou votre équipe en photo. Une belle lumière fait toute la différence.</Body>
+        {header(occasion ? `${occasion.name} ${occasion.emoji}` : idea ? idea.title : 'Nouvelle publication')}
+        <Body soft>{idea ? `📸 ${idea.photo}` : 'Prenez votre produit, votre vitrine ou votre équipe en photo. Une belle lumière fait toute la différence.'}</Body>
         <Button title="PRENDRE UNE PHOTO" icon={<CameraIcon size={24} />} onPress={() => pick('camera')} style={{ minHeight: 72 }} />
         <Button title="Choisir dans la galerie" kind="secondary" icon={<ImageIcon size={22} color={colors.green} />} onPress={() => pick('library')} />
         {error && <Notice tone="red" title="Nous avons besoin de votre attention" text={error} />}

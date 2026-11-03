@@ -29,11 +29,11 @@ Vert `#2F7658` · vert secondaire `#DCEFE3` · fond `#F8FAF7` · blanc `#FFFFFF`
 ## 5. Organisation du projet
 ```
 App.tsx                     racine + barre d'onglets
-src/screens/                Onboarding, Home, Create (photo + aperçu), Published, Fetes, Posts, Settings
+src/screens/                Onboarding, Home, Ideas (3 idées de posts), Create (photo + aperçu), Published, Fetes, Posts, Settings
 src/components/             ui.tsx, icons.tsx, NetworkCards.tsx
 src/lib/                    api.ts, events.ts, store.tsx, types.ts, theme.ts, config.ts, notifications.ts, storage.ts, supabase.ts
 supabase/migrations/        schéma SQL + RLS + bucket
-supabase/functions/         generate-post, publish-post, meta-oauth, meta-data-deletion, account, _shared/
+supabase/functions/         generate-post, post-ideas, business-ai, publish-post, meta-oauth, meta-data-deletion, account, _shared/
 tests/                      tests node --test
 scripts/build-demo.mjs      page web unique pour essayer l'app
 docs/                       architecture et parcours

@@ -36,23 +36,20 @@ export const InstagramIcon = ({ size, color = '#000' }: P) => (
 export const FacebookIcon = ({ size, color = '#000' }: P) => (<S size={size}><Path d="M14 8h3V4h-3a4 4 0 0 0-4 4v3H7v4h3v6h4v-6h3l1-4h-4V8Z" {...st(color)} /></S>);
 export const AlertIcon = ({ size, color = '#000' }: P) => (<S size={size}><Circle cx={12} cy={12} r={9} {...st(color)} /><Path d="M12 7v6M12 16.5v.5" {...st(color)} /></S>);
 
-/** Logo Vitrine « La devanture ». `onGreen` : version blanche pour fond vert. */
+/** Logo Vitrine « la boutique qui reçoit un j'aime » : store, vitrine aux reflets orange, porte et pastille cœur. `onGreen` : version blanche pour fond vert. */
 export const LogoMark = ({ size = 64, onGreen = false }: { size?: number; onGreen?: boolean }) => {
-  const bar = onGreen ? '#FFFFFF' : '#1F5F45';
-  const a = onGreen ? '#FFFFFF' : '#2F7658';
-  const b = onGreen ? '#A9D4BC' : '#DCEFE3';
-  const win = onGreen ? '#FFFFFF' : '#2F7658';
+  const fg = onGreen ? '#FFFFFF' : '#2F7658';
+  const bg = onGreen ? '#2F7658' : '#F8FAF7';
   return (
     <Svg width={size} height={size} viewBox="0 0 120 120" accessibilityLabel="Vitrine">
-      <Rect x={12} y={16} width={96} height={14} rx={5} fill={bar} />
-      <Path d="M12 30 H36 V44 A12 12 0 0 1 12 44 Z" fill={a} />
-      <Path d="M36 30 H60 V44 A12 12 0 0 1 36 44 Z" fill={b} />
-      <Path d="M60 30 H84 V44 A12 12 0 0 1 60 44 Z" fill={a} />
-      <Path d="M84 30 H108 V44 A12 12 0 0 1 84 44 Z" fill={b} />
-      <Rect x={22} y={61} width={76} height={43} rx={8} fill={onGreen ? 'none' : '#DCEFE3'} stroke={win} strokeWidth={6} />
-      <Path d="M34 92 L50 70" stroke="#FFFFFF" strokeWidth={5} strokeLinecap="round" />
-      <Path d="M46 94 L56 80" stroke="#FFFFFF" strokeWidth={4} strokeLinecap="round" />
-      <Path d="M78 62 Q80 70 88 72 Q80 74 78 82 Q76 74 68 72 Q76 70 78 62 Z" fill="#F2B66D" />
+      <Rect x={10} y={34} width={84} height={7} rx={2.5} fill={fg} />
+      <Path d="M10 40 H94 V46 Q83.5 58.6 73 46 Q62.5 58.6 52 46 Q41.5 58.6 31 46 Q20.5 58.6 10 46 Z" fill={fg} />
+      <Rect x={16} y={66} width={48} height={38} rx={5} stroke={fg} strokeWidth={6} fill="none" />
+      <Path d="M26 94 L40 76 M38 96 L46 86" stroke="#F2B66D" strokeWidth={5} strokeLinecap="round" />
+      <Path d="M72 106 V68 H88 V106" stroke={fg} strokeWidth={6} strokeLinejoin="round" fill="none" />
+      <Path d="M8 106 H96" stroke={fg} strokeWidth={6} strokeLinecap="round" />
+      <Circle cx={96} cy={26} r={18} fill="#F2B66D" stroke={bg} strokeWidth={5} />
+      <Path d="M96 32.7 C88.4 27 86.5 23.2 86.5 20.4 A4.7 4.7 0 0 1 96 18.5 A4.7 4.7 0 0 1 105.5 20.4 C105.5 23.2 103.6 27 96 32.7 Z" fill={bg} />
     </Svg>
   );
 };

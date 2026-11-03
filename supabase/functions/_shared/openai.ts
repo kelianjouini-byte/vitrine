@@ -1,5 +1,8 @@
 // Moteur IA : analyse de la photo + rédaction. Sortie JSON stricte, validée ici.
 import { env, HttpError } from './http.ts';
+import { containsInventedFacts } from './guard.ts';
+import { allowedFacts, buildIdeasPrompt, IDEAS_SYSTEM_PROMPT, parseIdeas, type IdeasContext, type PostIdea } from './ideas.ts';
+export { containsInventedCommercialInfo } from './guard.ts';
 
 export const PROMPT_VERSION = 'v1-2026-11';
 
@@ -47,13 +50,6 @@ const SCHEMA = {
     },
   },
 };
-
-const PRICE_PATTERN = /(\d+[.,]?\d*\s?(€|euros?)|-\s?\d+\s?%|\d+\s?%\s?(de réduction|offerts?)|promo(tion)?s?\b|soldes?\b|gratuit)/i;
-
-/** Contrôle du contenu : refuse un texte qui contient un prix/promo non fourni par le commerçant. */
-export function containsInventedCommercialInfo(text: string, merchantNote: string): boolean {
-  return PRICE_PATTERN.test(text) && !PRICE_PATTERN.test(merchantNote);
-}
 
 type Message = { role: 'system' | 'user'; content: unknown };
 type Usage = { prompt_tokens: number; completion_tokens: number };
@@ -162,44 +158,100 @@ export async function generate(input: { imageUrl: string; context: string; avoid
   return { out, usage };
 }
 
+export interface FoundBusiness {
+  trade: string | null;
+  /** Produits ou spécialités trouvés en ligne (pré-remplissage, le commerçant corrige). */
+  products: string | null;
+  /** Ce qui rend la boutique unique (fait maison, bio, ancienneté...), seulement si c'est écrit en ligne. */
+  strengths: string | null;
+  audience: string | null;
+}
+
+const EMPTY_FOUND: FoundBusiness = { trade: null, products: null, strengths: null, audience: null };
+
+/** Nettoie un champ trouvé en ligne : vide, « inconnu » ou trop long = rien. */
+function cleanFound(v: unknown, max: number): string | null {
+  const t = typeof v === 'string' ? v.replace(/\s+/g, ' ').trim() : '';
+  if (!t || /^(inconnu|null|aucun|non trouvé|n\/a)\.?$/i.test(t)) return null;
+  return t.slice(0, max);
+}
+
 /**
- * Cherche le commerce sur internet (recherche Google de Gemini) et retourne son métier, ou null.
+ * Cherche le commerce sur internet (recherche Google de Gemini) : son métier, et si c'est écrit en ligne,
+ * ses produits, ce qui le rend unique et sa clientèle. Sert seulement à PRÉ-REMPLIR l'inscription.
  * Ne marche qu'avec une clé Gemini. Modèles 2.5 : la recherche y est gratuite (500 par jour).
  */
-export async function searchTrade(input: { name: string; city: string; postalCode: string }): Promise<string | null> {
+export async function searchBusiness(input: { name: string; city: string; postalCode: string }): Promise<FoundBusiness> {
   const { apiKey, isGeminiKey } = aiConfig();
-  if (!isGeminiKey) return null;
+  if (!isGeminiKey) return EMPTY_FOUND;
   const prompt = `Recherche sur internet le commerce « ${input.name} » situé à ${input.city} (${input.postalCode}), en France.
-Quel est son métier ou son type de commerce ?
-Réponds UNIQUEMENT par ce métier, en 1 à 4 mots, en français (exemples : « Épicerie fine », « Tatoueur », « Boulangerie »).
-Si tu ne trouves pas ce commerce précis avec certitude, réponds exactement : INCONNU`;
+Réponds UNIQUEMENT avec ce JSON, en français, sans rien d'autre :
+{"trade": "son métier en 1 à 4 mots (ex. Épicerie fine, Tatoueur, Boulangerie)",
+ "products": "ses principaux produits ou services, 3 à 6 éléments séparés par des virgules",
+ "strengths": "ce qui le rend unique, seulement si c'est écrit sur internet (ex. fait maison, bio, depuis 1985), en quelques mots",
+ "audience": "sa clientèle, seulement si c'est évident (ex. familles du quartier), en quelques mots"}
+Règles : n'invente rien. Pour chaque information que tu ne trouves pas avec certitude, mets "". Ne donne jamais de prix ni d'horaires.
+Si tu ne trouves pas ce commerce précis avec certitude, réponds {"trade": "", "products": "", "strengths": "", "audience": ""}.`;
   for (const model of ['gemini-2.5-flash-lite', 'gemini-2.5-flash']) {
     let res: Response;
     try {
       res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
         method: 'POST',
-        signal: AbortSignal.timeout(20_000),
+        signal: AbortSignal.timeout(25_000),
         headers: { 'x-goog-api-key': apiKey, 'Content-Type': 'application/json' },
         body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], tools: [{ google_search: {} }] }),
       });
     } catch (e) {
-      console.error('[vitrine] recherche métier délai dépassé', model, e instanceof Error ? e.name : '');
+      console.error('[vitrine] recherche boutique délai dépassé', model, e instanceof Error ? e.name : '');
       continue;
     }
     if (!res.ok) {
-      console.error('[vitrine] recherche métier', model, res.status, (await res.text()).slice(0, 300));
+      console.error('[vitrine] recherche boutique', model, res.status, (await res.text()).slice(0, 300));
       if ([404, 429, 500, 503].includes(res.status)) continue;
-      return null;
+      return EMPTY_FOUND;
     }
     const data = await res.json();
     const parts: { text?: string }[] = data.candidates?.[0]?.content?.parts ?? [];
-    const text = parts.map((p) => p.text ?? '').join(' ').trim();
-    const line = text.split('\n').map((l) => l.trim()).filter(Boolean).pop() ?? '';
-    const trade = line.replace(/^[«"'\s]+|[»"'.\s]+$/g, '').trim();
-    if (!trade || /inconnu/i.test(trade) || trade.length > 40 || trade.split(/\s+/).length > 5) return null;
-    return trade;
+    const text = parts.map((p) => p.text ?? '').join(' ');
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) return EMPTY_FOUND;
+    let raw: Record<string, unknown>;
+    try {
+      raw = JSON.parse(match[0]);
+    } catch {
+      return EMPTY_FOUND;
+    }
+    const trade = cleanFound(raw.trade, 40);
+    if (!trade || trade.split(/\s+/).length > 5) return EMPTY_FOUND; // commerce pas trouvé : on ne garde rien
+    const found = { trade, products: cleanFound(raw.products, 300), strengths: cleanFound(raw.strengths, 200), audience: cleanFound(raw.audience, 200) };
+    // Jamais de prix ni d'horaires dans ce qu'on pré-remplit.
+    for (const k of ['products', 'strengths', 'audience'] as const) {
+      if (found[k] && containsInventedFacts(found[k]!, '')) found[k] = null;
+    }
+    return found;
   }
-  return null;
+  return EMPTY_FOUND;
+}
+
+/** Trois idées de publications adaptées à la boutique. Les idées douteuses (prix, horaires...) sont écartées. */
+export async function suggestIdeas(ctx: IdeasContext): Promise<PostIdea[]> {
+  const allowed = allowedFacts(ctx);
+  const ask = async (extra: string) => {
+    const { content } = await chatCompletion([
+      { role: 'system', content: IDEAS_SYSTEM_PROMPT },
+      { role: 'user', content: buildIdeasPrompt(ctx) + extra },
+    ], { responseFormat: { type: 'json_object' }, maxTokens: 900, temperature: 0.9 });
+    return parseIdeas(content, allowed);
+  };
+  let ideas = await ask('');
+  if (ideas.length < 3) {
+    // Une seconde chance : l'IA a donné trop peu d'idées valables.
+    const again = await ask('\nATTENTION : donne bien 3 idées complètes, sans aucun prix, promotion ni horaire.');
+    const titles = new Set(ideas.map((i) => i.title.toLowerCase()));
+    ideas = [...ideas, ...again.filter((i) => !titles.has(i.title.toLowerCase()))].slice(0, 3);
+  }
+  if (!ideas.length) throw new HttpError(502, 'ai_failed', "L'IA n'a pas trouvé d'idées cette fois. Réessayez.");
+  return ideas;
 }
 
 /** Choisit, dans la liste des occasions, celles qui conviennent à un métier hors catalogue. */

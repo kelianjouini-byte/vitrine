@@ -11,9 +11,13 @@
 
 ## Flux serveur
 ```
-App ──business-ai (inscription)──► detect : nom + ville → recherche Google de Gemini (2.5, gratuite 500/jour) → métier proposé, à confirmer
+App ──business-ai (inscription)──► detect : nom + ville → recherche Google de Gemini (2.5, gratuite 500/jour) → métier + produits,
+                                    ce qui rend la boutique unique, clientèle (pré-remplis, à vérifier ; jamais de prix ni d'horaires)
                                 ──► occasions : métier hors liste → l'IA choisit ses occasions dans le calendrier vérifié
                                     (limite 15/h/compte, journal ai_lookups lisible par le serveur seul)
+App ──post-ideas──► « Je ne sais pas quoi poster » : carte d'identité + prochaines fêtes + 8 derniers posts + 👍/👎
+                       (post_idea_feedback) → 3 idées (titre, quoi photographier, pourquoi) ; idées avec prix/promo/horaire écartées
+                       limite 12/h/boutique (post_ideas). Une idée choisie est envoyée à generate-post (champ idea).
 App ──upload──► Storage post-images/<user_id>/<uuid>.jpg (privé)
 App ──generate-post──► vérifie l'utilisateur, limite 20/h, URL signée 10 min, métier exact + consigne du métier (src/lib/trades.ts)
                        ──► OpenAI (JSON strict) ──► contrôle « pas de prix/promo inventés »

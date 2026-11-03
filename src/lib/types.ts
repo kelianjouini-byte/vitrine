@@ -24,7 +24,19 @@ export interface Business {
   tone: Tone;
   audience?: string;
   description?: string;
+  /** Produits et spécialités (« Vos produits » dans la carte d'identité). */
   specialties?: string;
+  /** Ce qui rend la boutique unique : « fait maison », « bio », « 3e génération »... */
+  strengths?: string;
+}
+
+/** Une idée de publication proposée par l'assistant « Je ne sais pas quoi poster ». */
+export interface PostIdea {
+  title: string;
+  /** Ce qu'il faut prendre en photo. */
+  photo: string;
+  /** Pourquoi c'est une bonne idée maintenant. */
+  why: string;
 }
 
 /** Statuts imposés par le cahier des charges (section 15). */
@@ -70,6 +82,8 @@ export interface NotificationPrefs {
   enabled: boolean;
   daysBefore: number;
   hour: number;
+  /** Rappel du lundi « 3 idées pour votre semaine » (activé si absent). */
+  weeklyIdeas?: boolean;
 }
 
 export interface SocialConnection {

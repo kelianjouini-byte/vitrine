@@ -1,9 +1,9 @@
-// POST { action: 'detect', business_name, city, postal_code } -> { trade: string | null }
+// POST { action: 'detect', business_name, city, postal_code } -> { trade, products, strengths, audience } (chaque champ : texte ou null)
 // POST { action: 'occasions', trade, catalog: [{ key, name, description }] } -> { keys: string[] }
 // Utilisé à l'inscription, avant que la boutique existe : on vérifie seulement la session.
 import { handler, HttpError, json } from '../_shared/http.ts';
 import { admin } from '../_shared/db.ts';
-import { pickOccasions, searchTrade } from '../_shared/openai.ts';
+import { pickOccasions, searchBusiness } from '../_shared/openai.ts';
 
 const MAX_PER_HOUR = 15;
 
@@ -30,7 +30,7 @@ Deno.serve(handler(async (req) => {
     const city = String(body.city ?? '').trim().slice(0, 120);
     const postalCode = String(body.postal_code ?? '').trim().slice(0, 5);
     if (name.length < 2 || city.length < 2) throw new HttpError(400, 'bad_request', 'Nom ou ville manquant.');
-    return json({ trade: await searchTrade({ name, city, postalCode }) });
+    return json(await searchBusiness({ name, city, postalCode }));
   }
 
   const trade = String(body.trade ?? '').trim().slice(0, 80);
