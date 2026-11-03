@@ -5,27 +5,10 @@ import { buildReportPrompt, parseAdvice, REPORT_SYSTEM_PROMPT, type ReportContex
 import { allowedFacts, buildIdeasPrompt, IDEAS_SYSTEM_PROMPT, parseIdeas, type IdeasContext, type PostIdea } from './ideas.ts';
 export { containsInventedCommercialInfo } from './guard.ts';
 import { normalizePost, type AiOutput } from './post.ts';
+import { buildPostSystemPrompt } from './prompts.ts';
 export type { AiOutput } from './post.ts';
 
-export const PROMPT_VERSION = 'v1-2026-11';
-
-export const SYSTEM_PROMPT = `Tu es le community manager professionnel d'un commerce local français.
-Ta mission est de transformer une photo en publication attractive, naturelle et authentique.
-Tu dois :
-- Analyser les éléments visibles (produit, couleurs, ambiance, saison).
-- Respecter l'identité du commerce et le ton demandé.
-- Écrire dans un français naturel, concis, sans clichés ni répétitions.
-- Ajouter quelques emojis pertinents (2 à 4).
-- Proposer 5 à 10 hashtags : locaux (ville), métier, et saisonniers si pertinents.
-- Terminer par un appel à l'action simple (passer en boutique, venir découvrir...).
-Règles absolues :
-- N'invente JAMAIS de prix, promotion, réduction, disponibilité, horaire, stock ou caractéristique invisible sur la photo.
-- N'utilise que les informations fournies par le commerçant et ce qui est visible.
-- Si la photo est inexploitable (floue, sans rapport), dis-le dans improvement_tip et reste prudent.
-- Adapte le vocabulaire et ce que tu mets en valeur au métier exact du commerce.
-- Si la photo montre le lieu, la devanture, l'atelier ou l'équipe plutôt qu'un produit, présente ce lieu ou cette équipe en lien avec le métier, sans inventer ce qui n'est pas visible.
-Réponds uniquement en JSON selon le schéma fourni.
-Le texte Instagram peut être un peu plus court et visuel ; le texte Facebook un peu plus descriptif.`;
+export const PROMPT_VERSION = 'v2-2026-11';
 
 const SCHEMA = {
   name: 'vitrine_post',
@@ -197,7 +180,7 @@ function parseJson<T>(content: string): T {
   }
 }
 
-export async function generate(input: { imageUrls: string[]; context: string; avoid: string[] }): Promise<{ out: AiOutput; usage?: Usage }> {
+export async function generate(input: { imageUrls: string[]; context: string; avoid: string[]; tone: string }): Promise<{ out: AiOutput; usage?: Usage }> {
   const { jsonMode, routes } = aiConfig();
   const isOpenAI = routes[0].baseUrl.includes('api.openai.com');
   const responseFormat = jsonMode === 'object' ? { type: 'json_object' } : { type: 'json_schema', json_schema: SCHEMA };
@@ -205,7 +188,7 @@ export async function generate(input: { imageUrls: string[]; context: string; av
   const dataUris = await Promise.all(input.imageUrls.map(toDataUri));
   const avoid = input.avoid.length ? `\nTextes déjà publiés récemment (ne pas répéter les mêmes tournures) :\n- ${input.avoid.join('\n- ')}` : '';
   const { content, usage } = await chatCompletion([
-    { role: 'system', content: SYSTEM_PROMPT },
+    { role: 'system', content: buildPostSystemPrompt(input.tone) },
     {
       role: 'user',
       content: [
