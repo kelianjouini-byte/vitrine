@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
-import { Body, Button, Card, Notice, Title } from '../components/ui';
-import { BackIcon, CameraIcon, RefreshIcon } from '../components/icons';
-import { colors, fonts, radius } from '../lib/theme';
+import { Body, Button, Card, Notice, Title, BackButton } from '../components/ui';
+import { CameraIcon, RefreshIcon, ThumbDownIcon, ThumbUpIcon } from '../components/icons';
+import { colors, fonts, glass, greenGradient, radius } from '../lib/theme';
 import { useApp } from '../lib/store';
 import { upcomingEvents } from '../lib/events';
 import { tradeById } from '../lib/trades';
@@ -70,9 +70,7 @@ export function Ideas() {
   return (
     <ScrollView contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 40 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        <Pressable onPress={back} accessibilityLabel="Retour" style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
-          <BackIcon color={colors.text} size={20} />
-        </Pressable>
+        <BackButton onPress={back} />
         <Title size={24} style={{ flex: 1 }}>3 idées pour vous</Title>
       </View>
 
@@ -103,22 +101,25 @@ export function Ideas() {
               <Pressable onPress={() => shoot(idea)} accessibilityRole="button" accessibilityLabel={`Idée ${i + 1} : ${idea.title}. Prendre la photo`} style={{ gap: 8 }}>
                 <Text style={{ color: colors.orangeText, fontWeight: '700', fontSize: 13, letterSpacing: 1, fontFamily: fonts.body }}>IDÉE {i + 1}</Text>
                 <Body style={{ fontWeight: '700' }} size={19}>{idea.title}</Body>
-                <Body size={16}>📸 {idea.photo}</Body>
+                <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
+                  <View style={{ paddingTop: 2 }}><CameraIcon size={18} color={colors.green} /></View>
+                  <Body size={16} style={{ flex: 1 }}>{idea.photo}</Body>
+                </View>
                 {idea.why ? <Body soft size={15}>{idea.why}</Body> : null}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.green, borderRadius: radius.md, minHeight: 52, justifyContent: 'center', marginTop: 4 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, ...greenGradient, borderRadius: radius.md, minHeight: 52, justifyContent: 'center', marginTop: 4 }}>
                   <CameraIcon size={22} />
                   <Text style={{ color: colors.white, fontWeight: '700', fontSize: 17, fontFamily: fonts.body }}>Prendre cette photo</Text>
                 </View>
               </Pressable>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 <Body soft size={14} style={{ flex: 1 }}>Cette idée vous plaît ?</Body>
-                <VoteButton emoji="👍" label="J'aime cette idée" on={votes[idea.title] === 1} onPress={() => vote(idea, 1)} />
-                <VoteButton emoji="👎" label="Je n'aime pas cette idée" on={votes[idea.title] === -1} onPress={() => vote(idea, -1)} />
+                <VoteButton up label="J'aime cette idée" on={votes[idea.title] === 1} onPress={() => vote(idea, 1)} />
+                <VoteButton up={false} label="Je n'aime pas cette idée" on={votes[idea.title] === -1} onPress={() => vote(idea, -1)} />
               </View>
             </Card>
           ))}
           {photoError && <Notice tone="red" title="Nous avons besoin de votre attention" text={photoError} />}
-          {!state.basic && <Body soft size={14} center>Vos 👍 et 👎 aident Vitrine à mieux vous connaître.</Body>}
+          {!state.basic && <Body soft size={14} center>Vos avis aident Vitrine à mieux vous connaître.</Body>}
           <Button title="3 autres idées" kind="secondary" icon={<RefreshIcon size={20} color={colors.green} />} onPress={loadIdeas} />
         </>
       )}
@@ -126,11 +127,11 @@ export function Ideas() {
   );
 }
 
-function VoteButton({ emoji, label, on, onPress }: { emoji: string; label: string; on: boolean; onPress: () => void }) {
+function VoteButton({ up, label, on, onPress }: { up: boolean; label: string; on: boolean; onPress: () => void }) {
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected: on }}
-      style={{ width: 52, height: 48, borderRadius: 14, borderWidth: 1.5, borderColor: on ? colors.green : colors.border, backgroundColor: on ? colors.greenSoft : colors.white, alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={{ fontSize: 22 }}>{emoji}</Text>
+      style={{ width: 52, height: 48, borderRadius: 14, borderWidth: 1.5, borderColor: on ? colors.green : glass.line, backgroundColor: on ? colors.greenSoft : glass.bgStrong, alignItems: 'center', justifyContent: 'center' }}>
+      {up ? <ThumbUpIcon size={22} color={on ? colors.green : colors.textSoft} /> : <ThumbDownIcon size={22} color={on ? colors.green : colors.textSoft} />}
     </Pressable>
   );
 }

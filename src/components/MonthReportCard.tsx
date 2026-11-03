@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, View, type StyleProp, type ViewStyle } from 'react-native';
-import { Body, Card, Title } from './ui';
+import { Body, Card, IconTile, Title } from './ui';
 import { ChartUpIcon } from './icons';
 import { colors, fonts } from '../lib/theme';
 import { useApp } from '../lib/store';
@@ -22,9 +22,7 @@ export function MonthReportCard({ style }: { style?: StyleProp<ViewStyle> }) {
         accessibilityLabel={`Mon bilan : ${count} ${count > 1 ? 'posts' : 'post'} ce mois-ci. Toucher pour ouvrir.`}
       >
         <Title size={30}>{count}</Title>
-        <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.greenSoft, alignItems: 'center', justifyContent: 'center' }}>
-          <ChartUpIcon size={20} color={colors.green} />
-        </View>
+        <IconTile size={34}><ChartUpIcon size={20} color={colors.green} /></IconTile>
       </View>
       <Body soft size={14}>{count > 1 ? 'posts ce mois-ci' : 'post ce mois-ci'}</Body>
       <Text style={{ color: colors.green, fontWeight: '700', fontSize: 15, fontFamily: fonts.body }}>Mon bilan ›</Text>

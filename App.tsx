@@ -4,7 +4,8 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppProvider, TAB_ROUTES, useApp } from './src/lib/store';
-import { colors, fonts } from './src/lib/theme';
+import { colors, fonts, glassSurface } from './src/lib/theme';
+import { GlassBackground } from './src/components/GlassBackground';
 import { CalendarIcon, GridIcon, HomeIcon, LogoMark } from './src/components/icons';
 import { Onboarding } from './src/screens/Onboarding';
 import { Home } from './src/screens/Home';
@@ -46,6 +47,7 @@ function Root() {
   const isTab = (TAB_ROUTES as readonly string[]).includes(route.name);
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      <GlassBackground />
       <View style={{ flex: 1, paddingTop: insets.top, width: '100%', maxWidth: 560, alignSelf: 'center' }}>
         {route.name === 'home' && <Home />}
         {route.name === 'fetes' && <Fetes />}
@@ -80,17 +82,20 @@ function TabBar() {
     { name: 'posts' as const, label: 'Mes posts', Icon: GridIcon },
   ];
   return (
-    <View style={{ flexDirection: 'row', backgroundColor: colors.white, borderTopWidth: 1, borderTopColor: colors.border, paddingBottom: Math.max(insets.bottom, 8), paddingTop: 8 }}>
-      {tabs.map(({ name, label, Icon }) => {
-        const active = route.name === name;
-        const c = active ? colors.green : colors.textSoft;
-        return (
-          <Pressable key={name} onPress={() => go({ name })} accessibilityRole="tab" accessibilityState={{ selected: active }} style={{ flex: 1, alignItems: 'center', gap: 4, minHeight: 52, justifyContent: 'center' }}>
-            <Icon color={c} size={26} />
-            <Text style={{ color: c, fontSize: 13, fontWeight: active ? '700' : '500', fontFamily: fonts.body }}>{label}</Text>
-          </Pressable>
-        );
-      })}
+    // Barre d'onglets « flottante » en verre, posée au-dessus du fond.
+    <View style={{ paddingHorizontal: 16, paddingBottom: Math.max(insets.bottom, 12), paddingTop: 4 }}>
+      <View style={{ ...glassSurface, flexDirection: 'row', borderRadius: 26, paddingVertical: 6, width: '100%', maxWidth: 528, alignSelf: 'center' }}>
+        {tabs.map(({ name, label, Icon }) => {
+          const active = route.name === name;
+          const c = active ? colors.green : colors.textSoft;
+          return (
+            <Pressable key={name} onPress={() => go({ name })} accessibilityRole="tab" accessibilityState={{ selected: active }} style={{ flex: 1, alignItems: 'center', gap: 4, minHeight: 52, justifyContent: 'center' }}>
+              <Icon color={c} size={26} />
+              <Text style={{ color: c, fontSize: 13, fontWeight: active ? '700' : '500', fontFamily: fonts.body }}>{label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
     </View>
   );
 }

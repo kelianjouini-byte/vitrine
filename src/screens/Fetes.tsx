@@ -32,7 +32,7 @@ export function Fetes() {
           <Card key={e.id} onPress={() => go({ name: 'create', occasionId: e.id })} style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
             <DateTile date={e.date} tone={done ? 'green' : soon ? 'orange' : n < 45 ? 'blue' : 'red'} />
             <View style={{ flex: 1, gap: 2 }}>
-              <Body style={{ fontWeight: '700' }}>{e.name} {e.emoji}</Body>
+              <Body style={{ fontWeight: '700' }}>{e.name}</Body>
               <Body soft size={14}>{e.strategy}</Body>
               {e.note ? <Body size={13} style={{ color: colors.orangeText }}>{e.note}</Body> : null}
             </View>

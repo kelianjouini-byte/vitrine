@@ -10,7 +10,7 @@ export function basicIdeas(input: { products?: string; occasion?: { name: string
   const ideas: PostIdea[] = [];
   if (input.occasion) {
     ideas.push({
-      title: `Préparer ${input.occasion.name} ${input.occasion.emoji}`,
+      title: `Préparer ${input.occasion.name}`,
       photo: `Ce que vous proposez pour ${input.occasion.name}, joliment présenté dans la boutique.`,
       why: 'Vos clients commencent à y penser : montrez-leur que vous êtes prêt.',
     });

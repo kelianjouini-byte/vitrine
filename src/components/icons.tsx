@@ -5,7 +5,7 @@ type P = { size?: number; color?: string };
 const S = ({ size = 24, children }: { size?: number; children: React.ReactNode }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">{children}</Svg>
 );
-const st = (color: string) => ({ stroke: color, strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const });
+const st = (color: string) => ({ stroke: color, strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const });
 
 export const CameraIcon = ({ size, color = '#fff' }: P) => (
   <S size={size}><Path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" {...st(color)} /><Circle cx={12} cy={13.5} r={3.5} {...st(color)} /></S>
@@ -37,6 +37,26 @@ export const FacebookIcon = ({ size, color = '#000' }: P) => (<S size={size}><Pa
 /** Petit graphique qui monte : purement décoratif, ce n'est PAS une courbe de données. */
 export const ChartUpIcon = ({ size, color = '#000' }: P) => (
   <S size={size}><Path d="M4 20h16" {...st(color)} /><Path d="m5 16 4.5-4.5 3 3L19 8" {...st(color)} /><Path d="M15 8h4v4" {...st(color)} /></S>
+);
+export const ChevronIcon = ({ size, color = '#000' }: P) => (<S size={size}><Path d="m9 5 7 7-7 7" {...st(color)} /></S>);
+export const BulbIcon = ({ size, color = '#000' }: P) => (
+  <S size={size}><Path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.6.5 1 1.2 1 2V16h5.2v-.2c0-.8.4-1.5 1-2A6 6 0 0 0 12 3Z" {...st(color)} /></S>
+);
+export const ThumbUpIcon = ({ size, color = '#000' }: P) => (
+  <S size={size}><Path d="M7 10v10H4V10h3Zm0 0 4-7a2 2 0 0 1 2 2.5L12.3 9H18a2 2 0 0 1 2 2.3l-1.2 7A2 2 0 0 1 16.8 20H7" {...st(color)} /></S>
+);
+export const ThumbDownIcon = ({ size, color = '#000' }: P) => (
+  <S size={size}><Path d="M17 14V4h3v10h-3Zm0 0-4 7a2 2 0 0 1-2-2.5l.7-3.5H6a2 2 0 0 1-2-2.3l1.2-7A2 2 0 0 1 7.2 4H17" {...st(color)} /></S>
+);
+export const ClockIcon = ({ size, color = '#000' }: P) => (<S size={size}><Circle cx={12} cy={12} r={8.5} {...st(color)} /><Path d="M12 7.5V12l3 2" {...st(color)} /></S>);
+export const EyeIcon = ({ size, color = '#000' }: P) => (
+  <S size={size}><Path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" {...st(color)} /><Circle cx={12} cy={12} r={3} {...st(color)} /></S>
+);
+export const StarIcon = ({ size, color = '#000' }: P) => (
+  <S size={size}><Path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9L12 3.5Z" {...st(color)} /></S>
+);
+export const StoreIcon = ({ size, color = '#000' }: P) => (
+  <S size={size}><Path d="M4 9.5 5.5 5h13L20 9.5M4 9.5c0 1.4 1.1 2.5 2.7 2.5s2.6-1.1 2.6-2.5c0 1.4 1.2 2.5 2.7 2.5s2.7-1.1 2.7-2.5c0 1.4 1 2.5 2.6 2.5S20 10.9 20 9.5M4 9.5h16M5.5 12v8h13v-8M10 20v-4.5h4V20" {...st(color)} /></S>
 );
 export const AlertIcon = ({ size, color = '#000' }: P) => (<S size={size}><Circle cx={12} cy={12} r={9} {...st(color)} /><Path d="M12 7v6M12 16.5v.5" {...st(color)} /></S>);
 

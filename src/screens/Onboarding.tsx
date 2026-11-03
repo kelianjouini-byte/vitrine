@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Body, Button, Chip, Field, Title } from '../components/ui';
 import { NetworkCards } from '../components/NetworkCards';
 import { LogoMark } from '../components/icons';
+import { GlassBackground } from '../components/GlassBackground';
 import { TONES } from '../lib/business';
 import { TradePicker } from '../components/TradePicker';
 import { IdentityFields } from '../components/IdentityFields';
@@ -114,9 +115,10 @@ export function Onboarding() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg, paddingTop: insets.top + 12 }}>
+      <GlassBackground />
       <View style={{ flexDirection: 'row', gap: 6, paddingHorizontal: 20, marginBottom: 8 }}>
         {Array.from({ length: STEPS }).map((_, i) => (
-          <View key={i} style={{ flex: 1, height: 5, borderRadius: 3, backgroundColor: i < step ? colors.green : colors.border }} />
+          <View key={i} style={{ flex: 1, height: 5, borderRadius: 3, backgroundColor: i < step ? colors.green : 'rgba(36,51,43,0.10)' }} />
         ))}
       </View>
       <ScrollView contentContainerStyle={{ padding: 20, gap: 18, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
@@ -176,8 +178,8 @@ export function Onboarding() {
 
         {step === 4 && (
           <View style={{ alignItems: 'center', gap: 18, paddingTop: 40 }}>
-            <Body size={64}>🎉</Body>
-            <Title size={30} style={{ textAlign: 'center' }}>Votre boutique est prête !</Title>
+            <LogoMark size={110} />
+            <Title size={30} style={{ textAlign: 'center' }}>{'Votre boutique est prête\u00a0!'}</Title>
             <Body soft center>Prenez votre première photo, Vitrine s'occupe du reste.</Body>
             {saveError ? <Body style={{ color: colors.red }} center>{saveError}</Body> : null}
             <Button title="COMMENCER" onPress={finish} loading={saving} style={{ alignSelf: 'stretch', marginTop: 12 }} />

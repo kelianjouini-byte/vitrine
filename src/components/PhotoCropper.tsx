@@ -4,7 +4,7 @@
  */
 import React, { useMemo, useRef, useState } from 'react';
 import { Image, PanResponder, Platform, Pressable, Text, useWindowDimensions, View, type GestureResponderEvent } from 'react-native';
-import { colors, fonts, radius } from '../lib/theme';
+import { colors, fonts, glass, radius } from '../lib/theme';
 import { clampFraming, cropRect, FORMATS, formatRatio, MAX_ZOOM, type Framing, type PhotoFormat, type RawPhoto } from '../lib/photo';
 
 type Props = {
@@ -143,7 +143,7 @@ function FormatButton({ format, selected, onPress }: { format: PhotoFormat; sele
   const k = 26 / Math.max(width, height);
   return (
     <Pressable onPress={onPress} accessibilityRole="radio" accessibilityState={{ selected }} accessibilityLabel={`Format ${FORMATS[format].label}`}
-      style={{ flex: 1, minHeight: 72, borderRadius: 14, borderWidth: 1.5, borderColor: selected ? colors.green : colors.border, backgroundColor: selected ? colors.greenSoft : colors.white, alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+      style={{ flex: 1, minHeight: 72, borderRadius: 14, borderWidth: 1.5, borderColor: selected ? colors.green : glass.line, backgroundColor: selected ? colors.greenSoft : glass.bgStrong, alignItems: 'center', justifyContent: 'center', gap: 6 }}>
       <View style={{ width: width * k, height: height * k, borderRadius: 3, borderWidth: 2, borderColor: selected ? colors.green : colors.textSoft }} />
       <Text style={{ color: selected ? colors.green : colors.text, fontWeight: '700', fontSize: 15, fontFamily: fonts.body }}>{FORMATS[format].label}</Text>
     </Pressable>
