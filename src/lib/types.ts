@@ -87,6 +87,8 @@ export interface NotificationPrefs {
   hour: number;
   /** Rappel du lundi « 3 idées pour votre semaine » (activé si absent). */
   weeklyIdeas?: boolean;
+  /** Le 1er du mois : « Votre bilan de [mois] est prêt » (activé si absent). */
+  monthlyReport?: boolean;
 }
 
 export interface SocialConnection {

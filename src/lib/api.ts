@@ -223,6 +223,33 @@ export async function sendIdeaVote(businessId: string | undefined, ideaTitle: st
   if (error) throw new FriendlyError("Votre avis n'a pas pu être envoyé. Réessayez.");
 }
 
+// ---------------------------------------------------------------- Mon bilan
+
+/** Le conseil du mois écrit par l'IA, à partir des VRAIS chiffres du bilan. */
+export async function fetchMonthlyAdvice(input: {
+  month: string;
+  count: number;
+  previousCount: number;
+  inProgress: boolean;
+  daysLeft: number;
+  occasions: Pick<CommercialEvent, 'name' | 'date'>[];
+  tradeHint?: string;
+}): Promise<string> {
+  requireBackend();
+  if (!(await ensureSession())) throw new NotConfiguredError('compte');
+  const res = await callFunction<{ advice?: string }>('monthly-report', {
+    month: input.month,
+    count: input.count,
+    previous_count: input.previousCount,
+    in_progress: input.inProgress,
+    days_left: input.daysLeft,
+    occasions: input.occasions.slice(0, 4).map((o) => ({ name: o.name, date: localDate(o.date) })),
+    trade_hint: input.tradeHint ?? null,
+  });
+  if (!res?.advice) throw new FriendlyError("L'IA n'a pas pu écrire votre conseil. Réessayez.");
+  return res.advice;
+}
+
 /** Date AAAA-MM-JJ dans le fuseau du téléphone (toISOString décalerait d'un jour en France). */
 function localDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;

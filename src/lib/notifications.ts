@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { upcomingEvents, type CommercialEvent } from './events';
 import type { Business, NotificationPrefs } from './types';
+import { monthKey, reportReminderDates, reportReminderText } from './report';
 
 /** Les rappels de fêtes sont des notifications LOCALES programmées sur le téléphone :
  *  elles fonctionnent même sans serveur. Les notifications serveur (publication en ligne,
@@ -59,6 +60,17 @@ export async function scheduleReminders(b: Business, prefs: NotificationPrefs): 
       trigger: { type: Notifications.SchedulableTriggerInputTypes.WEEKLY, weekday: 2, hour: prefs.hour, minute: 0 },
     });
     count++;
+  }
+  if (prefs.monthlyReport !== false) {
+    // Le 1er de chaque mois : « Votre bilan d'octobre est prêt ». Programmé un an à l'avance
+    // (le nom du mois change chaque fois : une notification par mois).
+    for (const r of reportReminderDates(now, prefs.hour, 12)) {
+      await Notifications.scheduleNotificationAsync({
+        content: { ...reportReminderText(r.month), data: { route: 'report', month: monthKey(r.month) } },
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: r.date },
+      });
+      count++;
+    }
   }
   for (const e of upcomingEvents(b, now, 12, b.postalCode)) {
     const when = new Date(e.date.getFullYear(), e.date.getMonth(), e.date.getDate() - Math.max(prefs.daysBefore, 1), prefs.hour, 0);
