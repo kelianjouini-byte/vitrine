@@ -48,7 +48,7 @@ type Message = { role: 'system' | 'user'; content: unknown };
 type Usage = { prompt_tokens: number; completion_tokens: number };
 
 /** Un « chemin » vers une IA : une adresse, une clé, un modèle. */
-type Route = { label: string; baseUrl: string; apiKey: string; model: string; gemini: boolean };
+type Route = { label: string; baseUrl: string; apiKey: string; model: string; gemini: boolean; extra?: Record<string, unknown> };
 
 /**
  * Réglages des IA, lus dans les secrets du serveur. Plusieurs IA peuvent être branchées :
@@ -61,7 +61,9 @@ function aiConfig() {
   const routes: Route[] = [];
   const groqKey = env('GROQ_API_KEY');
   if (groqKey) {
-    routes.push({ label: 'groq', baseUrl: 'https://api.groq.com/openai/v1', apiKey: groqKey, model: env('GROQ_MODEL') ?? 'qwen/qwen3.8-27b', gemini: false });
+    routes.push({ label: 'groq', baseUrl: 'https://api.groq.com/openai/v1', apiKey: groqKey, model: env('GROQ_MODEL') ?? 'qwen/qwen3.8-27b', gemini: false,
+      // Le modèle Qwen « réfléchit » avant d'écrire : on cache cette réflexion (réponse JSON propre).
+      extra: { reasoning_format: 'hidden' } });
   }
   const apiKey = env('AI_API_KEY') ?? env('OPENAI_API_KEY');
   // Les clés OpenAI commencent par « sk- ». Toute autre clé est traitée comme une clé Google Gemini.
@@ -105,22 +107,29 @@ async function chatCompletion(
   const t0 = Date.now();
 
   const call = async (i: number): Promise<Attempt> => {
-    const { baseUrl, apiKey, model: m, gemini, label } = routes[i];
+    const { baseUrl, apiKey, model: m, gemini, label, extra } = routes[i];
     const timer = setTimeout(() => controllers[i].abort(), MODEL_TIMEOUT_MS);
+    const send = (withExtra: boolean) => fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      signal: controllers[i].signal,
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: m,
+        temperature: opts.temperature ?? 0.8,
+        // Gemini « réfléchit » avant d'écrire : on limite cette réflexion pour aller vite.
+        ...(gemini ? { reasoning_effort: 'low', max_tokens: Math.max(opts.maxTokens, 4000) } : { max_tokens: Math.max(opts.maxTokens, 2000) }),
+        ...(withExtra ? extra : {}),
+        response_format: opts.responseFormat,
+        messages,
+      }),
+    });
     try {
-      const res = await fetch(`${baseUrl}/chat/completions`, {
-        method: 'POST',
-        signal: controllers[i].signal,
-        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: m,
-          temperature: opts.temperature ?? 0.8,
-          // Gemini « réfléchit » avant d'écrire : on limite cette réflexion pour aller vite.
-          ...(gemini ? { reasoning_effort: 'low', max_tokens: Math.max(opts.maxTokens, 4000) } : { max_tokens: Math.max(opts.maxTokens, 2000) }),
-          response_format: opts.responseFormat,
-          messages,
-        }),
-      });
+      let res = await send(true);
+      // Réglage refusé par le modèle (400) : on réessaie une fois sans ce réglage.
+      if (res.status === 400 && extra) {
+        console.error('[vitrine] ia', label, m, '400 avec réglages, nouvel essai sans', (await res.text()).slice(0, 200));
+        res = await send(false);
+      }
       if (!res.ok) {
         console.error('[vitrine] ia', label, m, res.status, `${Date.now() - t0} ms`, (await res.text()).slice(0, 200));
         return { ok: false, status: res.status };
