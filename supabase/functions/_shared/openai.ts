@@ -3,6 +3,8 @@ import { env, HttpError } from './http.ts';
 import { containsInventedFacts } from './guard.ts';
 import { allowedFacts, buildIdeasPrompt, IDEAS_SYSTEM_PROMPT, parseIdeas, type IdeasContext, type PostIdea } from './ideas.ts';
 export { containsInventedCommercialInfo } from './guard.ts';
+import { normalizePost, type AiOutput } from './post.ts';
+export type { AiOutput } from './post.ts';
 
 export const PROMPT_VERSION = 'v1-2026-11';
 
@@ -23,15 +25,6 @@ Règles absolues :
 - Si la photo montre le lieu, la devanture, l'atelier ou l'équipe plutôt qu'un produit, présente ce lieu ou cette équipe en lien avec le métier, sans inventer ce qui n'est pas visible.
 Réponds uniquement en JSON selon le schéma fourni.
 Le texte Instagram peut être un peu plus court et visuel ; le texte Facebook un peu plus descriptif.`;
-
-export interface AiOutput {
-  photo_description: string;
-  instagram_caption: string;
-  facebook_caption: string;
-  call_to_action: string;
-  hashtags: string[];
-  improvement_tip: string | null;
-}
 
 const SCHEMA = {
   name: 'vitrine_post',
@@ -68,27 +61,44 @@ function aiConfig() {
     '',
   );
   const model = env('AI_MODEL') ?? env('OPENAI_MODEL') ?? (isGeminiKey ? 'gemini-3.8-flash' : 'gpt-4.1-mini');
-  // Si un modèle gratuit est saturé (503), limité (429) ou trop lent, on essaie le suivant.
-  const models = env('AI_MODEL') || env('OPENAI_MODEL') ? [model] : isGeminiKey ? [model, 'gemini-3.5-flash-lite', 'gemini-2.5-flash'] : [model];
+  // Modèle de secours, plus rapide : utilisé si le premier est saturé, trop lent ou répond mal.
+  // AI_FALLBACK_MODEL permet de le changer (vide = pas de secours).
+  const fallback = env('AI_FALLBACK_MODEL') ?? (isGeminiKey && !env('AI_MODEL') && !env('OPENAI_MODEL') ? 'gemini-3.5-flash-lite' : undefined);
+  const models = fallback && fallback !== model ? [model, fallback] : [model];
   // Certains fournisseurs ne gèrent pas json_schema : AI_JSON_MODE=object -> JSON simple, validé ici.
   const jsonMode = env('AI_JSON_MODE') ?? (isGeminiKey ? 'object' : 'schema');
   return { apiKey, isGeminiKey, baseUrl, models, jsonMode, isOpenAI: baseUrl.includes('api.openai.com') };
 }
 
-/** Appel « chat » avec modèles de secours. Retourne le texte de la réponse. */
+/** Au-delà de ce délai sans réponse, on lance aussi le modèle de secours (le premier qui répond bien gagne). */
+const HEDGE_AFTER_MS = 7_000;
+/** Délai maximum pour un modèle. */
+const MODEL_TIMEOUT_MS = 30_000;
+
+type Attempt = { ok: true; content: string; usage?: Usage } | { ok: false; status: number | 'timeout' };
+
+/**
+ * Appel « chat » rapide et fiable :
+ * - on interroge le modèle principal ;
+ * - s'il échoue (saturé, réponse illisible...) ou s'il n'a pas répondu après 7 s, on interroge aussi le modèle de secours ;
+ * - la première réponse VALIDE est gardée, l'autre appel est annulé.
+ * `valid` vérifie la réponse : une réponse incomplète compte comme un échec (on passe au modèle suivant).
+ */
 async function chatCompletion(
   messages: Message[],
-  opts: { responseFormat: unknown; maxTokens: number; temperature?: number },
+  opts: { responseFormat: unknown; maxTokens: number; temperature?: number; valid?: (content: string) => boolean },
 ): Promise<{ content: string; usage?: Usage }> {
   const { apiKey, isGeminiKey, baseUrl, models } = aiConfig();
-  let res: Response | undefined;
-  let timedOut = false;
-  for (const m of models) {
+  const controllers = models.map(() => new AbortController());
+  const t0 = Date.now();
+
+  const call = async (i: number): Promise<Attempt> => {
+    const m = models[i];
+    const timer = setTimeout(() => controllers[i].abort(), MODEL_TIMEOUT_MS);
     try {
-      res = await fetch(`${baseUrl}/chat/completions`, {
+      const res = await fetch(`${baseUrl}/chat/completions`, {
         method: 'POST',
-        // On n'attend jamais trop longtemps un modèle : au-delà, on passe au suivant.
-        signal: AbortSignal.timeout(m === models[0] ? 40_000 : 30_000),
+        signal: controllers[i].signal,
         headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: m,
@@ -99,28 +109,60 @@ async function chatCompletion(
           messages,
         }),
       });
+      if (!res.ok) {
+        console.error('[vitrine] ia', m, res.status, `${Date.now() - t0} ms`, (await res.text()).slice(0, 200));
+        return { ok: false, status: res.status };
+      }
+      const data = await res.json();
+      const content = String(data.choices?.[0]?.message?.content ?? '');
+      if (!content || (opts.valid && !opts.valid(content))) {
+        console.error('[vitrine] ia réponse inutilisable', m, `${Date.now() - t0} ms`, content.slice(0, 200));
+        return { ok: false, status: 502 };
+      }
+      console.log('[vitrine] ia ok', m, `${Date.now() - t0} ms`);
+      return { ok: true, content, usage: data.usage };
     } catch (e) {
-      console.error('[vitrine] ia délai dépassé ou réseau', baseUrl, m, e instanceof Error ? e.name : '');
-      timedOut = true;
-      res = undefined;
-      continue;
+      console.error('[vitrine] ia délai dépassé ou réseau', m, `${Date.now() - t0} ms`, e instanceof Error ? e.name : '');
+      return { ok: false, status: 'timeout' };
+    } finally {
+      clearTimeout(timer);
     }
-    if (res.ok) break;
-    console.error('[vitrine] ia', baseUrl, m, res.status, (await res.text()).slice(0, 300));
-    // Erreur de clé ou de requête : inutile d'essayer un autre modèle.
-    if (![404, 429, 500, 503].includes(res.status)) break;
-  }
-  if (!res) throw new HttpError(504, 'ai_timeout', "L'IA met trop de temps à répondre. Réessayez dans un instant.");
-  if (!res.ok) {
-    if ([429, 503].includes(res.status) || timedOut) {
-      throw new HttpError(503, 'ai_busy', "L'IA gratuite est très demandée en ce moment. Réessayez dans une minute.");
-    }
-    throw new HttpError(502, 'ai_failed', "L'IA n'a pas pu écrire votre texte. Réessayez.");
-  }
-  const data = await res.json();
-  const content = data.choices?.[0]?.message?.content;
-  if (!content) console.error('[vitrine] ia réponse vide', JSON.stringify(data).slice(0, 300));
-  return { content: String(content ?? ''), usage: data.usage };
+  };
+
+  return await new Promise((resolve, reject) => {
+    const failures: Attempt[] = [];
+    let started = 0;
+    let settled = false;
+    let hedge: ReturnType<typeof setTimeout> | undefined;
+    const startNext = () => {
+      if (settled || started >= models.length) return;
+      const i = started++;
+      call(i).then((r) => {
+        if (settled) return;
+        if (r.ok) {
+          settled = true;
+          clearTimeout(hedge);
+          controllers.forEach((c, j) => j !== i && c.abort());
+          resolve({ content: r.content, usage: r.usage });
+          return;
+        }
+        failures.push(r);
+        // Erreur de clé ou de requête (400, 401, 403) : inutile d'essayer un autre modèle.
+        const fatal = typeof r.status === 'number' && [400, 401, 403].includes(r.status);
+        if (!fatal && started < models.length) return startNext();
+        if (failures.length >= started && (fatal || started >= models.length)) {
+          settled = true;
+          clearTimeout(hedge);
+          const busy = failures.some((f) => !f.ok && (f.status === 429 || f.status === 503 || f.status === 'timeout'));
+          reject(busy
+            ? new HttpError(503, 'ai_busy', "L'IA gratuite est très demandée en ce moment. Réessayez dans une minute.")
+            : new HttpError(502, 'ai_failed', "L'IA n'a pas pu écrire votre texte. Réessayez."));
+        }
+      });
+      if (i === 0) hedge = setTimeout(startNext, HEDGE_AFTER_MS);
+    };
+    startNext();
+  });
 }
 
 function parseJson<T>(content: string): T {
@@ -151,10 +193,10 @@ export async function generate(input: { imageUrl: string; context: string; avoid
         { type: 'image_url', image_url: isOpenAI ? { url: dataUri, detail: 'low' } : { url: dataUri } },
       ],
     },
-  ], { responseFormat, maxTokens: 900 });
-  const out = parseJson<AiOutput>(content);
-  if (!out.instagram_caption?.trim() || !Array.isArray(out.hashtags)) throw new HttpError(502, 'ai_failed', "L'IA a donné une réponse incomplète. Réessayez.");
-  out.hashtags = out.hashtags.map((h) => (h.startsWith('#') ? h : `#${h}`).replace(/\s+/g, '')).slice(0, 12);
+  ], { responseFormat, maxTokens: 900, valid: (c) => normalizePost(c) !== null });
+  // Une réponse inutilisable a déjà été écartée : on passe alors au modèle de secours.
+  const out = normalizePost(content);
+  if (!out) throw new HttpError(502, 'ai_failed', "L'IA n'a pas pu écrire votre texte. Réessayez.");
   return { out, usage };
 }
 
@@ -179,7 +221,7 @@ function cleanFound(v: unknown, max: number): string | null {
 /**
  * Cherche le commerce sur internet (recherche Google de Gemini) : son métier, et si c'est écrit en ligne,
  * ses produits, ce qui le rend unique et sa clientèle. Sert seulement à PRÉ-REMPLIR l'inscription.
- * Ne marche qu'avec une clé Gemini. Modèles 2.5 : la recherche y est gratuite (500 par jour).
+ * Ne marche qu'avec une clé Gemini.
  */
 export async function searchBusiness(input: { name: string; city: string; postalCode: string }): Promise<FoundBusiness> {
   const { apiKey, isGeminiKey } = aiConfig();
@@ -192,7 +234,8 @@ Réponds UNIQUEMENT avec ce JSON, en français, sans rien d'autre :
  "audience": "sa clientèle, seulement si c'est évident (ex. familles du quartier), en quelques mots"}
 Règles : n'invente rien. Pour chaque information que tu ne trouves pas avec certitude, mets "". Ne donne jamais de prix ni d'horaires.
 Si tu ne trouves pas ce commerce précis avec certitude, réponds {"trade": "", "products": "", "strengths": "", "audience": ""}.`;
-  for (const model of ['gemini-2.5-flash-lite', 'gemini-2.5-flash']) {
+  // Les modèles 2.5 ne sont plus ouverts aux nouveaux comptes (erreur 404 constatée le 3 nov. 2026).
+  for (const model of ['gemini-3.5-flash-lite', 'gemini-3.8-flash']) {
     let res: Response;
     try {
       res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
@@ -240,7 +283,7 @@ export async function suggestIdeas(ctx: IdeasContext): Promise<PostIdea[]> {
     const { content } = await chatCompletion([
       { role: 'system', content: IDEAS_SYSTEM_PROMPT },
       { role: 'user', content: buildIdeasPrompt(ctx) + extra },
-    ], { responseFormat: { type: 'json_object' }, maxTokens: 900, temperature: 0.9 });
+    ], { responseFormat: { type: 'json_object' }, maxTokens: 900, temperature: 0.9, valid: (c) => parseIdeas(c, allowed).length > 0 });
     return parseIdeas(content, allowed);
   };
   let ideas = await ask('');
@@ -267,7 +310,7 @@ ${list}
 Choisis uniquement les occasions où ce commerce a vraiment quelque chose à montrer ou à proposer.
 Réponds en JSON : {"keys": ["cle1", "cle2", ...]} avec seulement des clés de la liste.`,
     },
-  ], { responseFormat: { type: 'json_object' }, maxTokens: 600, temperature: 0.2 });
+  ], { responseFormat: { type: 'json_object' }, maxTokens: 600, temperature: 0.2, valid: (c) => { try { return Array.isArray(JSON.parse(c.replace(/^```(json)?\s*|\s*```$/g, '')).keys); } catch { return false; } } });
   const out = parseJson<{ keys?: unknown }>(content);
   const allowed = new Set(catalog.map((o) => o.key));
   return Array.isArray(out.keys) ? [...new Set(out.keys.filter((k): k is string => typeof k === 'string' && allowed.has(k)))] : [];

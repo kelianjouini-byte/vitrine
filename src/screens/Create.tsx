@@ -30,6 +30,7 @@ export function Create({ occasionId, initialPhoto, idea }: { occasionId?: string
   const [platforms, setPlatforms] = useState<Platform[]>(['instagram', 'facebook']);
   const [error, setError] = useState<string | null>(null);
   const [aiNotice, setAiNotice] = useState<string | null>(null);
+  const [retryNotice, setRetryNotice] = useState<string | null>(null);
   const [publishStep, setPublishStep] = useState(0);
   const idempotencyKey = useRef<string>(Crypto.randomUUID());
 
@@ -64,6 +65,7 @@ export function Create({ occasionId, initialPhoto, idea }: { occasionId?: string
     setPhase('generating');
     setError(null);
     setAiNotice(null);
+    setRetryNotice(null);
     try {
       if (!isBackendConfigured) throw new NotConfiguredError('serveur');
       if (!p.base64) throw new FriendlyError("La photo n'a pas pu être lue. Réessayez.");
@@ -85,8 +87,16 @@ export function Create({ occasionId, initialPhoto, idea }: { occasionId?: string
           : "L'IA n'est pas encore branchée : voici un texte d'exemple, qui ne décrit pas votre photo. Modifiez-le avant de publier.");
         apply(exampleCaption(b, occasion));
       } else {
-        setError(e instanceof FriendlyError ? e.message : "L'IA n'a pas pu écrire votre texte. Réessayez.");
-        setPhase(gen ? 'preview' : 'pick');
+        if (gen) {
+          // « Refaire » a échoué : le texte précédent est toujours là, on le dit simplement.
+          setAiNotice(null);
+          setError(null);
+          setRetryNotice("Le nouveau texte n'a pas pu être écrit cette fois. Votre texte est toujours là : vous pouvez le publier, ou appuyer à nouveau sur « Refaire ».");
+          setPhase('preview');
+        } else {
+          setError(e instanceof FriendlyError ? e.message : "L'IA n'a pas pu écrire votre texte. Réessayez.");
+          setPhase('pick');
+        }
       }
     }
   }
@@ -220,6 +230,7 @@ export function Create({ occasionId, initialPhoto, idea }: { occasionId?: string
         </View>
       </View>
 
+      {retryNotice && <Notice tone="orange" title="Pas de nouveau texte cette fois" text={retryNotice} />}
       {gen?.improvementTip ? <Body soft size={14}>💡 {gen.improvementTip}</Body> : null}
 
       <View style={{ gap: 8 }}>
