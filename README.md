@@ -27,6 +27,8 @@ npx expo start --web        # ou l'ouvrir dans le navigateur
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | `.env` (app) | Clé publique Supabase (la sécurité repose sur la RLS) |
 | `OPENAI_API_KEY` | secrets Supabase | Écriture des posts par l'IA |
 | `OPENAI_MODEL` | secrets Supabase | Modèle multimodal (défaut `gpt-4.1-mini`) |
+| `GROQ_API_KEY` | secrets Supabase | Facultatif, offre gratuite Groq : IA essayée en premier (très rapide), Gemini prend le relais |
+| `GROQ_MODEL` | secrets Supabase | Modèle Groq qui lit les photos (défaut `qwen/qwen3.8-27b`) |
 | `AI_FALLBACK_MODEL` | secrets Supabase | Modèle de secours lancé si le premier est saturé ou met plus de 7 s (Gemini : `gemini-3.5-flash-lite` par défaut) |
 | `META_APP_ID`, `META_APP_SECRET` | secrets Supabase | Application Meta (connexion + publication) |
 | `META_CONFIG_ID` | secrets Supabase | Facultatif : configuration Facebook Login for Business |

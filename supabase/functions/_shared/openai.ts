@@ -47,40 +47,54 @@ const SCHEMA = {
 type Message = { role: 'system' | 'user'; content: unknown };
 type Usage = { prompt_tokens: number; completion_tokens: number };
 
-/** Réglages du fournisseur d'IA, lus dans les secrets du serveur. */
+/** Un « chemin » vers une IA : une adresse, une clé, un modèle. */
+type Route = { label: string; baseUrl: string; apiKey: string; model: string; gemini: boolean; extra?: Record<string, unknown> };
+
+/**
+ * Réglages des IA, lus dans les secrets du serveur. Plusieurs IA peuvent être branchées :
+ * elles sont essayées dans l'ordre (la suivante démarre si la précédente échoue ou tarde).
+ * - GROQ_API_KEY (facultatif, gratuit) : Groq en premier, très rapide. Modèle : GROQ_MODEL.
+ * - AI_API_KEY : Google Gemini (clé qui ne commence pas par « sk- ») ou OpenAI (« sk- »),
+ *   ou tout service « compatible OpenAI » via AI_BASE_URL + AI_MODEL.
+ */
 function aiConfig() {
-  // Fournisseur au choix : OpenAI par défaut, ou tout service « compatible OpenAI »
-  // (ex. offre gratuite Google Gemini ou Groq) via AI_BASE_URL + AI_API_KEY + AI_MODEL.
+  const routes: Route[] = [];
+  const groqKey = env('GROQ_API_KEY');
+  if (groqKey) {
+    routes.push({ label: 'groq', baseUrl: 'https://api.groq.com/openai/v1', apiKey: groqKey, model: env('GROQ_MODEL') ?? 'qwen/qwen3.8-27b', gemini: false,
+      // Le modèle Qwen « réfléchit » avant d'écrire : on cache cette réflexion (réponse JSON propre).
+      extra: { reasoning_format: 'hidden' } });
+  }
   const apiKey = env('AI_API_KEY') ?? env('OPENAI_API_KEY');
-  if (!apiKey) throw new HttpError(503, 'openai_not_configured', "L'écriture par l'IA n'est pas encore configurée.");
-  // Les clés OpenAI commencent par « sk- ». Toute autre clé est traitée comme une clé Google Gemini :
-  // l'adresse et le modèle sont alors choisis automatiquement.
-  const isGeminiKey = !apiKey.startsWith('sk-');
-  const baseUrl = (env('AI_BASE_URL') ?? (isGeminiKey ? 'https://generativelanguage.googleapis.com/v1beta/openai' : 'https://api.openai.com/v1')).replace(
-    /\/$/,
-    '',
-  );
-  const model = env('AI_MODEL') ?? env('OPENAI_MODEL') ?? (isGeminiKey ? 'gemini-3.8-flash' : 'gpt-4.1-mini');
-  // Modèle de secours, plus rapide : utilisé si le premier est saturé, trop lent ou répond mal.
-  // AI_FALLBACK_MODEL permet de le changer (vide = pas de secours).
-  const fallback = env('AI_FALLBACK_MODEL') ?? (isGeminiKey && !env('AI_MODEL') && !env('OPENAI_MODEL') ? 'gemini-3.5-flash-lite' : undefined);
-  const models = fallback && fallback !== model ? [model, fallback] : [model];
-  // Certains fournisseurs ne gèrent pas json_schema : AI_JSON_MODE=object -> JSON simple, validé ici.
-  const jsonMode = env('AI_JSON_MODE') ?? (isGeminiKey ? 'object' : 'schema');
-  return { apiKey, isGeminiKey, baseUrl, models, jsonMode, isOpenAI: baseUrl.includes('api.openai.com') };
+  // Les clés OpenAI commencent par « sk- ». Toute autre clé est traitée comme une clé Google Gemini.
+  const isGeminiKey = !!apiKey && !apiKey.startsWith('sk-');
+  if (apiKey) {
+    const baseUrl = (env('AI_BASE_URL') ?? (isGeminiKey ? 'https://generativelanguage.googleapis.com/v1beta/openai' : 'https://api.openai.com/v1')).replace(/\/$/, '');
+    const gemini = baseUrl.includes('generativelanguage.googleapis.com');
+    const model = env('AI_MODEL') ?? env('OPENAI_MODEL') ?? (gemini ? 'gemini-3.8-flash' : 'gpt-4.1-mini');
+    routes.push({ label: 'principal', baseUrl, apiKey, model, gemini });
+    // Modèle de secours du même fournisseur (AI_FALLBACK_MODEL ; Gemini : gemini-3.5-flash-lite par défaut).
+    const fallback = env('AI_FALLBACK_MODEL') ?? (gemini && !env('AI_MODEL') && !env('OPENAI_MODEL') ? 'gemini-3.5-flash-lite' : undefined);
+    if (fallback && fallback !== model) routes.push({ label: 'secours', baseUrl, apiKey, model: fallback, gemini });
+  }
+  if (!routes.length) throw new HttpError(503, 'openai_not_configured', "L'écriture par l'IA n'est pas encore configurée.");
+  // json_schema n'est compris que par OpenAI : ailleurs, JSON simple validé ici (AI_JSON_MODE=object pour forcer).
+  const onlyOpenAI = routes.every((r) => r.baseUrl.includes('api.openai.com'));
+  const jsonMode = env('AI_JSON_MODE') ?? (onlyOpenAI ? 'schema' : 'object');
+  return { routes, jsonMode, geminiKey: isGeminiKey ? apiKey! : undefined };
 }
 
 /** Au-delà de ce délai sans réponse, on lance aussi le modèle de secours (le premier qui répond bien gagne). */
 const HEDGE_AFTER_MS = 7_000;
 /** Délai maximum pour un modèle. */
-const MODEL_TIMEOUT_MS = 30_000;
+const MODEL_TIMEOUT_MS = 20_000;
 
 type Attempt = { ok: true; content: string; usage?: Usage } | { ok: false; status: number | 'timeout' };
 
 /**
  * Appel « chat » rapide et fiable :
- * - on interroge le modèle principal ;
- * - s'il échoue (saturé, réponse illisible...) ou s'il n'a pas répondu après 7 s, on interroge aussi le modèle de secours ;
+ * - on interroge la première IA branchée (Groq si sa clé existe, sinon Gemini) ;
+ * - s'il échoue (saturé, réponse illisible...) ou n'a pas répondu après 7 s, on interroge aussi la suivante, et ainsi de suite ;
  * - la première réponse VALIDE est gardée, l'autre appel est annulé.
  * `valid` vérifie la réponse : une réponse incomplète compte comme un échec (on passe au modèle suivant).
  */
@@ -88,41 +102,49 @@ async function chatCompletion(
   messages: Message[],
   opts: { responseFormat: unknown; maxTokens: number; temperature?: number; valid?: (content: string) => boolean },
 ): Promise<{ content: string; usage?: Usage }> {
-  const { apiKey, isGeminiKey, baseUrl, models } = aiConfig();
-  const controllers = models.map(() => new AbortController());
+  const { routes } = aiConfig();
+  const controllers = routes.map(() => new AbortController());
   const t0 = Date.now();
 
   const call = async (i: number): Promise<Attempt> => {
-    const m = models[i];
+    const { baseUrl, apiKey, model: m, gemini, label, extra } = routes[i];
     const timer = setTimeout(() => controllers[i].abort(), MODEL_TIMEOUT_MS);
+    const send = (withExtra: boolean) => fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      signal: controllers[i].signal,
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: m,
+        temperature: opts.temperature ?? 0.8,
+        // Gemini « réfléchit » avant d'écrire : on limite cette réflexion pour aller vite.
+        ...(gemini ? { reasoning_effort: 'low', max_tokens: Math.max(opts.maxTokens, 4000) } : { max_tokens: Math.max(opts.maxTokens, 2000) }),
+        ...(withExtra ? extra : {}),
+        response_format: opts.responseFormat,
+        messages,
+      }),
+    });
     try {
-      const res = await fetch(`${baseUrl}/chat/completions`, {
-        method: 'POST',
-        signal: controllers[i].signal,
-        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: m,
-          temperature: opts.temperature ?? 0.8,
-          // Gemini « réfléchit » avant d'écrire : on limite cette réflexion pour aller vite.
-          ...(isGeminiKey ? { reasoning_effort: 'low', max_tokens: Math.max(opts.maxTokens, 4000) } : { max_tokens: opts.maxTokens }),
-          response_format: opts.responseFormat,
-          messages,
-        }),
-      });
+      let res = await send(true);
+      // Réglage refusé par le modèle (400) : on réessaie une fois sans ce réglage.
+      if (res.status === 400 && extra) {
+        console.error('[vitrine] ia', label, m, '400 avec réglages, nouvel essai sans', (await res.text()).slice(0, 200));
+        res = await send(false);
+      }
       if (!res.ok) {
-        console.error('[vitrine] ia', m, res.status, `${Date.now() - t0} ms`, (await res.text()).slice(0, 200));
+        console.error('[vitrine] ia', label, m, res.status, `${Date.now() - t0} ms`, (await res.text()).slice(0, 200));
         return { ok: false, status: res.status };
       }
       const data = await res.json();
-      const content = String(data.choices?.[0]?.message?.content ?? '');
+      // Certains modèles écrivent leur réflexion entre <think> et </think> avant la réponse : on la retire.
+      const content = String(data.choices?.[0]?.message?.content ?? '').replace(/<think>[\s\S]*?<\/think>/g, '').trim();
       if (!content || (opts.valid && !opts.valid(content))) {
-        console.error('[vitrine] ia réponse inutilisable', m, `${Date.now() - t0} ms`, content.slice(0, 200));
+        console.error('[vitrine] ia réponse inutilisable', label, m, `${Date.now() - t0} ms`, content.slice(0, 200));
         return { ok: false, status: 502 };
       }
-      console.log('[vitrine] ia ok', m, `${Date.now() - t0} ms`);
+      console.log('[vitrine] ia ok', label, m, `${Date.now() - t0} ms`);
       return { ok: true, content, usage: data.usage };
     } catch (e) {
-      console.error('[vitrine] ia délai dépassé ou réseau', m, `${Date.now() - t0} ms`, e instanceof Error ? e.name : '');
+      console.error('[vitrine] ia délai dépassé ou réseau', label, m, `${Date.now() - t0} ms`, e instanceof Error ? e.name : '');
       return { ok: false, status: 'timeout' };
     } finally {
       clearTimeout(timer);
@@ -135,8 +157,11 @@ async function chatCompletion(
     let settled = false;
     let hedge: ReturnType<typeof setTimeout> | undefined;
     const startNext = () => {
-      if (settled || started >= models.length) return;
+      if (settled || started >= routes.length) return;
       const i = started++;
+      clearTimeout(hedge);
+      // Si cette IA n'a pas répondu à temps, on lance aussi la suivante (la première bonne réponse gagne).
+      hedge = setTimeout(startNext, HEDGE_AFTER_MS);
       call(i).then((r) => {
         if (settled) return;
         if (r.ok) {
@@ -147,10 +172,9 @@ async function chatCompletion(
           return;
         }
         failures.push(r);
-        // Erreur de clé ou de requête (400, 401, 403) : inutile d'essayer un autre modèle.
-        const fatal = typeof r.status === 'number' && [400, 401, 403].includes(r.status);
-        if (!fatal && started < models.length) return startNext();
-        if (failures.length >= started && (fatal || started >= models.length)) {
+        // Une erreur de clé sur une IA n'empêche pas d'essayer les autres (elles ont leur propre clé).
+        if (started < routes.length) return startNext();
+        if (failures.length >= started) {
           settled = true;
           clearTimeout(hedge);
           const busy = failures.some((f) => !f.ok && (f.status === 429 || f.status === 503 || f.status === 'timeout'));
@@ -159,7 +183,6 @@ async function chatCompletion(
             : new HttpError(502, 'ai_failed', "L'IA n'a pas pu écrire votre texte. Réessayez."));
         }
       });
-      if (i === 0) hedge = setTimeout(startNext, HEDGE_AFTER_MS);
     };
     startNext();
   });
@@ -174,7 +197,8 @@ function parseJson<T>(content: string): T {
 }
 
 export async function generate(input: { imageUrl: string; context: string; avoid: string[] }): Promise<{ out: AiOutput; usage?: Usage }> {
-  const { jsonMode, isOpenAI } = aiConfig();
+  const { jsonMode, routes } = aiConfig();
+  const isOpenAI = routes[0].baseUrl.includes('api.openai.com');
   const responseFormat = jsonMode === 'object' ? { type: 'json_object' } : { type: 'json_schema', json_schema: SCHEMA };
   // On envoie la photo en « data URI » : tous les fournisseurs l'acceptent (certains refusent les liens).
   const img = await fetch(input.imageUrl);
@@ -224,8 +248,8 @@ function cleanFound(v: unknown, max: number): string | null {
  * Ne marche qu'avec une clé Gemini.
  */
 export async function searchBusiness(input: { name: string; city: string; postalCode: string }): Promise<FoundBusiness> {
-  const { apiKey, isGeminiKey } = aiConfig();
-  if (!isGeminiKey) return EMPTY_FOUND;
+  const { geminiKey: apiKey } = aiConfig();
+  if (!apiKey) return EMPTY_FOUND;
   const prompt = `Recherche sur internet le commerce « ${input.name} » situé à ${input.city} (${input.postalCode}), en France.
 Réponds UNIQUEMENT avec ce JSON, en français, sans rien d'autre :
 {"trade": "son métier en 1 à 4 mots (ex. Épicerie fine, Tatoueur, Boulangerie)",
