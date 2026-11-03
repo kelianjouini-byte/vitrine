@@ -1,9 +1,10 @@
-// POST { image_paths[] (ou image_path), post_id?, occasion?, merchant_note?, trade_hint?, idea? }
+// POST { image_paths[] (ou image_path), post_id?, occasion?, merchant_note?, trade_hint?, idea?, tone? }
 // -> { postId, instagramCaption, facebookCaption, hashtags, callToAction, photoDescription, improvementTip }
 import { handler, json, HttpError } from '../_shared/http.ts';
 import { requireMerchant, rateLimit } from '../_shared/db.ts';
 import { generate, PROMPT_VERSION, containsInventedCommercialInfo } from '../_shared/openai.ts';
 import { readImagePaths } from '../_shared/photos.ts';
+import { findAdWords, toTone } from '../_shared/prompts.ts';
 
 /** Nombre de photos envoyées à l'IA (les suivantes sont publiées mais pas analysées). */
 const AI_MAX_IMAGES = 3;
@@ -21,6 +22,8 @@ Deno.serve(handler(async (req) => {
   const idea = body.idea && typeof body.idea === 'object'
     ? { title: String(body.idea.title ?? '').slice(0, 80), why: String(body.idea.why ?? '').slice(0, 240) }
     : null;
+  // Ton : celui choisi sur la page photo (« Changer le ton »), sinon celui de la boutique, sinon Premium.
+  const tone = toTone(body.tone ?? business.tone);
 
   // Limitation des coûts : 20 générations / heure / boutique (les limites par offre viendront de public.plans).
   await rateLimit(db, 'ai_generations', business.id, 20, 60);
@@ -51,7 +54,6 @@ Deno.serve(handler(async (req) => {
     `Commerce : ${business.business_name} à ${business.city} (${business.postal_code}).`,
     `Métier exact : ${business.trade || business.business_type}.`,
     tradeHint ? `Ce que ce métier met en valeur : ${tradeHint}` : '',
-    `Ton souhaité : ${business.tone}.`,
     business.specialties ? `Produits et spécialités : ${business.specialties}.` : '',
     business.strengths ? `Ce qui rend la boutique unique : ${business.strengths}.` : '',
     business.description ? `Présentation : ${business.description}.` : '',
@@ -65,13 +67,26 @@ Deno.serve(handler(async (req) => {
     `Date du jour : ${new Date().toISOString().slice(0, 10)}.`,
   ].filter(Boolean).join('\n');
 
-  const inputData = { image_path: imagePath, image_paths: imagePaths, occasion: body.occasion ?? null, merchant_note: merchantNote, idea };
+  const inputData = { image_path: imagePath, image_paths: imagePaths, occasion: body.occasion ?? null, merchant_note: merchantNote, idea, tone };
   try {
-    let { out, usage } = await generate({ imageUrls, context, avoid });
-    // Contrôle du contenu : une seconde tentative si l'IA a inventé un prix / une promo.
-    if (containsInventedCommercialInfo(out.instagram_caption + out.facebook_caption, merchantNote)) {
-      ({ out, usage } = await generate({ imageUrls, context: context + '\nATTENTION : ta proposition précédente mentionnait un prix ou une promotion. Retire toute information commerciale.', avoid }));
-      if (containsInventedCommercialInfo(out.instagram_caption + out.facebook_caption, merchantNote)) throw new HttpError(502, 'ai_failed', "L'IA n'a pas proposé un texte satisfaisant. Réessayez.");
+    let { out, usage } = await generate({ imageUrls, context, avoid, tone });
+    // Contrôle du contenu : une seconde tentative si l'IA a inventé un prix / une promo, ou utilisé des mots « pub ».
+    const textOf = (o: typeof out) => o.instagram_caption + '\n' + o.facebook_caption;
+    const invented = containsInventedCommercialInfo(textOf(out), merchantNote);
+    const adWords = findAdWords(textOf(out));
+    if (invented || adWords.length) {
+      const fix = [
+        invented ? 'ta proposition précédente mentionnait un prix ou une promotion. Retire toute information commerciale.' : '',
+        adWords.length ? `ta proposition précédente utilisait des mots interdits (${adWords.join(', ')}). Réécris sans eux, avec des mots précis et concrets.` : '',
+      ].filter(Boolean).join(' Et ');
+      // Seulement des mots « pub » : si le second essai échoue, on garde le premier texte (le commerçant peut le modifier).
+      const second = await generate({ imageUrls, context: context + `\nATTENTION : ${fix}`, avoid, tone }).catch((e) => { if (invented) throw e; return null; });
+      if (second) {
+        const secondInvented = containsInventedCommercialInfo(textOf(second.out), merchantNote);
+        if (invented && secondInvented) throw new HttpError(502, 'ai_failed', "L'IA n'a pas proposé un texte satisfaisant. Réessayez.");
+        // On garde le meilleur des deux essais.
+        if (invented || (!secondInvented && findAdWords(textOf(second.out)).length <= adWords.length)) ({ out, usage } = second);
+      }
     }
     await db.from('ai_generations').insert({ business_id: business.id, post_id: postId, prompt_version: PROMPT_VERSION, input_data: inputData, output_data: out, tokens_in: usage?.prompt_tokens, tokens_out: usage?.completion_tokens });
     await db.from('posts').update({ instagram_caption: out.instagram_caption, facebook_caption: out.facebook_caption, hashtags: out.hashtags, status: 'awaiting_approval' }).eq('id', postId);

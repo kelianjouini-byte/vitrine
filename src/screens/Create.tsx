@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Platform as RNPlatform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import * as Crypto from 'expo-crypto';
-import { Body, Button, Notice, Title, BackButton } from '../components/ui';
+import { Body, Button, Chip, Notice, Title, BackButton } from '../components/ui';
 import { CameraIcon, CheckIcon, ImageIcon, PencilIcon, RefreshIcon, SparkIcon } from '../components/icons';
 import { colors, fonts, glass, glassSurface, radius } from '../lib/theme';
 import { useApp } from '../lib/store';
@@ -12,7 +12,8 @@ import { CENTERED, clampFraming, formatRatio, MAX_PHOTOS, renderCrop, takePhotos
 import { PhotoCropper } from '../components/PhotoCropper';
 import { PhotoCarousel } from '../components/PhotoCarousel';
 import { tradeById } from '../lib/trades';
-import type { GeneratedPost, Platform, Post, PostIdea, PublicationResult } from '../lib/types';
+import type { GeneratedPost, Platform, Post, PostIdea, PublicationResult, Tone } from '../lib/types';
+import { DEFAULT_TONE, toneLabel, TONES } from '../lib/business';
 
 type Phase = 'pick' | 'crop' | 'photos' | 'generating' | 'preview' | 'publishing';
 
@@ -49,6 +50,8 @@ export function Create({ occasionId, initialPhoto, idea }: { occasionId?: string
   const [error, setError] = useState<string | null>(null);
   const [aiNotice, setAiNotice] = useState<string | null>(null);
   const [retryNotice, setRetryNotice] = useState<string | null>(null);
+  // Ton de CE post : celui de la boutique au départ, modifiable avec « Changer le ton ».
+  const [tone, setTone] = useState<Tone>(b.tone ?? DEFAULT_TONE);
   const [publishStep, setPublishStep] = useState(0);
   const idempotencyKey = useRef<string>(Crypto.randomUUID());
   // Toujours la dernière liste de photos (les envois au serveur la complètent pendant l'attente).
@@ -201,7 +204,7 @@ export function Create({ occasionId, initialPhoto, idea }: { occasionId?: string
     await generate(true);
   }
 
-  async function generate(fresh = false) {
+  async function generate(fresh = false, withTone: Tone = tone) {
     if (!slidesRef.current.length) return;
     const hadText = !fresh && !!gen;
     setPhase('generating');
@@ -217,7 +220,7 @@ export function Create({ occasionId, initialPhoto, idea }: { occasionId?: string
         if (id) await saveBusiness({ ...b, id });
       }
       const paths = await ensureUploaded();
-      const out = await generatePost({ imagePaths: paths, occasion: occasion ?? null, postId: postIdRef.current, tradeHint: tradeById(b.businessType)?.aiHint, idea: idea ?? null });
+      const out = await generatePost({ imagePaths: paths, occasion: occasion ?? null, postId: postIdRef.current, tradeHint: tradeById(b.businessType)?.aiHint, idea: idea ?? null, tone: withTone });
       setPostId(out.postId);
       apply(out);
     } catch (e) {
@@ -423,7 +426,7 @@ export function Create({ occasionId, initialPhoto, idea }: { occasionId?: string
       ) : (
         <View style={{ backgroundColor: colors.greenSoft, borderRadius: radius.sm + 2, padding: 12, flexDirection: 'row', gap: 8, alignItems: 'center' }}>
           <SparkIcon size={18} color={colors.green} />
-          <Text style={{ color: colors.green, fontWeight: '700', flex: 1, fontFamily: fonts.body }}>Écrit par l'IA dans le style de votre boutique</Text>
+          <Text style={{ color: colors.green, fontWeight: '700', flex: 1, fontFamily: fonts.body }}>Écrit par l'IA · ton {toneLabel(tone)}</Text>
         </View>
       )}
 
@@ -453,6 +456,18 @@ export function Create({ occasionId, initialPhoto, idea }: { occasionId?: string
 
       {retryNotice && <Notice tone="orange" title="Pas de nouveau texte cette fois" text={retryNotice} />}
       {gen?.improvementTip ? <Body soft size={14}>Conseil : {gen.improvementTip}</Body> : null}
+
+      {!aiNotice && (
+        <View style={{ gap: 8 }}>
+          <Body style={{ fontWeight: '600' }}>Changer le ton</Body>
+          <Body soft size={14}>Le texte ne vous plaît pas ? Choisissez un autre ton, l'IA le réécrit. Seulement pour ce post.</Body>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {TONES.map((t) => (
+              <Chip key={t.id} label={t.label} selected={tone === t.id} onPress={() => { setTone(t.id); generate(false, t.id); }} />
+            ))}
+          </View>
+        </View>
+      )}
 
       <View style={{ gap: 8 }}>
         <Body style={{ fontWeight: '600' }}>Publier sur</Body>

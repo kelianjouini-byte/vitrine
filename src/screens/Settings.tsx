@@ -6,7 +6,7 @@ import { NetworkCards } from '../components/NetworkCards';
 import { IdentityFields, type Identity } from '../components/IdentityFields';
 import { colors } from '../lib/theme';
 import { useApp } from '../lib/store';
-import { tradeLabel } from '../lib/business';
+import { toneLabel, tradeLabel } from '../lib/business';
 import { isBackendConfigured } from '../lib/config';
 import { notificationsSupported } from '../lib/notifications';
 import { currentUserId, deleteAccountRemote, FriendlyError, saveBusinessRemote, sendLoginCode, signOut, verifyLoginCode } from '../lib/api';
@@ -43,7 +43,7 @@ export function Settings() {
       <Card style={{ gap: 4 }}>
         <Body style={{ fontWeight: '700' }} size={18}>{b.businessName}</Body>
         <Body soft>{tradeLabel(b)} · {b.city} ({b.postalCode})</Body>
-        <Body soft size={14}>Ton : {b.tone}</Body>
+        <Body soft size={14}>Ton : {toneLabel(b.tone)}</Body>
       </Card>
 
       <Label>Carte d'identité de la boutique</Label>

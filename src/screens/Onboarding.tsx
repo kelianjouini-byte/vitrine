@@ -5,7 +5,7 @@ import { Body, Button, Chip, Field, Title } from '../components/ui';
 import { NetworkCards } from '../components/NetworkCards';
 import { LogoMark } from '../components/icons';
 import { GlassBackground } from '../components/GlassBackground';
-import { TONES } from '../lib/business';
+import { DEFAULT_TONE, TONES } from '../lib/business';
 import { TradePicker } from '../components/TradePicker';
 import { IdentityFields } from '../components/IdentityFields';
 import { matchTrade } from '../lib/trades';
@@ -22,7 +22,7 @@ export function Onboarding() {
   const { saveBusiness } = useApp();
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState(1);
-  const [form, setForm] = useState<Partial<Business>>({ tone: 'chaleureux' });
+  const [form, setForm] = useState<Partial<Business>>({ tone: DEFAULT_TONE });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -88,7 +88,7 @@ export function Onboarding() {
       trade: form.trade?.trim() || undefined,
       city: form.city!.trim(),
       postalCode: form.postalCode!.trim(),
-      tone: form.tone ?? 'chaleureux',
+      tone: form.tone ?? DEFAULT_TONE,
       audience: form.audience?.trim() || undefined,
       description: form.description?.trim() || undefined,
       specialties: form.specialties?.trim() || undefined,

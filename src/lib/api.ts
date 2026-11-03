@@ -7,7 +7,7 @@
  */
 import * as Crypto from 'expo-crypto';
 import { supabase } from './supabase';
-import type { Business, GeneratedPost, Platform, PostIdea, PublicationResult, SocialConnection } from './types';
+import type { Business, GeneratedPost, Platform, PostIdea, PublicationResult, SocialConnection, Tone } from './types';
 import { tradeLabel } from './business';
 import type { CommercialEvent } from './events';
 
@@ -138,6 +138,8 @@ export interface GenerateInput {
   postId?: string;
   /** Idée choisie dans l'assistant : le texte suit cette idée. */
   idea?: Pick<PostIdea, 'title' | 'why'> | null;
+  /** Ton choisi sur la page photo (« Changer le ton ») ; sinon celui de la boutique. */
+  tone?: Tone;
 }
 
 export async function generatePost(input: GenerateInput): Promise<GeneratedPost & { postId: string }> {
@@ -150,6 +152,7 @@ export async function generatePost(input: GenerateInput): Promise<GeneratedPost 
     merchant_note: input.merchantNote ?? null,
     trade_hint: input.tradeHint ?? null,
     idea: input.idea ? { title: input.idea.title, why: input.idea.why } : null,
+    tone: input.tone ?? null,
   });
 }
 
