@@ -29,7 +29,7 @@ Vert `#2F7658` · vert secondaire `#DCEFE3` · fond `#F8FAF7` · blanc `#FFFFFF`
 ## 5. Organisation du projet
 ```
 App.tsx                     racine + barre d'onglets
-src/screens/                Onboarding, Home, Ideas (3 idées de posts), Report (Mon bilan du mois), Create (post : photo + aperçu), Story (photo ou vidéo), Published, Fetes, Posts, Settings
+src/screens/                Onboarding, Home, Planning + PlanDay (la semaine, posts préparés à l'avance), Ideas (3 idées de posts), Report (Mon bilan du mois), Create (post : photo + aperçu), Story (photo ou vidéo), Published, Fetes, Posts, Settings
 src/components/             ui.tsx, icons.tsx, NetworkCards.tsx
 src/lib/                    api.ts, events.ts, store.tsx, types.ts, theme.ts, config.ts, notifications.ts, storage.ts, supabase.ts
 supabase/migrations/        schéma SQL + RLS + bucket

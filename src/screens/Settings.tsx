@@ -86,6 +86,13 @@ export function Settings() {
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <View style={{ flex: 1 }}>
+            <Body style={{ fontWeight: '600' }}>Le planning : l'idée du jour</Body>
+            <Body soft size={14}>Les jours de post ou de story, et quand un post préparé est prêt.</Body>
+          </View>
+          <Switch value={prefs.planReminders !== false} onValueChange={(v) => setPrefs({ ...prefs, planReminders: v })} trackColor={{ true: colors.green, false: '#D6DBD5' }} thumbColor="#fff" />
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <View style={{ flex: 1 }}>
             <Body style={{ fontWeight: '600' }}>Le 1er du mois : votre bilan</Body>
             <Body soft size={14}>Un petit rappel quand le bilan du mois est prêt.</Body>
           </View>
