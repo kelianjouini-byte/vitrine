@@ -1,7 +1,8 @@
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { upcomingEvents, type CommercialEvent } from './events';
-import type { Business, NotificationPrefs } from './types';
+import type { Business, NotificationPrefs, Post } from './types';
+import { planReminders, type PlanChoices } from './planning';
 import { monthKey, reportReminderDates, reportReminderText } from './report';
 
 /** Les rappels de fêtes sont des notifications LOCALES programmées sur le téléphone :
@@ -46,13 +47,23 @@ export function onNotificationTap(fn: (data: Record<string, unknown> | undefined
 }
 
 /** Reprogramme tous les rappels selon les préférences. Retourne le nombre de rappels programmés. */
-export async function scheduleReminders(b: Business, prefs: NotificationPrefs): Promise<number> {
+export async function scheduleReminders(b: Business, prefs: NotificationPrefs, plan?: { posts: Post[]; choices: PlanChoices }): Promise<number> {
   if (!notificationsSupported) return 0;
   await Notifications.cancelAllScheduledNotificationsAsync();
   if (!prefs.enabled) return 0;
   if (!(await askPermission())) return 0;
   const now = new Date();
   let count = 0;
+  // En premier : les rappels du planning (le téléphone garde un nombre limité de rappels).
+  if (plan && prefs.planReminders !== false) {
+    for (const r of planReminders(b, plan.posts, plan.choices, upcomingEvents(b, now, 2, b.postalCode), prefs.hour, now)) {
+      await Notifications.scheduleNotificationAsync({
+        content: { title: r.title, body: r.body, data: { route: 'planDay', day: r.day } },
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: r.date },
+      });
+      count++;
+    }
+  }
   if (prefs.weeklyIdeas !== false) {
     // Chaque lundi (weekday 2 : 1 = dimanche pour Expo), à l'heure choisie.
     await Notifications.scheduleNotificationAsync({
