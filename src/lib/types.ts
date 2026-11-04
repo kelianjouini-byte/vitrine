@@ -28,6 +28,8 @@ export interface Business {
   specialties?: string;
   /** Ce qui rend la boutique unique : « fait maison », « bio », « 3e génération »... */
   strengths?: string;
+  /** Jours de fermeture (0 = lundi ... 6 = dimanche) : le planning y met « Repos ». */
+  closedDays?: number[];
 }
 
 /** Une idée de publication proposée par l'assistant « Je ne sais pas quoi poster ». */
@@ -82,6 +84,12 @@ export interface Post {
   occasionId?: string | null;
   createdAt: string;
   publishedAt?: string | null;
+  /** Post préparé à l'avance dans le planning (statut « scheduled ») : jour et heure prévus. */
+  scheduledFor?: string | null;
+  /** Chemins des photos sur le serveur, gardés pour publier plus tard un post préparé à l'avance. */
+  imagePaths?: string[];
+  /** Clé anti-doublon de la publication (un post préparé n'est publié qu'une fois). */
+  idempotencyKey?: string;
   publications: PublicationResult[];
 }
 
@@ -93,6 +101,8 @@ export interface NotificationPrefs {
   weeklyIdeas?: boolean;
   /** Le 1er du mois : « Votre bilan de [mois] est prêt » (activé si absent). */
   monthlyReport?: boolean;
+  /** Rappels du planning : « Votre post est prêt », « Idée de story du jour » (activé si absent). */
+  planReminders?: boolean;
 }
 
 export interface SocialConnection {

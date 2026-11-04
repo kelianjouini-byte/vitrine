@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import type { DayChoice, PlanChoices } from './planning';
 import { load, save, clearAll } from './storage';
 import { onNotificationTap, scheduleReminders } from './notifications';
 import { signOut, socialConnections } from './api';
@@ -11,14 +12,16 @@ export type Route =
   | { name: 'home' }
   | { name: 'fetes' }
   | { name: 'posts' }
+  | { name: 'planning' }
+  | { name: 'planDay'; day: string }
   | { name: 'settings' }
   | { name: 'ideas' }
   | { name: 'report'; month?: Month }
-  | { name: 'create'; occasionId?: string; photo?: RawPhoto; idea?: PostIdea }
+  | { name: 'create'; occasionId?: string; photo?: RawPhoto; idea?: PostIdea; plannedFor?: string }
   | { name: 'story' }
   | { name: 'published'; postId: string };
 
-export const TAB_ROUTES = ['home', 'fetes', 'posts'] as const;
+export const TAB_ROUTES = ['home', 'planning', 'fetes', 'posts'] as const;
 
 interface AppState {
   ready: boolean;
@@ -31,6 +34,9 @@ interface AppState {
   back: () => void;
   saveBusiness: (b: Business) => Promise<void>;
   upsertPost: (p: Post) => void;
+  /** Choix du commerçant dans le planning (post, story, repos, « une autre idée »). */
+  planChoices: PlanChoices;
+  setDayChoice: (day: string, c: DayChoice) => void;
   setPrefs: (p: NotificationPrefs) => void;
   refreshConnections: () => Promise<void>;
   resetAll: () => Promise<void>;
@@ -46,6 +52,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [posts, setPosts] = useState<Post[]>([]);
   const [prefs, setPrefsState] = useState<NotificationPrefs>(DEFAULT_PREFS);
   const [connections, setConnections] = useState<SocialConnection[]>([]);
+  const [planChoices, setPlanChoices] = useState<PlanChoices>({});
   const [stack, setStack] = useState<Route[]>([{ name: 'home' }]);
 
   useEffect(() => {
@@ -59,6 +66,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setBusiness(await load<Business | null>('business', null));
       setPosts(await load<Post[]>('posts', []));
       setPrefsState(await load('prefs', DEFAULT_PREFS));
+      setPlanChoices(await load<PlanChoices>('planChoices', {}));
       // On affiche l'app tout de suite ; l'état des réseaux arrive juste après.
       setReady(true);
       setConnections(await socialConnections());
@@ -72,6 +80,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Appui sur une notification : le rappel du lundi ouvre les idées, celui du 1er du mois ouvre le bilan.
   useEffect(() => onNotificationTap((data) => {
     if (data?.route === 'ideas') setStack([{ name: 'home' }, { name: 'ideas' }]);
+    if (data?.route === 'planDay' && typeof data.day === 'string') setStack([{ name: 'planning' }, { name: 'planDay', day: data.day }]);
     if (data?.route === 'report') {
       const [y, m] = String(data.month ?? '').split('-').map(Number);
       setStack([{ name: 'home' }, { name: 'report', month: y && m ? { year: y, month: m - 1 } : undefined }]);
@@ -82,7 +91,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const saveBusiness = useCallback(async (b: Business) => {
     setBusiness(b);
     await save('business', b);
-    scheduleReminders(b, await load('prefs', DEFAULT_PREFS)).catch(() => {});
   }, []);
 
   const upsertPost = useCallback((p: Post) => {
@@ -93,14 +101,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const setPrefs = useCallback(
-    (p: NotificationPrefs) => {
-      setPrefsState(p);
-      save('prefs', p);
-      if (business) scheduleReminders(business, p).catch(() => {});
-    },
-    [business],
-  );
+  const setPrefs = useCallback((p: NotificationPrefs) => {
+    setPrefsState(p);
+    save('prefs', p);
+  }, []);
+
+  const setDayChoice = useCallback((day: string, c: DayChoice) => {
+    setPlanChoices((all) => {
+      const next = { ...all, [day]: c };
+      // On garde seulement les choix des 60 derniers jours et à venir.
+      const old = new Date(Date.now() - 60 * 86_400_000).toISOString().slice(0, 10);
+      for (const k of Object.keys(next)) if (k < old) delete next[k];
+      save('planChoices', next);
+      return next;
+    });
+  }, []);
+
+  // Les rappels (fêtes, idées du lundi, bilan, planning) sont reprogrammés dès que quelque chose change.
+  useEffect(() => {
+    if (!ready || !business) return;
+    const t = setTimeout(() => scheduleReminders(business, prefs, { posts, choices: planChoices }).catch(() => {}), 800);
+    return () => clearTimeout(t);
+  }, [ready, business, prefs, posts, planChoices]);
 
   const refreshConnections = useCallback(async () => setConnections(await socialConnections()), []);
 
@@ -109,12 +131,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setBusiness(null);
     setPosts([]);
     setPrefsState(DEFAULT_PREFS);
+    setPlanChoices({});
     setStack([{ name: 'home' }]);
   }, []);
 
   const value = useMemo<AppState>(
-    () => ({ ready, business, posts, prefs, connections, route: stack[stack.length - 1], go, back, saveBusiness, upsertPost, setPrefs, refreshConnections, resetAll }),
-    [ready, business, posts, prefs, connections, stack, go, back, saveBusiness, upsertPost, setPrefs, refreshConnections, resetAll],
+    () => ({ ready, business, posts, prefs, connections, route: stack[stack.length - 1], go, back, saveBusiness, upsertPost, planChoices, setDayChoice, setPrefs, refreshConnections, resetAll }),
+    [ready, business, posts, prefs, connections, stack, go, back, saveBusiness, upsertPost, planChoices, setDayChoice, setPrefs, refreshConnections, resetAll],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

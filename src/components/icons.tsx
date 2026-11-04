@@ -19,6 +19,9 @@ export const CalendarIcon = ({ size, color = '#000' }: P) => (
 export const GridIcon = ({ size, color = '#000' }: P) => (
   <S size={size}><Rect x={4} y={4} width={6.5} height={6.5} rx={1.5} {...st(color)} /><Rect x={13.5} y={4} width={6.5} height={6.5} rx={1.5} {...st(color)} /><Rect x={4} y={13.5} width={6.5} height={6.5} rx={1.5} {...st(color)} /><Rect x={13.5} y={13.5} width={6.5} height={6.5} rx={1.5} {...st(color)} /></S>
 );
+export const PlanningIcon = ({ size, color = '#000' }: P) => (
+  <S size={size}><Rect x={4} y={4} width={16} height={16} rx={3} {...st(color)} /><Path d="M8 9h8M8 13h8M8 17h5" {...st(color)} /></S>
+);
 export const VideoIcon = ({ size, color = '#fff' }: P) => (
   <S size={size}><Rect x={3} y={6} width={13} height={12} rx={2} {...st(color)} /><Path d="m16 10.5 5-3v9l-5-3" {...st(color)} /></S>
 );

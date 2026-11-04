@@ -13,6 +13,7 @@ import { PhotoCarousel } from '../components/PhotoCarousel';
 import { tradeById } from '../lib/trades';
 import type { GeneratedPost, Platform, Post, PostIdea, PublicationResult, Tone } from '../lib/types';
 import { DEFAULT_TONE, toneLabel, TONES } from '../lib/business';
+import { DAY_NAMES, dayLabel, parseDayKey, reminderDate, statusAfterPublish, weekday } from '../lib/planning';
 
 type Phase = 'pick' | 'photos' | 'generating' | 'preview' | 'publishing';
 
@@ -22,8 +23,10 @@ type Slide = { key: string; photo: PickedPhoto; path: string | null };
 /** Format de toutes les photos d'un post. */
 const FORMAT: PhotoFormat = 'portrait';
 
-export function Create({ occasionId, initialPhoto, idea }: { occasionId?: string; initialPhoto?: RawPhoto; idea?: PostIdea }) {
-  const { business, back, go, upsertPost, connections, saveBusiness } = useApp();
+export function Create({ occasionId, initialPhoto, idea, plannedFor }: { occasionId?: string; initialPhoto?: RawPhoto; idea?: PostIdea; plannedFor?: string }) {
+  const { business, back, go, upsertPost, connections, saveBusiness, prefs } = useApp();
+  // Post préparé à l'avance depuis le planning : « Vendredi 6 novembre ».
+  const plannedLabel = plannedFor ? dayLabel(parseDayKey(plannedFor)) : null;
   const b = business!;
   const occasion = useMemo(() => (occasionId ? upcomingEvents(b, new Date(), 13, b.postalCode).find((e) => e.id === occasionId) : null), [occasionId, b]);
 
@@ -216,9 +219,17 @@ export function Create({ occasionId, initialPhoto, idea }: { occasionId?: string
     } finally {
       clearTimeout(timer);
     }
-    const ok = publications.filter((x) => x.status === 'published').length;
+    const status = statusAfterPublish(publications);
+    const done = status === 'published' || status === 'partially_published';
+    const post = buildPost(tags, { status, publications, publishedAt: done ? new Date().toISOString() : null });
+    upsertPost(post);
+    go({ name: 'published', postId: post.id });
+  }
+
+  /** Le post tel qu'il est gardé sur le téléphone (Mes posts, planning, bilan). */
+  function buildPost(tags: string[], extra: Pick<Post, 'status' | 'publications'> & Partial<Post>): Post {
     const first = slides[0].photo;
-    const post: Post = {
+    return {
       id: postId,
       kind: 'post',
       // Seule la 1re photo est gardée sur le téléphone (10 photos rempliraient vite la mémoire du navigateur).
@@ -229,12 +240,38 @@ export function Create({ occasionId, initialPhoto, idea }: { occasionId?: string
       platforms,
       occasionId: occasion?.id ?? null,
       createdAt: new Date().toISOString(),
-      publishedAt: ok ? new Date().toISOString() : null,
-      status: ok === publications.length ? 'published' : ok > 0 ? 'partially_published' : publications.every((x) => x.status === 'not_configured') ? 'draft' : 'failed',
-      publications,
+      ...extra,
     };
-    upsertPost(post);
-    go({ name: 'published', postId: post.id });
+  }
+
+  /** Planning : le post est rangé dans son jour, prêt à publier (rien n'est publié maintenant). */
+  async function keepForLater() {
+    if (!plannedFor || !slides.length) return;
+    if (!caption.trim()) {
+      setError('Le texte est vide. Écrivez quelques mots ou demandez un nouveau texte.');
+      return;
+    }
+    const tags = hashtags.split(/\s+/).filter(Boolean).map((t) => (t.startsWith('#') ? t : `#${t}`));
+    setBusy(true);
+    setError(null);
+    let imagePaths: string[] | undefined;
+    try {
+      // Les photos sont gardées sur le serveur pour pouvoir les publier le jour venu.
+      if (isBackendConfigured && (await ensureSession())) imagePaths = await ensureUploaded();
+    } catch {
+      setBusy(false);
+      setError("Les photos n'ont pas pu être enregistrées. Vérifiez votre connexion et réessayez.");
+      return;
+    }
+    upsertPost(buildPost(tags, {
+      status: 'scheduled',
+      publications: [],
+      scheduledFor: reminderDate(plannedFor, prefs.hour).toISOString(),
+      imagePaths,
+      idempotencyKey: idempotencyKey.current,
+    }));
+    setBusy(false);
+    back(); // retour au jour du planning, qui montre le post prévu
   }
 
   // ------------------------------------------------------------------ rendu
@@ -265,6 +302,7 @@ export function Create({ occasionId, initialPhoto, idea }: { occasionId?: string
     return (
       <ScrollView contentContainerStyle={{ padding: 20, gap: 18 }}>
         {header(occasion ? occasion.name : idea ? idea.title : 'Nouvelle publication')}
+        {plannedLabel && <Body style={{ fontWeight: '600', color: colors.green }}>Pour {plannedLabel.toLowerCase()}</Body>}
         <Body soft>{idea ? `À photographier : ${idea.photo}` : 'Prenez votre produit, votre vitrine ou votre équipe en photo. Une belle lumière fait toute la différence.'}</Body>
         <Button title="PRENDRE UNE PHOTO" icon={<CameraIcon size={24} />} loading={busy} onPress={() => pick('camera')} style={{ minHeight: 72 }} />
         <Button title="Choisir dans la galerie" kind="secondary" icon={<ImageIcon size={22} color={colors.green} />} disabled={busy} onPress={() => pick('library')} />
@@ -407,7 +445,14 @@ export function Create({ occasionId, initialPhoto, idea }: { occasionId?: string
 
       {error && <Notice tone="red" title="Nous avons besoin de votre attention" text={error} />}
 
-      <Button title="PUBLIER MAINTENANT" onPress={publish} style={{ minHeight: 64 }} />
+      {plannedLabel ? (
+        <>
+          <Button title={`PRÉVOIR POUR ${DAY_NAMES[weekday(parseDayKey(plannedFor!))].toUpperCase()}`} icon={<CheckIcon size={20} />} loading={busy} onPress={keepForLater} style={{ minHeight: 64 }} />
+          <Button title="Publier maintenant" kind="secondary" disabled={busy} onPress={publish} />
+        </>
+      ) : (
+        <Button title="PUBLIER MAINTENANT" onPress={publish} style={{ minHeight: 64 }} />
+      )}
       <View style={{ flexDirection: 'row', gap: 10 }}>
         <Button title="MODIFIER" kind="secondary" icon={<PencilIcon size={18} color={colors.green} />} onPress={() => setEditing(true)} style={{ flex: 1 }} />
         <Button title="REFAIRE" kind="secondary" icon={<RefreshIcon size={18} color={colors.green} />} onPress={() => generate()} style={{ flex: 1 }} />
