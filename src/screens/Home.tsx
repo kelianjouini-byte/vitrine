@@ -6,14 +6,25 @@ import { FriendlyError } from '../lib/api';
 import { BulbIcon, CameraIcon, CheckIcon, StoryIcon } from '../components/icons';
 import { colors, fonts, glassSurface, greenGradient } from '../lib/theme';
 import { useApp } from '../lib/store';
-import { daysUntil, inDaysLabel, upcomingEvents } from '../lib/events';
+import { daysUntil, inDaysLabel, upcomingEvents, upcomingHolidays } from '../lib/events';
+import { announceDate, dayKey, holidayAnswer } from '../lib/planning';
 import { initials } from '../lib/business';
 import { MonthReportCard } from '../components/MonthReportCard';
 
 export function Home() {
   const { business, posts, connections, go } = useApp();
   const b = business!;
-  const next = useMemo(() => upcomingEvents(b, new Date(), 12, b.postalCode)[0], [b]);
+  // Prochaine fête ou prochain jour férié, le plus proche des deux.
+  const next = useMemo(() => [upcomingEvents(b, new Date(), 12, b.postalCode)[0], upcomingHolidays(new Date(), 12, b.postalCode)[0]]
+    .filter(Boolean).sort((x, y) => x.date.getTime() - y.date.getTime())[0], [b]);
+  const isHoliday = next?.category === 'ferie';
+  const answer = isHoliday ? holidayAnswer(b, next) : undefined;
+  // Jour férié : on ouvre le planning le jour où prévenir les clients (ou le jour même s'il est déjà passé).
+  const openNext = () => {
+    if (!isHoliday) return go({ name: 'create', occasionId: next.id });
+    const ann = dayKey(announceDate(b, next));
+    go({ name: 'planDay', day: ann >= dayKey(new Date()) ? ann : dayKey(next.date) });
+  };
   const connected = connections.filter((c) => c.status === 'connected').length;
   const scheduled = posts.find((p) => p.status === 'scheduled');
   const days = next ? daysUntil(next.date) : 0;
@@ -86,16 +97,20 @@ export function Home() {
       {next && (
         <View style={{ gap: 10 }}>
           <Label>Prochaine occasion</Label>
-          <Card onPress={() => go({ name: 'create', occasionId: next.id })} style={{ gap: 12 }}>
+          <Card onPress={openNext} style={{ gap: 12 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-              <DateTile date={next.date} />
+              <DateTile date={next.date} tone={isHoliday ? 'blue' : 'orange'} />
               <View style={{ flex: 1 }}>
                 <Body style={{ fontWeight: '700' }} size={18}>{next.name}</Body>
                 <Body soft size={15}>{inDaysLabel(days)}</Body>
               </View>
             </View>
-            <Body soft size={15}>{next.strategy} Vitrine s'occupe de votre publication.</Body>
-            <Text style={{ color: colors.green, fontWeight: '700', fontSize: 16, fontFamily: fonts.body }}>Découvrir ›</Text>
+            <Body soft size={15}>
+              {isHoliday
+                ? (answer ? `Vous êtes ${answer.open ? 'ouvert' : 'fermé'} : prévenez vos clients la veille, Vitrine prépare le post.` : 'Êtes-vous ouvert ce jour-là ? Dites-le à Vitrine, on prévient vos clients.')
+                : `${next.strategy} Vitrine s'occupe de votre publication.`}
+            </Body>
+            <Text style={{ color: colors.green, fontWeight: '700', fontSize: 16, fontFamily: fonts.body }}>{isHoliday && !answer ? 'Répondre ›' : 'Découvrir ›'}</Text>
           </Card>
         </View>
       )}
