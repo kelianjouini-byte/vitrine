@@ -45,7 +45,8 @@
           "resizeMode": "contain"
         }
       ],
-      "expo-video"
+      "expo-video",
+      "expo-asset"
     ],
     "scheme": "vitrine",
     "experiments": {
