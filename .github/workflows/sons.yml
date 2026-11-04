@@ -5,7 +5,7 @@ name: Musiques des stories
 
 on:
   push:
-    paths: ['assets/sons/sources.txt']
+    paths: ['assets/sons/sources.txt', '.github/workflows/sons.yml']
   workflow_dispatch:
 
 permissions:
@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+      - run: command -v ffmpeg || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg)
       - name: Télécharger et préparer les musiques
         run: |
           set -euo pipefail
@@ -27,8 +27,8 @@ jobs:
             [[ "$id" =~ ^[a-z0-9-]+$ ]] || { echo "id invalide : $id"; exit 1; }
             [[ "$url" =~ ^https://cdn\.creatify\.ai/ ]] || { echo "adresse refusée : $url"; exit 1; }
             curl -fsSL --retry 3 -o "/tmp/sons/$id.src" "$url"
-            ffprobe -v error -show_entries format=duration -of csv=p=0 "/tmp/sons/$id.src"
-            ffmpeg -v error -y -i "/tmp/sons/$id.src" -af loudnorm=I=-16:TP=-1.5:LRA=11 -ar 44100 -ac 2 -b:a 128k "assets/sons/$id.mp3"
+            ffprobe -v error -show_entries format=duration -of csv=p=0 "/tmp/sons/$id.src" < /dev/null
+            ffmpeg -nostdin -v error -y -i "/tmp/sons/$id.src" -af loudnorm=I=-16:TP=-1.5:LRA=11 -ar 44100 -ac 2 -b:a 128k "assets/sons/$id.mp3"
           done < assets/sons/sources.txt
           ls -la assets/sons
       - name: Enregistrer dans le dépôt
