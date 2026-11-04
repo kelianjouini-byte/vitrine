@@ -115,6 +115,10 @@ export async function takeStoryMedia(source: 'photo' | 'video' | 'library'): Pro
     mediaTypes: source === 'photo' ? ['images'] : source === 'video' ? ['videos'] : ['images', 'videos'],
     quality: 0.9,
     videoMaxDuration: STORY_MAX_SECONDS,
+    // Vidéo : toujours la meilleure qualité, sans recompression (iPhone).
+    videoQuality: ImagePicker.UIImagePickerControllerQualityType.High,
+    videoExportPreset: ImagePicker.VideoExportPreset.Passthrough,
+    preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Current,
   };
   let res: ImagePicker.ImagePickerResult;
   try {
@@ -125,8 +129,8 @@ export async function takeStoryMedia(source: 'photo' | 'video' | 'library'): Pro
   const a = res.canceled ? null : res.assets?.[0];
   if (!a) return null;
   if (a.type === 'video' || a.mimeType?.startsWith('video/')) {
-    // La durée est donnée en millisecondes.
-    const seconds = a.duration ? Math.round(a.duration / 1000) : null;
+    // La durée est donnée en millisecondes sur téléphone, en secondes dans le navigateur.
+    const seconds = a.duration ? Math.round(Platform.OS === 'web' ? a.duration : a.duration / 1000) : null;
     if (seconds && seconds > STORY_MAX_SECONDS) {
       throw new FriendlyError(`Cette vidéo dure ${seconds} secondes. Une story vidéo dure ${STORY_MAX_SECONDS} secondes au maximum : choisissez une vidéo plus courte.`);
     }

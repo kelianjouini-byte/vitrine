@@ -1,9 +1,10 @@
 import React, { useRef, useState } from 'react';
-import { ActivityIndicator, Image, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Platform as RNPlatform, ScrollView, Text, View } from 'react-native';
 import * as Crypto from 'expo-crypto';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { BackButton, Body, Button, Notice, PlatformPicker, Title } from '../components/ui';
 import { CameraIcon, ImageIcon, VideoIcon } from '../components/icons';
+import { WebVideoRecorder } from '../components/WebVideoRecorder';
 import { colors, fonts, radius } from '../lib/theme';
 import { useApp } from '../lib/store';
 import { FriendlyError, NotConfiguredError, publishStory } from '../lib/api';
@@ -15,6 +16,8 @@ export function Story() {
   const { back, go, upsertPost, connections } = useApp();
   const [media, setMedia] = useState<StoryMedia | null>(null);
   const [busy, setBusy] = useState(false);
+  // Version web : on filme avec notre propre caméra (celle du navigateur filme en basse qualité sur iPhone).
+  const [recording, setRecording] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [platforms, setPlatforms] = useState<Platform[]>(['instagram', 'facebook']);
@@ -22,6 +25,7 @@ export function Story() {
 
   async function pick(source: 'photo' | 'video' | 'library') {
     setError(null);
+    if (source === 'video' && RNPlatform.OS === 'web') return setRecording(true);
     setBusy(true);
     try {
       const m = await takeStoryMedia(source);
@@ -93,6 +97,17 @@ export function Story() {
     );
   }
 
+  if (recording) {
+    return (
+      <WebVideoRecorder
+        maxSeconds={STORY_MAX_SECONDS}
+        onDone={(v) => { setRecording(false); setMedia({ kind: 'video', uri: v.uri, seconds: v.seconds }); idempotencyKey.current = Crypto.randomUUID(); }}
+        onCancel={() => setRecording(false)}
+        onError={(message) => { setRecording(false); setError(message); }}
+      />
+    );
+  }
+
   if (!media) {
     return (
       <ScrollView contentContainerStyle={{ padding: 20, gap: 16 }}>
@@ -130,6 +145,19 @@ export function Story() {
 
 /** Aperçu de la vidéo, en boucle et sans le son (comme dans les stories, avant d'appuyer). */
 function StoryVideo({ uri }: { uri: string }) {
+  // Navigateur : une simple balise vidéo, qui s'affiche aussi sur iPhone (lecture dans la page, sans le son).
+  if (RNPlatform.OS === 'web') {
+    return (
+      <View style={{ width: '100%', height: '100%' }}>
+        {React.createElement('video', { src: uri, autoPlay: true, muted: true, loop: true, playsInline: true, style: { width: '100%', height: '100%', objectFit: 'cover' } })}
+        <Text style={{ position: 'absolute', bottom: 10, alignSelf: 'center', color: '#fff', fontSize: 13, fontFamily: fonts.body, opacity: 0.85 }}>Aperçu sans le son</Text>
+      </View>
+    );
+  }
+  return <NativeStoryVideo uri={uri} />;
+}
+
+function NativeStoryVideo({ uri }: { uri: string }) {
   const player = useVideoPlayer(uri, (p) => {
     p.loop = true;
     p.muted = true;
