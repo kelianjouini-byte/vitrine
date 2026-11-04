@@ -82,3 +82,19 @@ test('statut après publication', () => {
   assert.equal(statusAfterPublish([{ platform: 'instagram', status: 'not_configured' }]), 'draft');
   assert.equal(statusAfterPublish([{ platform: 'instagram', status: 'failed' }]), 'failed');
 });
+
+test('le jour même d\'une fête : un post ET une story, et le post de préparation avant', () => {
+  const start = weekStart(new Date(2026, 11, 23)); // semaine du 21 décembre
+  const days = buildWeek(b, start, {}, upcomingEvents(b, start, 2, b.postalCode));
+  const noel = days.find((d) => d.key === '2026-12-25')!;
+  assert.equal(noel.kind, 'both');
+  assert.ok(noel.feteDay);
+  assert.ok(noel.idea && noel.storyIdea);
+  assert.ok(noel.idea!.title.includes('Noël'));
+  const prep = days.find((d) => !d.feteDay && d.occasion?.key === 'noel');
+  assert.ok(prep && prep.key < '2026-12-25' && prep.kind === 'post');
+  // Le commerçant peut choisir seulement une story ce jour-là.
+  const s = buildWeek(b, start, { '2026-12-25': { kind: 'story' } }, upcomingEvents(b, start, 2, b.postalCode)).find((d) => d.key === '2026-12-25')!;
+  assert.equal(s.kind, 'story');
+  assert.equal(s.storyIdea, null);
+});
