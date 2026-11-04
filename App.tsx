@@ -60,7 +60,7 @@ function Root() {
         {route.name === 'settings' && <Settings />}
         {route.name === 'ideas' && <Ideas />}
         {route.name === 'report' && <Report key={route.month ? `${route.month.year}-${route.month.month}` : 'now'} initialMonth={route.month} />}
-        {route.name === 'create' && <Create key={(route.plannedFor ?? '') + (route.occasionId ?? route.idea?.title ?? 'new')} occasionId={route.occasionId} initialPhoto={route.photo} idea={route.idea} plannedFor={route.plannedFor} />}
+        {route.name === 'create' && <Create key={(route.plannedFor ?? '') + (route.occasionId ?? route.idea?.title ?? 'new')} occasionId={route.occasionId} initialPhoto={route.photo} idea={route.idea} plannedFor={route.plannedFor} note={route.note} />}
         {route.name === 'story' && <Story />}
         {route.name === 'published' && <Published postId={route.postId} />}
       </View>

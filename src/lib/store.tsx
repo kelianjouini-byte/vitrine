@@ -17,7 +17,7 @@ export type Route =
   | { name: 'settings' }
   | { name: 'ideas' }
   | { name: 'report'; month?: Month }
-  | { name: 'create'; occasionId?: string; photo?: RawPhoto; idea?: PostIdea; plannedFor?: string }
+  | { name: 'create'; occasionId?: string; photo?: RawPhoto; idea?: PostIdea; plannedFor?: string; note?: string }
   | { name: 'story' }
   | { name: 'published'; postId: string };
 

@@ -4,7 +4,7 @@ import { Badge, Body, Card, Chevron, Label, PostThumb, Title } from '../componen
 import { BackIcon, ChevronIcon } from '../components/icons';
 import { colors, fonts, glassSurface, radius } from '../lib/theme';
 import { useApp } from '../lib/store';
-import { upcomingEvents } from '../lib/events';
+import { upcomingEvents, upcomingHolidays } from '../lib/events';
 import { buildWeek, dayKey, DAY_NAMES, postsOfDay, WEEK_GOAL, weekCount, weekday, weekLabel, weekStart, type PlanDay } from '../lib/planning';
 
 export const KIND_BADGE = {
@@ -22,7 +22,7 @@ export function Planning() {
   const [offset, setOffset] = useState(0);
   const today = dayKey(new Date());
   const start = useMemo(() => weekStart(new Date(), offset), [offset]);
-  const days = useMemo(() => buildWeek(b, start, planChoices, upcomingEvents(b, start, 2, b.postalCode)), [b, start, planChoices]);
+  const days = useMemo(() => buildWeek(b, start, planChoices, upcomingEvents(b, start, 2, b.postalCode), upcomingHolidays(start, 2, b.postalCode)), [b, start, planChoices]);
   const count = weekCount(posts, days);
   const closed = b.closedDays ?? [];
 
@@ -104,7 +104,7 @@ function DayRow({ day, isToday, past, posts, onPress }: { day: PlanDay; isToday:
   const text = shown
     ? (shown.kind === 'story' ? (shown.mediaType === 'video' ? 'Story vidéo' : 'Story photo') : shown.caption.split('\n')[0].slice(0, 60))
     : day.kind === 'rest'
-      ? (day.closed ? 'Boutique fermée' : 'Pas besoin de publier ce jour-là')
+      ? (day.holiday ? 'Jour férié : fermé' : day.closed ? 'Boutique fermée' : 'Pas besoin de publier ce jour-là')
       : day.idea?.title ?? '';
   const dim = day.kind === 'rest' && !shown;
   return (
@@ -120,6 +120,7 @@ function DayRow({ day, isToday, past, posts, onPress }: { day: PlanDay; isToday:
           {ready && <Badge text="Prévu" tone="green" />}
           {done && <Badge text="Publié" tone="green" />}
           {!shown && day.occasion && <Badge text={day.occasion.name} tone="orange" />}
+          {day.holiday && <Badge text="Férié" tone="orange" />}
         </View>
         <Body soft size={14} style={{ lineHeight: 19 }}>{text}</Body>
       </View>

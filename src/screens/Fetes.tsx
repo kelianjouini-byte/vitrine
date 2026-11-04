@@ -3,13 +3,16 @@ import { ScrollView, Switch, View } from 'react-native';
 import { Badge, Body, Card, DateTile, Title } from '../components/ui';
 import { colors, radius } from '../lib/theme';
 import { useApp } from '../lib/store';
-import { daysUntil, inDaysLabel, upcomingEvents } from '../lib/events';
+import { daysUntil, inDaysLabel, upcomingEvents, upcomingHolidays } from '../lib/events';
+import { dayKey, holidayAnswer } from '../lib/planning';
 
 /** Écran 4 : le calendrier des fêtes, filtré selon le métier du commerçant. */
 export function Fetes() {
   const { business, posts, prefs, setPrefs, go } = useApp();
   const b = business!;
-  const events = useMemo(() => upcomingEvents(b, new Date(), 12, b.postalCode), [b]);
+  // Fêtes et jours fériés, au même niveau, dans l'ordre des dates.
+  const events = useMemo(() => [...upcomingEvents(b, new Date(), 12, b.postalCode), ...upcomingHolidays(new Date(), 12, b.postalCode)]
+    .sort((x, y) => x.date.getTime() - y.date.getTime()), [b]);
 
   return (
     <ScrollView contentContainerStyle={{ padding: 20, gap: 12, paddingBottom: 32 }}>
@@ -26,6 +29,20 @@ export function Fetes() {
 
       {events.map((e) => {
         const n = daysUntil(e.date);
+        if (e.category === 'ferie') {
+          // Jour férié : on demande si la boutique est ouverte (dans le planning, ce jour-là).
+          const a = holidayAnswer(b, e);
+          return (
+            <Card key={e.id} onPress={() => go({ name: 'planDay', day: dayKey(e.date) })} style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+              <DateTile date={e.date} tone="blue" />
+              <View style={{ flex: 1, gap: 2 }}>
+                <Body style={{ fontWeight: '700' }}>{e.name}</Body>
+                <Body soft size={14}>{a ? (a.open ? 'Vous êtes ouvert : prévenez vos clients la veille.' : 'Vous êtes fermé : prévenez vos clients la veille.') : 'Êtes-vous ouvert ce jour-là ? Appuyez pour le dire.'}</Body>
+              </View>
+              <Badge text={a ? (a.open ? 'Ouvert' : 'Fermé') : 'À dire'} tone={a ? 'green' : 'orange'} />
+            </Card>
+          );
+        }
         const done = posts.some((p) => p.occasionId === e.id && p.status === 'published');
         const soon = n <= e.notifyDaysBefore;
         return (

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildWeek, dayKey, planReminders, postsOfDay, statusAfterPublish, weekCount, weekLabel, weekRhythm, weekStart } from '../src/lib/planning.ts';
-import { upcomingEvents } from '../src/lib/events.ts';
+import { holidayNote, buildWeek, dayKey, planReminders, postsOfDay, statusAfterPublish, weekCount, weekLabel, weekRhythm, weekStart } from '../src/lib/planning.ts';
+import { holidaysForYear, upcomingEvents, upcomingHolidays } from '../src/lib/events.ts';
 import type { Business, Post } from '../src/lib/types.ts';
 
 const b: Business = { ownerFirstName: 'Marie', businessName: 'Les Fleurs de Marie', businessType: 'fleuriste', city: 'Lyon', postalCode: '69003', tone: 'chaleureux', specialties: 'Bouquets de saison, plantes' };
@@ -97,4 +97,46 @@ test('le jour même d\'une fête : un post ET une story, et le post de préparat
   const s = buildWeek(b, start, { '2026-12-25': { kind: 'story' } }, upcomingEvents(b, start, 2, b.postalCode)).find((d) => d.key === '2026-12-25')!;
   assert.equal(s.kind, 'story');
   assert.equal(s.storyIdea, null);
+});
+
+test('les 11 jours fériés de 2026, 13 en Alsace-Moselle', () => {
+  const keys = holidaysForYear(2026).map((h) => dayKey(h.date));
+  assert.deepEqual(keys, ['2026-01-01', '2026-04-06', '2026-05-01', '2026-05-08', '2026-05-14', '2026-05-25', '2026-07-14', '2026-08-15', '2026-11-01', '2026-11-11', '2026-12-25']);
+  const alsace = holidaysForYear(2026, '67000').map((h) => dayKey(h.date));
+  assert.equal(alsace.length, 13);
+  assert.ok(alsace.includes('2026-04-03') && alsace.includes('2026-12-26'));
+});
+
+test('jour férié : question, puis post la veille pour prévenir (ouvert ou fermé)', () => {
+  const start = weekStart(new Date(2026, 10, 11));
+  const hol = upcomingHolidays(start, 2);
+  // Pas encore de réponse : la veille (mardi 10), Vitrine pose la question.
+  let days = buildWeek(b, start, {}, [], hol);
+  assert.equal(days[2].holiday?.key, 'ferie-11-novembre');
+  assert.equal(days[1].announce?.key, 'ferie-11-novembre');
+  assert.equal(days[1].kind, 'post');
+  assert.ok(days[1].idea!.title.includes('?'));
+  // Ouvert, avec horaires : le texte du post les reprend tels quels.
+  const open = { ...b, holidays: { 'ferie-11-novembre-2026': { open: true, hours: 'de 9 h à 13 h' } } };
+  days = buildWeek(open, start, {}, [], hol);
+  assert.equal(days[1].idea!.title, 'Ouvert le 11 novembre');
+  assert.equal(holidayNote(open, days[1].announce!), 'Ouvert le mercredi 11 novembre (jour férié), de 9 h à 13 h.');
+  // Fermé : repos le 11, post « Fermé » la veille.
+  const closed = { ...b, holidays: { 'ferie-11-novembre-2026': { open: false } } };
+  days = buildWeek(closed, start, {}, [], hol);
+  assert.equal(days[2].kind, 'rest');
+  assert.equal(days[1].idea!.title, 'Fermé le 11 novembre');
+  // Boutique fermée le mardi : on prévient le lundi.
+  days = buildWeek({ ...b, closedDays: [1] }, start, {}, [], hol);
+  assert.equal(days[0].announce?.key, 'ferie-11-novembre');
+});
+
+test('rappel « Êtes-vous ouvert ? » une semaine avant un jour férié sans réponse', () => {
+  const now = new Date(2026, 10, 2, 8);
+  const r = planReminders(b, [], {}, [], 9, now, 14, upcomingHolidays(now, 2));
+  const q = r.find((x) => x.title === 'Le 11 novembre est férié');
+  assert.ok(q);
+  assert.equal(dayKey(q!.date), '2026-11-04');
+  const answered = { ...b, holidays: { 'ferie-11-novembre-2026': { open: true } } };
+  assert.ok(!planReminders(answered, [], {}, [], 9, now, 14, upcomingHolidays(now, 2)).some((x) => x.title === 'Le 11 novembre est férié'));
 });

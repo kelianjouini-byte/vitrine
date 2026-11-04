@@ -30,6 +30,14 @@ export interface Business {
   strengths?: string;
   /** Jours de fermeture (0 = lundi ... 6 = dimanche) : le planning y met « Repos ». */
   closedDays?: number[];
+  /** Réponses aux jours fériés (« ferie-11-novembre-2026 ») : ouvert ou fermé, et horaires si le commerçant les a écrits. */
+  holidays?: Record<string, HolidayAnswer>;
+}
+
+export interface HolidayAnswer {
+  open: boolean;
+  /** Horaires écrits par le commerçant (jamais inventés). */
+  hours?: string;
 }
 
 /** Une idée de publication proposée par l'assistant « Je ne sais pas quoi poster ». */
