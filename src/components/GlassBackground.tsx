@@ -25,10 +25,10 @@ type Blob = {
 };
 
 const BLOBS: Blob[] = [
-  { id: 'g1', color: '#BDE0CB', x: 0.05, y: 0.1, size: 1.2, dx: 0.4, dy: 0.12, duration: 8 },
-  { id: 'o1', color: '#F5C994', x: 1.0, y: 0.32, size: 1.0, dx: -0.42, dy: 0.14, duration: 9.5 },
-  { id: 'g2', color: '#C9E7D4', x: 0.08, y: 0.72, size: 1.25, dx: 0.36, dy: -0.12, duration: 11 },
-  { id: 'o2', color: '#F3D6B0', x: 0.95, y: 1.0, size: 1.05, dx: -0.38, dy: -0.1, duration: 10 },
+  { id: 'g1', color: '#BDE0CB', x: 0.05, y: 0.1, size: 1.2, dx: 0.4, dy: 0.12, duration: 5.5 },
+  { id: 'o1', color: '#F5C994', x: 1.0, y: 0.32, size: 1.0, dx: -0.42, dy: 0.14, duration: 6.5 },
+  { id: 'g2', color: '#C9E7D4', x: 0.08, y: 0.72, size: 1.25, dx: 0.36, dy: -0.12, duration: 7.5 },
+  { id: 'o2', color: '#F3D6B0', x: 0.95, y: 1.0, size: 1.05, dx: -0.38, dy: -0.1, duration: 7 },
 ];
 
 const useNativeDriver = Platform.OS !== 'web';
