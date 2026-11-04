@@ -8,7 +8,7 @@
  */
 import type { BusinessType } from './types';
 
-export type EventCategory = 'fete' | 'religieux' | 'commercial' | 'saison' | 'soldes';
+export type EventCategory = 'fete' | 'religieux' | 'commercial' | 'saison' | 'soldes' | 'ferie';
 
 export interface CommercialEvent {
   /** Identifiant unique : clé + année (ex. « noel-2026 »). */
@@ -168,6 +168,45 @@ export function eventsForYear(year: number, postalCode?: string): CommercialEven
   ];
 
   return list.map((e) => ({ ...e, key: slug(e.name), id: `${slug(e.name)}-${year}` }));
+}
+
+/** Alsace et Moselle (57, 67, 68) : 2 jours fériés de plus (Vendredi saint, 26 décembre). */
+const isAlsaceMoselle = (postalCode?: string) => !!postalCode && ['57', '67', '68'].some((p) => postalCode.startsWith(p));
+
+/**
+ * Les jours fériés d'une année (11 en France, 13 en Alsace-Moselle). Ils ne sont pas des « occasions » :
+ * le planning demande au commerçant s'il est ouvert, et conseille de le dire à ses clients avant.
+ */
+export function holidaysForYear(year: number, postalCode?: string): CommercialEvent[] {
+  const easter = easterSunday(year);
+  const list: { name: string; date: Date }[] = [
+    { name: 'Jour de l\'An', date: d(year, 1, 1) },
+    ...(isAlsaceMoselle(postalCode) ? [{ name: 'Vendredi saint', date: addDays(easter, -2) }] : []),
+    { name: 'Lundi de Pâques', date: addDays(easter, 1) },
+    { name: '1er mai', date: d(year, 5, 1) },
+    { name: '8 mai', date: d(year, 5, 8) },
+    { name: 'Ascension', date: addDays(easter, 39) },
+    { name: 'Lundi de Pentecôte', date: addDays(easter, 50) },
+    { name: '14 juillet', date: d(year, 7, 14) },
+    { name: '15 août', date: d(year, 8, 15) },
+    { name: 'Toussaint', date: d(year, 11, 1) },
+    { name: '11 novembre', date: d(year, 11, 11) },
+    { name: 'Noël', date: d(year, 12, 25) },
+    ...(isAlsaceMoselle(postalCode) ? [{ name: 'Saint-Étienne', date: d(year, 12, 26) }] : []),
+  ];
+  return list.map(({ name, date }) => ({
+    id: `ferie-${slug(name)}-${year}`, key: `ferie-${slug(name)}`, name: `Jour férié : ${name}`, date, category: 'ferie',
+    emoji: '', description: 'Vos clients se demandent si vous êtes ouvert.', notifyDaysBefore: 7,
+    strategy: 'Dites-leur un ou deux jours avant si vous êtes ouvert ou fermé.', relevantFor: 'all',
+  }));
+}
+
+/** Jours fériés à venir (aujourd'hui inclus) sur les `months` prochains mois. */
+export function upcomingHolidays(from: Date = new Date(), months = 12, postalCode?: string): CommercialEvent[] {
+  const today = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const limit = new Date(today.getFullYear(), today.getMonth() + months, today.getDate());
+  return [...holidaysForYear(today.getFullYear(), postalCode), ...holidaysForYear(today.getFullYear() + 1, postalCode)]
+    .filter((e) => e.date >= today && e.date <= limit);
 }
 
 function slug(s: string): string {

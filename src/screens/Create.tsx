@@ -23,7 +23,7 @@ type Slide = { key: string; photo: PickedPhoto; path: string | null };
 /** Format de toutes les photos d'un post. */
 const FORMAT: PhotoFormat = 'portrait';
 
-export function Create({ occasionId, initialPhoto, idea, plannedFor }: { occasionId?: string; initialPhoto?: RawPhoto; idea?: PostIdea; plannedFor?: string }) {
+export function Create({ occasionId, initialPhoto, idea, plannedFor, note }: { occasionId?: string; initialPhoto?: RawPhoto; idea?: PostIdea; plannedFor?: string; note?: string }) {
   const { business, back, go, upsertPost, connections, saveBusiness, prefs } = useApp();
   // Post préparé à l'avance depuis le planning : « Vendredi 6 novembre ».
   const plannedLabel = plannedFor ? dayLabel(parseDayKey(plannedFor)) : null;
@@ -51,7 +51,8 @@ export function Create({ occasionId, initialPhoto, idea, plannedFor }: { occasio
   // Ton de CE post : celui de la boutique au départ, modifiable avec « Changer le ton ».
   const [tone, setTone] = useState<Tone>(b.tone ?? DEFAULT_TONE);
   // Idées du commerçant, en vrac : l'IA les glisse dans le texte avec ses mots.
-  const [notes, setNotes] = useState('');
+  // Pré-remplie depuis le planning (ex. « Ouvert le mercredi 11 novembre (jour férié) »).
+  const [notes, setNotes] = useState(note ?? '');
   const [publishStep, setPublishStep] = useState(0);
   const idempotencyKey = useRef<string>(Crypto.randomUUID());
   // Toujours la dernière liste de photos (les envois au serveur la complètent pendant l'attente).

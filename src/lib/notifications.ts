@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
-import { upcomingEvents, type CommercialEvent } from './events';
+import { upcomingEvents, upcomingHolidays, type CommercialEvent } from './events';
 import type { Business, NotificationPrefs, Post } from './types';
 import { planReminders, type PlanChoices } from './planning';
 import { monthKey, reportReminderDates, reportReminderText } from './report';
@@ -56,7 +56,7 @@ export async function scheduleReminders(b: Business, prefs: NotificationPrefs, p
   let count = 0;
   // En premier : les rappels du planning (le téléphone garde un nombre limité de rappels).
   if (plan && prefs.planReminders !== false) {
-    for (const r of planReminders(b, plan.posts, plan.choices, upcomingEvents(b, now, 2, b.postalCode), prefs.hour, now)) {
+    for (const r of planReminders(b, plan.posts, plan.choices, upcomingEvents(b, now, 2, b.postalCode), prefs.hour, now, 14, upcomingHolidays(now, 12, b.postalCode))) {
       await Notifications.scheduleNotificationAsync({
         content: { title: r.title, body: r.body, data: { route: 'planDay', day: r.day } },
         trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: r.date },

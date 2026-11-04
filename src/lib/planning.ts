@@ -36,6 +36,39 @@ export interface PlanDay {
   occasion: CommercialEvent | null;
   /** C'est le jour même de la fête : Vitrine conseille un post et une story. */
   feteDay: boolean;
+  /** Jour férié ce jour-là. */
+  holiday: CommercialEvent | null;
+  /** Jour férié à annoncer avec le post de ce jour (1 ou 2 jours avant). */
+  announce: CommercialEvent | null;
+}
+
+/** « 11 novembre », « Lundi de Pâques » (sans « Jour férié : »). */
+export const holidayName = (h: CommercialEvent) => h.name.replace(/^Jour férié : /, '');
+/** Réponse du commerçant pour un jour férié : ouvert, fermé, ou pas encore dit. */
+export const holidayAnswer = (b: Business, h: CommercialEvent) => b.holidays?.[h.id];
+
+/** Le texte à glisser dans le post qui annonce un jour férié (repris tel quel par l'IA, jamais inventé). */
+export function holidayNote(b: Business, h: CommercialEvent): string | undefined {
+  const a = holidayAnswer(b, h);
+  if (!a) return undefined;
+  const when = dayLabel(h.date).toLowerCase();
+  if (!a.open) return `Fermé le ${when} (jour férié).`;
+  return `Ouvert le ${when} (jour férié)${a.hours?.trim() ? `, ${a.hours.trim()}` : ''}.`;
+}
+
+/** Le jour où prévenir les clients : la veille du férié, sinon l'avant-veille si la boutique est fermée la veille. */
+export function announceDate(b: Business, h: CommercialEvent): Date {
+  const before = [1, 2].map((n) => new Date(h.date.getFullYear(), h.date.getMonth(), h.date.getDate() - n));
+  return before.find((x) => !(b.closedDays ?? []).includes(weekday(x))) ?? before[0];
+}
+
+/** Idée du post qui prévient les clients, selon la réponse du commerçant. */
+function announceIdea(b: Business, h: CommercialEvent): PostIdea {
+  const name = holidayName(h);
+  const a = holidayAnswer(b, h);
+  if (!a) return { title: `Ouvert ou fermé le ${name} ?`, photo: 'Dites-le à Vitrine : on vous prépare le post pour prévenir vos clients.', why: 'Un jour férié, beaucoup de clients pensent que les commerces sont fermés.' };
+  if (a.open) return { title: `Ouvert le ${name}`, photo: 'Votre devanture porte ouverte, ou vous souriant derrière le comptoir.', why: 'Un jour férié, beaucoup de clients pensent que les commerces sont fermés : dites-leur que vous êtes là.' };
+  return { title: `Fermé le ${name}`, photo: 'Votre vitrine, ou un petit mot écrit à la main sur la porte.', why: 'Vos clients ne trouveront pas porte close, et reviendront un autre jour.' };
 }
 
 /** Noms des jours, du lundi (0) au dimanche (6). */
@@ -112,8 +145,9 @@ const weekIndex = (start: Date) => Math.floor(Date.UTC(start.getFullYear(), star
 /**
  * Les 7 jours de la semaine qui commence le lundi `start`, avec le conseil, l'idée et les choix du commerçant.
  * `events` : les fêtes à venir du commerce (upcomingEvents), pour préparer la prochaine.
+ * `holidays` : les jours fériés (upcomingHolidays), annoncés aux clients 1 ou 2 jours avant.
  */
-export function buildWeek(b: Business, start: Date, choices: PlanChoices, events: CommercialEvent[]): PlanDay[] {
+export function buildWeek(b: Business, start: Date, choices: PlanChoices, events: CommercialEvent[], holidays: CommercialEvent[] = []): PlanDay[] {
   const closedDays = b.closedDays ?? [];
   const rhythm = weekRhythm(closedDays);
   const pIdeas = postIdeas(splitProducts(b.specialties));
@@ -122,7 +156,7 @@ export function buildWeek(b: Business, start: Date, choices: PlanChoices, events
     const date = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
     const key = dayKey(date);
     const choice = choices[key] ?? {};
-    return { key, date, advice, kind: choice.kind ?? advice, closed: closedDays.includes(i), idea: null, storyIdea: null, occasion: null, feteDay: false };
+    return { key, date, advice, kind: choice.kind ?? advice, closed: closedDays.includes(i), idea: null, storyIdea: null, occasion: null, feteDay: false, holiday: null, announce: null };
   });
 
   // Le jour même d'une fête : un post ET une story, même si la boutique est fermée (le commerçant peut changer).
@@ -140,9 +174,29 @@ export function buildWeek(b: Business, start: Date, choices: PlanChoices, events
     d.storyIdea = d.kind === 'both' ? story : null;
   }
 
+  // Jours fériés : fermé ce jour-là (si le commerçant l'a dit), et un post 1 ou 2 jours avant pour prévenir les clients.
+  for (const h of holidays) {
+    const hk = dayKey(h.date);
+    const day = days.find((d) => d.key === hk);
+    if (day) {
+      day.holiday = h;
+      if (holidayAnswer(b, h)?.open === false && !day.feteDay && !choices[hk]?.kind) {
+        day.advice = 'rest';
+        day.kind = 'rest';
+        day.idea = null;
+      }
+    }
+    const target = days.find((d) => d.key === dayKey(announceDate(b, h)));
+    if (!target || target.feteDay) continue;
+    target.announce = h;
+    target.advice = 'post';
+    target.kind = choices[target.key]?.kind ?? 'post';
+    target.idea = target.kind === 'rest' ? null : announceIdea(b, h);
+  }
+
   // Fête dans les 3 semaines : on la prépare avec le dernier post de la semaine qui tombe avant elle.
   const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 7 + 14);
-  const isPrep = (d: PlanDay, e: CommercialEvent) => d.kind === 'post' && !d.feteDay && d.key < dayKey(e.date);
+  const isPrep = (d: PlanDay, e: CommercialEvent) => d.kind === 'post' && !d.feteDay && !d.announce && d.key < dayKey(e.date);
   const fete = events.find((e) => e.date >= start && e.date < end && days.some((d) => isPrep(d, e)));
   if (fete) {
     const target = [...days].reverse().find((d) => isPrep(d, fete));
@@ -202,10 +256,10 @@ export interface PlanReminder {
  * Rappels du planning pour les `days` prochains jours, un par jour au plus :
  * « Votre post est prêt » quand un post a été préparé, sinon l'idée du jour (post ou story).
  */
-export function planReminders(b: Business, posts: Post[], choices: PlanChoices, events: CommercialEvent[], hour: number, now: Date = new Date(), days = 14): PlanReminder[] {
+export function planReminders(b: Business, posts: Post[], choices: PlanChoices, events: CommercialEvent[], hour: number, now: Date = new Date(), days = 14, holidays: CommercialEvent[] = []): PlanReminder[] {
   const out: PlanReminder[] = [];
   const first = weekStart(now);
-  const weeks = [0, 1, 2].flatMap((w) => buildWeek(b, weekStart(first, w), choices, events));
+  const weeks = [0, 1, 2].flatMap((w) => buildWeek(b, weekStart(first, w), choices, events, holidays));
   const limit = new Date(now.getFullYear(), now.getMonth(), now.getDate() + days);
   for (const d of weeks) {
     const date = reminderDate(d.key, hour);
@@ -215,11 +269,24 @@ export function planReminders(b: Business, posts: Post[], choices: PlanChoices, 
     if (ready) {
       out.push({ date, day: d.key, title: 'Votre post du jour est prêt', body: 'Il ne reste qu\'à appuyer sur « Publier ». Ouvrez Vitrine.' });
     } else if (d.kind !== 'rest' && d.idea && !mine.length) {
-      const title = d.kind === 'both'
+      const title = d.announce
+        ? (holidayAnswer(b, d.announce) ? `Prévenez vos clients pour le ${holidayName(d.announce)}` : `Le ${holidayName(d.announce)} est férié : êtes-vous ouvert ?`)
+        : d.kind === 'both'
         ? (d.occasion ? `C'est ${d.occasion.name} : un post et une story` : 'Aujourd\'hui : un post et une story')
         : d.kind === 'story' ? 'Idée de story du jour' : 'Idée de post du jour';
       out.push({ date, day: d.key, title, body: `${d.idea.title} : ${d.idea.photo}` });
     }
+  }
+  // Une semaine avant chaque jour férié sans réponse : « Êtes-vous ouvert ? » (un seul rappel par jour).
+  for (const h of holidays) {
+    if (holidayAnswer(b, h)) continue;
+    const date = new Date(h.date.getFullYear(), h.date.getMonth(), h.date.getDate() - 7, hour, 0);
+    if (date <= now) continue;
+    // La question passe avant l'idée du jour, mais jamais avant « Votre post est prêt ».
+    const same = out.findIndex((r) => dayKey(r.date) === dayKey(date));
+    if (same >= 0 && out[same].title.startsWith('Votre post')) continue;
+    if (same >= 0) out.splice(same, 1);
+    out.push({ date, day: dayKey(h.date), title: `Le ${holidayName(h)} est férié`, body: 'Êtes-vous ouvert ce jour-là ? Dites-le à Vitrine : on prévient vos clients.' });
   }
   return out;
 }

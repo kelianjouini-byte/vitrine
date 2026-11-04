@@ -5,20 +5,21 @@ import { BackButton, Badge, Body, Button, Card, Chip, IconTile, Label, Notice, P
 import { BulbIcon, CameraIcon, ClockIcon, RefreshIcon, StoryIcon } from '../components/icons';
 import { colors } from '../lib/theme';
 import { useApp } from '../lib/store';
-import { upcomingEvents } from '../lib/events';
+import { upcomingEvents, upcomingHolidays } from '../lib/events';
+import { HolidayCard } from '../components/HolidayCard';
 import { isBackendConfigured } from '../lib/config';
 import { FriendlyError, NotConfiguredError, publishPost } from '../lib/api';
 import { notificationsSupported } from '../lib/notifications';
-import { buildWeek, dayKey, dayLabel, DAY_NAMES, parseDayKey, postsOfDay, statusAfterPublish, weekday, weekStart, type DayKind } from '../lib/planning';
+import { announceDate, buildWeek, dayKey, dayLabel, DAY_NAMES, holidayAnswer, holidayNote, parseDayKey, postsOfDay, statusAfterPublish, weekday, weekStart, type DayKind } from '../lib/planning';
 import { KIND_BADGE } from './Planning';
 import type { Post, PublicationResult } from '../lib/types';
 
 /** Un jour du planning : le conseil de Vitrine, ou le post préparé à l'avance. */
 export function PlanDay({ day: key }: { day: string }) {
-  const { business, posts, prefs, planChoices, setDayChoice, go, back, upsertPost } = useApp();
+  const { business, posts, prefs, planChoices, setDayChoice, go, back, upsertPost, saveBusiness } = useApp();
   const b = business!;
   const date = parseDayKey(key);
-  const day = useMemo(() => buildWeek(b, weekStart(date), planChoices, upcomingEvents(b, weekStart(date), 2, b.postalCode)).find((d) => d.key === key)!, [b, key, planChoices]);
+  const day = useMemo(() => buildWeek(b, weekStart(date), planChoices, upcomingEvents(b, weekStart(date), 2, b.postalCode), upcomingHolidays(weekStart(date), 2, b.postalCode)).find((d) => d.key === key)!, [b, key, planChoices]);
   const today = dayKey(new Date());
   const isToday = key === today;
   const past = key < today;
@@ -144,6 +145,11 @@ export function PlanDay({ day: key }: { day: string }) {
         </>
       )}
 
+      {!past && (day.holiday ?? day.announce) && (
+        <HolidayCard business={b} holiday={(day.holiday ?? day.announce)!} onSave={saveBusiness}
+          announceLabel={dayLabel(announceDate(b, (day.holiday ?? day.announce)!)).toLowerCase()} />
+      )}
+
       {past ? (
         done.length === 0 && <Body soft>Ce jour est passé. Regardez les jours qui viennent pour préparer vos prochains posts.</Body>
       ) : (
@@ -160,7 +166,7 @@ export function PlanDay({ day: key }: { day: string }) {
               </View>
             </View>
             {day.kind === 'rest' ? (
-              <Body soft>{day.closed ? 'La boutique est fermée : profitez-en pour souffler.' : 'Une journée sans publier, c\'est très bien aussi. Vos clients ne veulent pas un post tous les jours.'}</Body>
+              <Body soft>{day.holiday && holidayAnswer(b, day.holiday)?.open === false ? 'Jour férié : la boutique est fermée. Vos clients sont prévenus avec le post de la veille.' : day.closed ? 'La boutique est fermée : profitez-en pour souffler.' : 'Une journée sans publier, c\'est très bien aussi. Vos clients ne veulent pas un post tous les jours.'}</Body>
             ) : idea ? (
               <>
                 {day.kind === 'both' && <Label>Le post</Label>}
@@ -187,10 +193,10 @@ export function PlanDay({ day: key }: { day: string }) {
 
           {hasPost && (
             <Button title={isToday ? 'FAIRE MON POST' : 'PRÉPARER MAINTENANT'} icon={<CameraIcon size={22} />} style={{ minHeight: 64 }}
-              onPress={() => go({ name: 'create', idea: idea ?? undefined, occasionId: day.occasion?.id, plannedFor: isToday ? undefined : key })} />
+              onPress={() => go({ name: 'create', idea: idea ?? undefined, occasionId: day.occasion?.id, plannedFor: isToday ? undefined : key, note: day.announce ? holidayNote(b, day.announce) : undefined })} />
           )}
           {hasStory && !storyDone && storyPart}
-          {day.kind !== 'rest' && !day.feteDay && (
+          {day.kind !== 'rest' && !day.feteDay && !day.announce && (
             <Button title="Une autre idée" kind="secondary" icon={<RefreshIcon size={18} color={colors.green} />} onPress={otherIdea} />
           )}
           {hasPost && !isToday && (
