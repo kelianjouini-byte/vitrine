@@ -15,6 +15,10 @@ export interface Month {
 
 /** Estimation du temps qu'un commerçant passe sur un post sans Vitrine (photo à part). */
 export const MINUTES_SAVED_PER_POST = 20;
+/** Une story demande moins de travail (pas de texte) : estimation plus petite. */
+export const MINUTES_SAVED_PER_STORY = 5;
+
+export const isStory = (p: Post) => p.kind === 'story';
 
 const MONTHS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 
@@ -38,13 +42,19 @@ export function isPublished(p: Post): boolean {
   return p.status === 'published' || p.status === 'partially_published';
 }
 
-/** Les posts publiés pendant ce mois, du plus récent au plus ancien. */
-export function postsOfMonth(posts: Post[], m: Month): Post[] {
+/** Tout ce qui est parti pendant ce mois (posts et stories), du plus récent au plus ancien. */
+function publishedOfMonth(posts: Post[], m: Month): Post[] {
   return posts
     .filter(isPublished)
     .filter((p) => sameMonth(monthOf(new Date(p.publishedAt ?? p.createdAt)), m))
     .sort((a, b) => (b.publishedAt ?? b.createdAt).localeCompare(a.publishedAt ?? a.createdAt));
 }
+
+/** Les posts (pas les stories) publiés pendant ce mois, du plus récent au plus ancien. */
+export const postsOfMonth = (posts: Post[], m: Month): Post[] => publishedOfMonth(posts, m).filter((p) => !isStory(p));
+
+/** Les stories publiées pendant ce mois, de la plus récente à la plus ancienne. */
+export const storiesOfMonth = (posts: Post[], m: Month): Post[] => publishedOfMonth(posts, m).filter(isStory);
 
 /** « 1 h 20 », « 40 min », « 0 min ». */
 export function durationLabel(minutes: number): string {
@@ -63,7 +73,10 @@ export interface MonthSummary {
   count: number;
   /** Posts publiés le mois d'avant (vrai chiffre). */
   previousCount: number;
-  /** Temps gagné, en minutes (estimation : 20 min par post). */
+  /** Stories publiées ce mois-ci (vrai chiffre). */
+  storyCount: number;
+  stories: Post[];
+  /** Temps gagné, en minutes (estimation : 20 min par post, 5 min par story). */
   minutesSaved: number;
   /** Le mois est-il en cours ? Alors la comparaison n'est pas définitive. */
   inProgress: boolean;
@@ -78,12 +91,17 @@ export function summarize(posts: Post[], m: Month, today: Date = new Date()): Mo
   const list = postsOfMonth(posts, m);
   const count = list.length;
   const previousCount = postsOfMonth(posts, previous).length;
+  const stories = storiesOfMonth(posts, m);
   const inProgress = sameMonth(m, monthOf(today));
   const lastDay = new Date(m.year, m.month + 1, 0).getDate();
   const daysLeft = inProgress ? lastDay - today.getDate() : 0;
   // « first » : rien le mois d'avant, on ne peut pas comparer.
   const trend: Trend = previousCount === 0 && count === 0 ? 'same' : previousCount === 0 ? 'first' : count > previousCount ? 'up' : count < previousCount ? 'down' : 'same';
-  return { month: m, previous, count, previousCount, minutesSaved: count * MINUTES_SAVED_PER_POST, inProgress, daysLeft, trend, posts: list };
+  return {
+    month: m, previous, count, previousCount, storyCount: stories.length, stories,
+    minutesSaved: count * MINUTES_SAVED_PER_POST + stories.length * MINUTES_SAVED_PER_STORY,
+    inProgress, daysLeft, trend, posts: list,
+  };
 }
 
 const plural = (n: number, one: string, many: string) => `${n} ${n > 1 ? many : one}`;

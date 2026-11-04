@@ -35,6 +35,15 @@ test('bilan : vrais chiffres, temps gagné à 20 min par post, baisse en cours d
   assert.match(comparisonText(s), /En octobre : 3 posts\. Pour l'instant, 1 post de moins, mais il reste 27 jours/);
 });
 
+test('bilan : les stories sont comptées à part (5 min chacune), pas dans les posts', () => {
+  const story = { ...post('s1', '2026-11-02T10:00:00'), kind: 'story' as const };
+  const s = summarize([...posts, story], nov, today);
+  assert.equal(s.count, 2);
+  assert.equal(s.storyCount, 1);
+  assert.equal(s.minutesSaved, 45);
+  assert.deepEqual(s.stories.map((p) => p.id), ['s1']);
+});
+
 test('comparaison d\'un mois fini, en hausse, et sans mois d\'avant', () => {
   const oct = summarize(posts, { year: 2026, month: 9 }, today);
   assert.equal(oct.trend, 'first');

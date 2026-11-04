@@ -1,15 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { Badge, Body, Button, Card, IconTile, Label, Notice, PostThumb, Title, BackButton } from '../components/ui';
-import { BulbIcon, CameraIcon, ChartUpIcon, ClockIcon, EyeIcon, RefreshIcon, StarIcon } from '../components/icons';
-import { colors, fonts, glass, radius } from '../lib/theme';
+import { BulbIcon, CameraIcon, ChartUpIcon, ClockIcon, EyeIcon, RefreshIcon, StarIcon, StoryIcon, VideoIcon } from '../components/icons';
+import { colors, fonts, glass, greenGradient, radius } from '../lib/theme';
+import type { Post } from '../lib/types';
 import { useApp } from '../lib/store';
 import { upcomingEvents } from '../lib/events';
 import { tradeById } from '../lib/trades';
 import { isBackendConfigured } from '../lib/config';
 import { fetchMonthlyAdvice, FriendlyError, NotConfiguredError } from '../lib/api';
 import {
-  addMonths, basicAdvice, compareMonths, comparisonText, durationLabel, firstMonth, MINUTES_SAVED_PER_POST,
+  addMonths, basicAdvice, compareMonths, comparisonText, durationLabel, firstMonth, MINUTES_SAVED_PER_POST, MINUTES_SAVED_PER_STORY,
   monthKey, monthLabel, monthName, monthOf, ofMonth, summarize, type Month,
 } from '../lib/report';
 
@@ -77,12 +78,29 @@ export function Report({ initialMonth }: { initialMonth?: Month }) {
 
       <View style={{ flexDirection: 'row', gap: 12 }}>
         <Tile icon={<CameraIcon size={22} color={colors.green} />} value={String(s.count)} label={s.count > 1 ? 'posts publiés' : 'post publié'} />
-        <Tile icon={<ClockIcon size={22} color={colors.green} />} value={durationLabel(s.minutesSaved)} label="de temps gagné" hint={`environ ${MINUTES_SAVED_PER_POST} min par post`} />
+        <Tile icon={<StoryIcon size={22} color={colors.green} />} value={String(s.storyCount)} label={s.storyCount > 1 ? 'stories publiées' : 'story publiée'} />
       </View>
       <View style={{ flexDirection: 'row', gap: 12 }}>
-        <Tile icon={<EyeIcon size={22} color={colors.orangeText} />} tone="orange" soon label="personnes touchées" hint="Vues et nouveaux abonnés, dès qu'Instagram et Facebook seront branchés." />
+        <Tile icon={<ClockIcon size={22} color={colors.green} />} value={durationLabel(s.minutesSaved)} label="de temps gagné" hint={`environ ${MINUTES_SAVED_PER_POST} min par post, ${MINUTES_SAVED_PER_STORY} min par story`} />
         <Tile icon={<StarIcon size={22} color={colors.orangeText} />} tone="orange" soon label="meilleur post" hint="Vitrine saura quel post vos clients ont préféré grâce aux statistiques." />
       </View>
+
+      {/* Le chiffre qui fait plaisir : tous les clients touchés, posts et stories réunis. Jamais estimé. */}
+      <Card style={{ gap: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <IconTile size={48} tone="orange"><EyeIcon size={26} color={colors.orangeText} /></IconTile>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={{ color: colors.text, fontSize: 20, fontWeight: '700', fontFamily: fonts.body }}>Clients touchés</Text>
+            <Body soft size={14}>Toutes les personnes qui ont vu vos posts et vos stories {ofMonth(month)}.</Body>
+          </View>
+          <Badge text="Bientôt" tone="orange" />
+        </View>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <ViewsPart icon={<CameraIcon size={18} color={colors.green} />} label="Vues des posts" />
+          <ViewsPart icon={<StoryIcon size={18} color={colors.green} />} label="Vues des stories" />
+        </View>
+        <Body soft size={13}>Les vrais chiffres arriveront dès qu'Instagram et Facebook seront branchés.</Body>
+      </Card>
 
       {s.posts.length > 0 && (
         <View style={{ gap: 10 }}>
@@ -99,6 +117,20 @@ export function Report({ initialMonth }: { initialMonth?: Month }) {
       {s.count === 0 && (
         <Body soft center>{s.inProgress ? "Pas encore de post publié ce mois-ci. Une photo suffit pour commencer !" : `Aucun post publié en ${monthName(month)}.`}</Body>
       )}
+
+      <View style={{ gap: 10 }}>
+        <Label>Vos stories {ofMonth(month)}</Label>
+        {s.stories.length > 0 ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 14, paddingVertical: 2 }}>
+            {s.stories.map((p) => <StoryRing key={p.id} post={p} onPress={() => go({ name: 'published', postId: p.id })} />)}
+          </ScrollView>
+        ) : (
+          <Card style={{ gap: 10, alignItems: 'center' }}>
+            <Body soft center>{s.inProgress ? 'Pas encore de story ce mois-ci. Une photo ou une petite vidéo suffit.' : `Aucune story publiée en ${monthName(month)}.`}</Body>
+            {s.inProgress && <Button title="Faire une story" kind="secondary" icon={<StoryIcon size={20} color={colors.green} />} onPress={() => go({ name: 'story' })} />}
+          </Card>
+        )}
+      </View>
 
       <Card style={{ gap: 8 }}>
         <Label>Par rapport à {monthName(s.previous)}</Label>
@@ -134,7 +166,7 @@ export function Report({ initialMonth }: { initialMonth?: Month }) {
         </View>
       )}
 
-      <Body soft size={13} center>Ces chiffres viennent de vos vrais posts publiés avec Vitrine. Le temps gagné est une estimation.</Body>
+      <Body soft size={13} center>Ces chiffres viennent de vos vrais posts et stories publiés avec Vitrine. Le temps gagné est une estimation.</Body>
     </ScrollView>
   );
 }
@@ -155,6 +187,38 @@ function MonthArrow({ label, a11y, enabled, onPress }: { label: string; a11y: st
     <Pressable onPress={onPress} disabled={!enabled} accessibilityRole="button" accessibilityLabel={a11y} accessibilityState={{ disabled: !enabled }}
       style={{ width: 52, height: 52, borderRadius: 26, borderWidth: 1.5, borderColor: enabled ? colors.green : glass.line, backgroundColor: glass.bgStrong, alignItems: 'center', justifyContent: 'center', opacity: enabled ? 1 : 0.4 }}>
       <Text style={{ color: enabled ? colors.green : colors.textSoft, fontSize: 26, fontWeight: '700', lineHeight: 28 }}>{label}</Text>
+    </Pressable>
+  );
+}
+
+/** Une part des « clients touchés » : vues des posts ou des stories (bientôt). */
+function ViewsPart({ icon, label }: { icon: React.ReactNode; label: string }) {
+  return (
+    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: glass.bgStrong, borderRadius: radius.sm + 2, borderWidth: 1, borderColor: glass.line, padding: 10 }}>
+      {icon}
+      <View style={{ flex: 1 }}>
+        <Text style={{ color: colors.text, fontSize: 14, fontWeight: '600', fontFamily: fonts.body }}>{label}</Text>
+        <Text style={{ color: colors.orangeText, fontSize: 13, fontFamily: fonts.body }}>bientôt</Text>
+      </View>
+    </View>
+  );
+}
+
+/** Une story du mois, en rond comme sur Instagram, avec ses vues en dessous (bientôt). */
+function StoryRing({ post, onPress }: { post: Post; onPress: () => void }) {
+  const day = new Date(post.publishedAt ?? post.createdAt);
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`Voir la story du ${day.toLocaleDateString('fr-FR')}`} style={{ alignItems: 'center', gap: 6, width: 76 }}>
+      <View style={{ ...greenGradient, width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center' }}>
+        <View style={{ width: 64, height: 64, borderRadius: 32, borderWidth: 2.5, borderColor: colors.white, overflow: 'hidden', backgroundColor: colors.greenSoft, alignItems: 'center', justifyContent: 'center' }}>
+          {post.imageUri ? <Image source={{ uri: post.imageUri }} style={{ width: 64, height: 64 }} /> : <VideoIcon size={24} color={colors.green} />}
+        </View>
+      </View>
+      <Text style={{ color: colors.text, fontSize: 13, fontWeight: '600', fontFamily: fonts.body }}>{day.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+        <EyeIcon size={14} color={colors.orangeText} />
+        <Text style={{ color: colors.orangeText, fontSize: 12, fontFamily: fonts.body }}>bientôt</Text>
+      </View>
     </Pressable>
   );
 }
