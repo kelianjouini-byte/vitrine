@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from 'react-native';
-import { Badge, Body, Button, Card, IconTile, Label, Notice, Title, BackButton } from '../components/ui';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { Badge, Body, Button, Card, IconTile, Label, Notice, PostThumb, Title, BackButton } from '../components/ui';
 import { BulbIcon, CameraIcon, ChartUpIcon, ClockIcon, EyeIcon, RefreshIcon, StarIcon } from '../components/icons';
 import { colors, fonts, glass, radius } from '../lib/theme';
 import { useApp } from '../lib/store';
@@ -90,7 +90,7 @@ export function Report({ initialMonth }: { initialMonth?: Month }) {
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
             {s.posts.map((p) => (
               <Pressable key={p.id} onPress={() => go({ name: 'published', postId: p.id })} accessibilityRole="button" accessibilityLabel={`Voir le post du ${new Date(p.publishedAt ?? p.createdAt).toLocaleDateString('fr-FR')}`}>
-                <Image source={{ uri: p.imageUri }} style={{ width: 84, height: 84, borderRadius: radius.sm, backgroundColor: colors.greenSoft }} />
+                <PostThumb post={p} width={84} height={84} />
               </Pressable>
             ))}
           </ScrollView>

@@ -1,7 +1,7 @@
 /** Calculs du recadrage (sans dépendance : testés avec node --test). */
 
-/** Les 3 formats proposés. Toutes les photos d'un carrousel ont le même. */
-export type PhotoFormat = 'portrait' | 'square' | 'landscape';
+/** Formats de photo. Toutes les photos d'un carrousel ont le même ; « story » = plein écran vertical (9:16). */
+export type PhotoFormat = 'portrait' | 'square' | 'landscape' | 'story';
 
 /**
  * Taille finale de chaque format, en pixels. Instagram accepte du 4:5 (0,8) au 1,91:1 :
@@ -11,7 +11,11 @@ export const FORMATS: Record<PhotoFormat, { label: string; width: number; height
   portrait: { label: 'Portrait', width: 1080, height: 1350 },
   square: { label: 'Carré', width: 1080, height: 1080 },
   landscape: { label: 'Paysage', width: 1080, height: 566 },
+  story: { label: 'Story', width: 1080, height: 1920 },
 };
+
+/** Formats d'un post (fil Instagram et Facebook). La story a ses propres limites. */
+export const FEED_FORMATS = ['portrait', 'square', 'landscape'] as const;
 
 export const formatRatio = (f: PhotoFormat) => FORMATS[f].width / FORMATS[f].height;
 

@@ -1,16 +1,25 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CENTERED, clampFraming, cropRect, FORMATS, formatRatio, MAX_ZOOM } from '../src/lib/crop.ts';
+import { CENTERED, FEED_FORMATS, clampFraming, cropRect, FORMATS, formatRatio, MAX_ZOOM } from '../src/lib/crop.ts';
 
 const portraitPhoto = { width: 3000, height: 4000 };
 const landscapePhoto = { width: 4000, height: 3000 };
 
 test('formats : tous dans les limites Instagram (de 4:5 à 1,91:1)', () => {
-  for (const f of Object.keys(FORMATS) as (keyof typeof FORMATS)[]) {
+  for (const f of FEED_FORMATS) {
     const r = formatRatio(f);
     assert.ok(r >= 0.8 && r <= 1.91, `${f} : ${r}`);
     assert.equal(FORMATS[f].width, 1080);
   }
+});
+
+test('story : plein écran vertical 9:16, en 1080 x 1920', () => {
+  assert.equal(FORMATS.story.width, 1080);
+  assert.equal(FORMATS.story.height, 1920);
+  const r = cropRect(landscapePhoto, 'story', CENTERED);
+  assert.equal(r.height, 3000);
+  assert.equal(r.width, Math.round(3000 * 9 / 16));
+  assert.equal(r.originX, Math.floor((4000 - 3000 * 9 / 16) / 2));
 });
 
 test('zoom 1 centré : le plus grand cadre possible, au milieu', () => {

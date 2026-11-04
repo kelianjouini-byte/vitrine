@@ -1,7 +1,8 @@
 import React from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View, type TextInputProps, type ViewStyle, type StyleProp } from 'react-native';
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, TextInput, View, type TextInputProps, type ViewStyle, type StyleProp } from 'react-native';
 import { colors, fonts, glass, glassSurface, greenGradient, radius } from '../lib/theme';
-import { BackIcon, ChevronIcon } from './icons';
+import { BackIcon, CheckIcon, ChevronIcon, VideoIcon } from './icons';
+import type { Platform, Post, SocialConnection } from '../lib/types';
 
 export function Title({ children, size = 26, style }: { children: React.ReactNode; size?: number; style?: StyleProp<any> }) {
   return <Text style={[{ fontFamily: fonts.title, fontSize: size, color: colors.text, fontWeight: '600' }, style]}>{children}</Text>;
@@ -149,3 +150,44 @@ const s = StyleSheet.create({
   card: { ...glassSurface, borderRadius: radius.lg - 2, padding: 16 },
   input: { minHeight: 54, borderRadius: 14, borderWidth: 1.5, borderColor: glass.line, backgroundColor: glass.bgStrong, paddingHorizontal: 16, fontSize: 17, color: colors.text, fontFamily: fonts.body },
 });
+
+/** « Publier sur » : Instagram et/ou Facebook (au moins un reste coché). Sert aux posts et aux stories. */
+export function PlatformPicker({ value, onChange, connections }: { value: Platform[]; onChange: (p: Platform[]) => void; connections: SocialConnection[] }) {
+  const toggle = (p: Platform) => onChange(value.includes(p) ? (value.length > 1 ? value.filter((x) => x !== p) : value) : [...value, p]);
+  return (
+    <View style={{ gap: 8 }}>
+      <Body style={{ fontWeight: '600' }}>Publier sur</Body>
+      <View style={{ flexDirection: 'row', gap: 10 }}>
+        {(['instagram', 'facebook'] as Platform[]).map((p) => {
+          const on = value.includes(p);
+          const conn = connections.find((c) => c.platform === p)?.status === 'connected';
+          return (
+            <Pressable key={p} onPress={() => toggle(p)} accessibilityRole="checkbox" accessibilityState={{ checked: on }}
+              style={{ flex: 1, minHeight: 52, borderRadius: 14, borderWidth: 1.5, borderColor: on ? colors.green : glass.line, backgroundColor: on ? colors.greenSoft : glass.bgStrong, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }}>
+              {on && <CheckIcon size={16} color={colors.green} />}
+              <Text style={{ color: on ? colors.green : colors.textSoft, fontWeight: '700', fontSize: 16, fontFamily: fonts.body }}>{p === 'instagram' ? 'Instagram' : 'Facebook'}</Text>
+              {!conn && <Text style={{ color: colors.textSoft, fontSize: 12 }}>(non connecté)</Text>}
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+/** Vignette d'un post ou d'une story (Mes posts, bilan). Une story vidéo n'a pas d'image gardée : on montre une icône. */
+export function PostThumb({ post, width, height }: { post: Post; width: number; height: number }) {
+  const tag = post.kind === 'story' ? 'Story' : (post.photoCount ?? 1) > 1 ? `${post.photoCount} photos` : null;
+  return (
+    <View style={{ width, height, borderRadius: 10, overflow: 'hidden', backgroundColor: colors.greenSoft, alignItems: 'center', justifyContent: 'center' }}>
+      {post.imageUri
+        ? <Image source={{ uri: post.imageUri }} style={{ width, height }} />
+        : <VideoIcon size={28} color={colors.green} />}
+      {tag && (
+        <View style={{ position: 'absolute', top: 4, right: 4, backgroundColor: 'rgba(20,28,23,0.75)', borderRadius: 8, paddingHorizontal: 5 }}>
+          <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>{tag}</Text>
+        </View>
+      )}
+    </View>
+  );
+}

@@ -283,6 +283,21 @@ export async function publishPost(input: PublishInput): Promise<PublicationResul
   return res.publications;
 }
 
+export interface PublishStoryInput {
+  platforms: Platform[];
+  media: { kind: 'photo'; base64: string } | { kind: 'video'; uri: string };
+  idempotencyKey: string;
+}
+
+/**
+ * Publie une story (photo ou vidéo) sur Instagram et Facebook.
+ * La publication des stories côté serveur sera branchée avec l'accès développeur Meta :
+ * en attendant, on le dit honnêtement (jamais de faux succès).
+ */
+export async function publishStory(_input: PublishStoryInput): Promise<PublicationResult[]> {
+  throw new NotConfiguredError('meta');
+}
+
 // ---------------------------------------------------------------- Meta
 
 /** Retourne l'URL officielle de connexion Meta (OAuth). Aucun mot de passe ne passe par Vitrine. */
