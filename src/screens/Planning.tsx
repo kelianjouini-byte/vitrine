@@ -10,6 +10,7 @@ import { buildWeek, dayKey, DAY_NAMES, postsOfDay, WEEK_GOAL, weekCount, weekday
 export const KIND_BADGE = {
   post: { text: 'Post', tone: 'green' },
   story: { text: 'Story', tone: 'blue' },
+  both: { text: 'Post + Story', tone: 'orange' },
   rest: { text: 'Repos', tone: 'grey' },
 } as const;
 
@@ -17,7 +18,7 @@ export const KIND_BADGE = {
 export function Planning() {
   const { business, posts, planChoices, go, saveBusiness } = useApp();
   const b = business!;
-  // 0 = cette semaine. On peut regarder 4 semaines en arrière et préparer 4 semaines à l'avance.
+  // 0 = cette semaine. On peut regarder 4 semaines en arrière et préparer 8 semaines à l'avance (Noël, fête des mères...).
   const [offset, setOffset] = useState(0);
   const today = dayKey(new Date());
   const start = useMemo(() => weekStart(new Date(), offset), [offset]);
@@ -45,7 +46,7 @@ export function Planning() {
             </Pressable>
           )}
         </View>
-        <WeekArrow dir="next" disabled={offset >= 4} onPress={() => setOffset(offset + 1)} />
+        <WeekArrow dir="next" disabled={offset >= 8} onPress={() => setOffset(offset + 1)} />
       </View>
 
       <View style={{ flexDirection: 'row', gap: 10 }}>

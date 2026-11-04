@@ -6,7 +6,8 @@
 import type { CommercialEvent } from './events';
 import type { Business, Post, PostIdea, PublicationResult, PostStatus } from './types';
 
-export type DayKind = 'post' | 'story' | 'rest';
+/** « both » : un post ET une story (jours de fête). */
+export type DayKind = 'post' | 'story' | 'both' | 'rest';
 
 /** Ce que le commerçant a changé sur un jour : son propre choix, ou « une autre idée ». */
 export interface DayChoice {
@@ -27,9 +28,14 @@ export interface PlanDay {
   kind: DayKind;
   /** Boutique fermée ce jour-là (réglage « Jours de fermeture »). */
   closed: boolean;
+  /** L'idée du jour (l'idée de post quand c'est « Post + Story »). */
   idea: PostIdea | null;
-  /** Fête à préparer ce jour-là (le post le plus proche avant la fête). */
+  /** L'idée de story d'un jour « Post + Story ». */
+  storyIdea: PostIdea | null;
+  /** Fête du jour, ou fête à préparer (le dernier post avant elle). */
   occasion: CommercialEvent | null;
+  /** C'est le jour même de la fête : Vitrine conseille un post et une story. */
+  feteDay: boolean;
 }
 
 /** Noms des jours, du lundi (0) au dimanche (6). */
@@ -116,14 +122,30 @@ export function buildWeek(b: Business, start: Date, choices: PlanChoices, events
     const date = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
     const key = dayKey(date);
     const choice = choices[key] ?? {};
-    return { key, date, advice, kind: choice.kind ?? advice, closed: closedDays.includes(i), idea: null, occasion: null };
+    return { key, date, advice, kind: choice.kind ?? advice, closed: closedDays.includes(i), idea: null, storyIdea: null, occasion: null, feteDay: false };
   });
+
+  // Le jour même d'une fête : un post ET une story, même si la boutique est fermée (le commerçant peut changer).
+  for (const d of days) {
+    const today = events.find((e) => dayKey(e.date) === d.key);
+    if (!today) continue;
+    const choice = choices[d.key] ?? {};
+    d.advice = 'both';
+    d.kind = choice.kind ?? 'both';
+    d.occasion = today;
+    d.feteDay = true;
+    const post = { title: `C'est ${today.name} aujourd'hui`, photo: today.strategy, why: today.description };
+    const story = { title: `${today.name} en direct`, photo: `Filmez 5 secondes de la boutique le jour de ${today.name}.`, why: 'Le jour même, vos clients regardent les stories pour savoir ce qui se passe près de chez eux.' };
+    d.idea = d.kind === 'rest' ? null : d.kind === 'story' ? story : post;
+    d.storyIdea = d.kind === 'both' ? story : null;
+  }
 
   // Fête dans les 3 semaines : on la prépare avec le dernier post de la semaine qui tombe avant elle.
   const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 7 + 14);
-  const fete = events.find((e) => e.date >= start && e.date < end && days.some((d) => d.kind === 'post' && d.date <= e.date));
+  const isPrep = (d: PlanDay, e: CommercialEvent) => d.kind === 'post' && !d.feteDay && d.key < dayKey(e.date);
+  const fete = events.find((e) => e.date >= start && e.date < end && days.some((d) => isPrep(d, e)));
   if (fete) {
-    const target = [...days].reverse().find((d) => d.kind === 'post' && d.date <= fete.date);
+    const target = [...days].reverse().find((d) => isPrep(d, fete));
     if (target && !(choices[target.key]?.shift)) {
       target.occasion = fete;
       target.idea = { title: `Préparer ${fete.name}`, photo: fete.strategy, why: fete.description };
@@ -135,8 +157,9 @@ export function buildWeek(b: Business, start: Date, choices: PlanChoices, events
   for (const d of days) {
     if (d.idea || d.kind === 'rest') continue;
     const shift = choices[d.key]?.shift ?? 0;
-    if (d.kind === 'post') d.idea = pIdeas[(w * WEEK_GOAL.post + nPost++ + shift) % pIdeas.length];
+    if (d.kind === 'post' || d.kind === 'both') d.idea = pIdeas[(w * WEEK_GOAL.post + nPost++ + shift) % pIdeas.length];
     else d.idea = STORY_IDEAS[(w * WEEK_GOAL.story + nStory++ + shift) % STORY_IDEAS.length];
+    if (d.kind === 'both') d.storyIdea = STORY_IDEAS[(w * WEEK_GOAL.story + nStory++ + shift) % STORY_IDEAS.length];
   }
   return days;
 }
@@ -192,7 +215,10 @@ export function planReminders(b: Business, posts: Post[], choices: PlanChoices, 
     if (ready) {
       out.push({ date, day: d.key, title: 'Votre post du jour est prêt', body: 'Il ne reste qu\'à appuyer sur « Publier ». Ouvrez Vitrine.' });
     } else if (d.kind !== 'rest' && d.idea && !mine.length) {
-      out.push({ date, day: d.key, title: d.kind === 'story' ? 'Idée de story du jour' : 'Idée de post du jour', body: `${d.idea.title} : ${d.idea.photo}` });
+      const title = d.kind === 'both'
+        ? (d.occasion ? `C'est ${d.occasion.name} : un post et une story` : 'Aujourd\'hui : un post et une story')
+        : d.kind === 'story' ? 'Idée de story du jour' : 'Idée de post du jour';
+      out.push({ date, day: d.key, title, body: `${d.idea.title} : ${d.idea.photo}` });
     }
   }
   return out;
