@@ -3,7 +3,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Body, Card, Chevron, DateTile, IconTile, Label, Notice, Title } from '../components/ui';
 import { takePhoto } from '../lib/photo';
 import { FriendlyError } from '../lib/api';
-import { BulbIcon, CameraIcon, CheckIcon } from '../components/icons';
+import { BulbIcon, CameraIcon, CheckIcon, StoryIcon } from '../components/icons';
 import { colors, fonts, glassSurface, greenGradient } from '../lib/theme';
 import { useApp } from '../lib/store';
 import { daysUntil, inDaysLabel, upcomingEvents } from '../lib/events';
@@ -18,9 +18,12 @@ export function Home() {
   const scheduled = posts.find((p) => p.status === 'scheduled');
   const days = next ? daysUntil(next.date) : 0;
   const [photoError, setPhotoError] = useState<string | null>(null);
+  // Le gros bouton propose 2 choix : un post (photo + texte de l'IA) ou une story (photo ou vidéo).
+  const [choosing, setChoosing] = useState(false);
 
-  // Un seul geste : le bouton ouvre directement l'appareil photo, puis le recadrage.
+  // Post : l'appareil photo s'ouvre tout de suite, la photo est cadrée toute seule.
   async function shoot() {
+    setChoosing(false);
     setPhotoError(null);
     try {
       const photo = await takePhoto();
@@ -44,16 +47,23 @@ export function Home() {
       </View>
 
       {/* Le geste principal : un gros bouton rond, au centre, entouré d'un anneau de verre. */}
-      <Pressable onPress={shoot} accessibilityRole="button" accessibilityLabel="Prendre une photo"
+      <Pressable onPress={() => setChoosing((c) => !c)} accessibilityRole="button" accessibilityLabel="Créer un post ou une story" accessibilityState={{ expanded: choosing }}
         style={({ pressed }) => ({ alignItems: 'center', gap: 14, paddingVertical: 10, transform: [{ scale: pressed ? 0.97 : 1 }] })}>
         <View style={{ width: 172, height: 172, borderRadius: 86, backgroundColor: 'rgba(255,255,255,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.95)', alignItems: 'center', justifyContent: 'center', boxShadow: '0px 22px 40px -14px rgba(31,95,69,0.5)' }}>
           <View style={{ ...greenGradient, width: 150, height: 150, borderRadius: 75, alignItems: 'center', justifyContent: 'center' }}>
             <CameraIcon size={58} />
           </View>
         </View>
-        <Text style={{ color: colors.greenDark, fontSize: 23, fontWeight: '700', fontFamily: fonts.body }}>Prendre une photo</Text>
-        <Body soft size={16}>Votre prochain post est à portée de main.</Body>
+        <Text style={{ color: colors.greenDark, fontSize: 23, fontWeight: '700', fontFamily: fonts.body }}>Créer</Text>
+        <Body soft size={16}>{choosing ? 'Que voulez-vous publier ?' : 'Votre prochain post est à portée de main.'}</Body>
       </Pressable>
+
+      {choosing && (
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+          <Choice icon={<CameraIcon size={30} color={colors.green} />} title="Post" text="Photo + texte écrit par l'IA" onPress={shoot} />
+          <Choice icon={<StoryIcon size={30} color={colors.green} />} title="Story" text="Photo ou vidéo, plein écran" onPress={() => { setChoosing(false); go({ name: 'story' }); }} />
+        </View>
+      )}
 
       <Card onPress={() => go({ name: 'ideas' })} style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
         <IconTile><BulbIcon size={24} color={colors.green} /></IconTile>
@@ -110,5 +120,18 @@ export function Home() {
         </Card>
       </View>
     </ScrollView>
+  );
+}
+
+/** Un des 2 choix du gros bouton : grande carte facile à toucher. */
+function Choice({ icon, title, text, onPress }: { icon: React.ReactNode; title: string; text: string; onPress: () => void }) {
+  return (
+    <View style={{ flex: 1 }}>
+      <Card onPress={onPress} style={{ alignItems: 'center', gap: 8, paddingVertical: 20, paddingHorizontal: 12 }}>
+        <IconTile size={60}>{icon}</IconTile>
+        <Text style={{ color: colors.text, fontSize: 21, fontWeight: '700', fontFamily: fonts.body }} accessibilityLabel={`${title} : ${text}`}>{title}</Text>
+        <Text style={{ color: colors.textSoft, fontSize: 15, textAlign: 'center', fontFamily: fonts.body }}>{text}</Text>
+      </Card>
+    </View>
   );
 }

@@ -67,7 +67,11 @@ export interface GeneratedPost {
 
 export interface Post {
   id: string;
-  /** 1re photo (seule gardée sur le téléphone). */
+  /** « post » (fil, avec texte) ou « story » (plein écran, 24 h, sans texte). « post » si absent : anciens posts. */
+  kind?: 'post' | 'story';
+  /** Story en vidéo : pas d'image gardée sur le téléphone (une vidéo est trop lourde). */
+  mediaType?: 'photo' | 'video';
+  /** 1re photo (seule gardée sur le téléphone). Vide pour une story vidéo. */
   imageUri: string;
   /** Nombre de photos du carrousel (1 si absent : anciens posts). */
   photoCount?: number;

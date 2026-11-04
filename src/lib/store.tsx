@@ -15,6 +15,7 @@ export type Route =
   | { name: 'ideas' }
   | { name: 'report'; month?: Month }
   | { name: 'create'; occasionId?: string; photo?: RawPhoto; idea?: PostIdea }
+  | { name: 'story' }
   | { name: 'published'; postId: string };
 
 export const TAB_ROUTES = ['home', 'fetes', 'posts'] as const;

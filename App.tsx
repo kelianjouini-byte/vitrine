@@ -10,6 +10,7 @@ import { CalendarIcon, GridIcon, HomeIcon, LogoMark } from './src/components/ico
 import { Onboarding } from './src/screens/Onboarding';
 import { Home } from './src/screens/Home';
 import { Create } from './src/screens/Create';
+import { Story } from './src/screens/Story';
 import { Published } from './src/screens/Published';
 import { Fetes } from './src/screens/Fetes';
 import { Posts } from './src/screens/Posts';
@@ -56,6 +57,7 @@ function Root() {
         {route.name === 'ideas' && <Ideas />}
         {route.name === 'report' && <Report key={route.month ? `${route.month.year}-${route.month.month}` : 'now'} initialMonth={route.month} />}
         {route.name === 'create' && <Create key={route.occasionId ?? route.idea?.title ?? 'new'} occasionId={route.occasionId} initialPhoto={route.photo} idea={route.idea} />}
+        {route.name === 'story' && <Story />}
         {route.name === 'published' && <Published postId={route.postId} />}
       </View>
       {isTab && <TabBar />}

@@ -44,7 +44,8 @@
           "imageWidth": 180,
           "resizeMode": "contain"
         }
-      ]
+      ],
+      "expo-video"
     ],
     "scheme": "vitrine",
     "experiments": {

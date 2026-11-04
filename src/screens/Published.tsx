@@ -16,6 +16,7 @@ export function Published({ postId }: { postId: string }) {
   const someOk = pubs.some((p) => p.status === 'published');
   const notConfigured = pubs.every((p) => p.status === 'not_configured');
   const when = post.publishedAt ? new Date(post.publishedAt) : null;
+  const story = post.kind === 'story';
 
   return (
     <ScrollView contentContainerStyle={{ padding: 24, gap: 18, alignItems: 'stretch', paddingTop: 48 }}>
@@ -32,7 +33,7 @@ export function Published({ postId }: { postId: string }) {
           {allOk
             ? `Votre publication est en ligne${when ? `, le ${when.toLocaleDateString('fr-FR')} à ${when.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : ''}.`
             : notConfigured
-              ? "La publication sur Instagram et Facebook n'est pas encore configurée. Votre post est gardé dans « Mes posts »."
+              ? `La publication sur Instagram et Facebook n'est pas encore configurée. ${story ? 'Votre story est gardée' : 'Votre post est gardé'} dans « Mes posts ».`
               : 'Rien n\'a été publié sur le réseau en erreur. Vous pouvez réessayer.'}
         </Body>
       </View>
@@ -43,7 +44,7 @@ export function Published({ postId }: { postId: string }) {
         <Notice tone="orange" title="Bientôt disponible" text="Dès que le compte Meta de Vitrine sera configuré et vos réseaux connectés, ce bouton publiera pour de vrai." />
       )}
 
-      {!allOk && !notConfigured && <Button title="Réessayer" kind="secondary" onPress={() => go({ name: 'create' })} />}
+      {!allOk && !notConfigured && <Button title="Réessayer" kind="secondary" onPress={() => go(story ? { name: 'story' } : { name: 'create' })} />}
       <Button title="Retour à l'accueil" onPress={() => go({ name: 'home' })} />
     </ScrollView>
   );

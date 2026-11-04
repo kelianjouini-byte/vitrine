@@ -1,27 +1,26 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Platform as RNPlatform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import * as Crypto from 'expo-crypto';
-import { Body, Button, Chip, Field, Notice, Title, BackButton } from '../components/ui';
+import { Body, Button, Chip, Field, Notice, PlatformPicker, Title, BackButton } from '../components/ui';
 import { CameraIcon, CheckIcon, ImageIcon, PencilIcon, RefreshIcon, SparkIcon } from '../components/icons';
-import { colors, fonts, glass, glassSurface, radius } from '../lib/theme';
+import { colors, fonts, glassSurface, radius } from '../lib/theme';
 import { useApp } from '../lib/store';
 import { upcomingEvents } from '../lib/events';
 import { isBackendConfigured } from '../lib/config';
 import { ensureSession, exampleCaption, FriendlyError, generatePost, NotConfiguredError, publishPost, saveBusinessRemote, uploadPhoto } from '../lib/api';
-import { CENTERED, clampFraming, formatRatio, MAX_PHOTOS, renderCrop, takePhotos, type Framing, type PhotoFormat, type PickedPhoto, type RawPhoto } from '../lib/photo';
-import { PhotoCropper } from '../components/PhotoCropper';
+import { autoCrop, formatRatio, MAX_PHOTOS, takePhotos, type PhotoFormat, type PickedPhoto, type RawPhoto } from '../lib/photo';
 import { PhotoCarousel } from '../components/PhotoCarousel';
 import { tradeById } from '../lib/trades';
 import type { GeneratedPost, Platform, Post, PostIdea, PublicationResult, Tone } from '../lib/types';
 import { DEFAULT_TONE, toneLabel, TONES } from '../lib/business';
 
-type Phase = 'pick' | 'crop' | 'photos' | 'generating' | 'preview' | 'publishing';
+type Phase = 'pick' | 'photos' | 'generating' | 'preview' | 'publishing';
 
-/** Une photo du post : l'originale (pour recadrer à nouveau), son cadrage, la version recadrée et son chemin sur le serveur. */
-type Slide = { key: string; raw: RawPhoto; framing: Framing; photo: PickedPhoto; path: string | null };
+/** Une photo du post : la version cadrée et son chemin sur le serveur. */
+type Slide = { key: string; photo: PickedPhoto; path: string | null };
 
-/** Photo en cours de recadrage. `index` null = nouvelle photo ; `rest` = photos choisies ensemble dans la galerie, à recadrer ensuite. */
-type Cropping = { raw: RawPhoto; framing: Framing; index: number | null; rest: RawPhoto[] };
+/** Format de toutes les photos d'un post. */
+const FORMAT: PhotoFormat = 'portrait';
 
 export function Create({ occasionId, initialPhoto, idea }: { occasionId?: string; initialPhoto?: RawPhoto; idea?: PostIdea }) {
   const { business, back, go, upsertPost, connections, saveBusiness } = useApp();
@@ -30,11 +29,7 @@ export function Create({ occasionId, initialPhoto, idea }: { occasionId?: string
 
   const [phase, setPhase] = useState<Phase>('pick');
   const [slides, setSlides] = useState<Slide[]>([]);
-  const [format, setFormat] = useState<PhotoFormat>('portrait');
-  const [cropping, setCropping] = useState<Cropping | null>(null);
-  const [cropFormat, setCropFormat] = useState<PhotoFormat>('portrait');
-  const [cropBusy, setCropBusy] = useState(false);
-  const [dragging, setDragging] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [postId, setPostIdState] = useState<string>(() => Crypto.randomUUID());
   // Le chemin le plus court pour lire le postId à jour juste après l'avoir changé.
   const postIdRef = useRef(postId);
@@ -64,10 +59,10 @@ export function Create({ occasionId, initialPhoto, idea }: { occasionId?: string
     setSlides(next);
   };
 
-  // Photo déjà prise depuis l'accueil : on passe tout de suite au recadrage.
+  // Photo déjà prise depuis l'accueil : elle est cadrée toute seule, on passe directement à la suite.
   // Sinon (depuis une fête), on ouvre directement l'appareil photo sur téléphone.
   useEffect(() => {
-    if (initialPhoto) openCrop([initialPhoto]);
+    if (initialPhoto) addPhotos([initialPhoto]);
     else if (RNPlatform.OS !== 'web') pick('camera');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -79,85 +74,30 @@ export function Create({ occasionId, initialPhoto, idea }: { occasionId?: string
     if (room <= 0) return;
     try {
       const raws = await takePhotos(source, room);
-      if (raws.length) openCrop(raws);
+      if (raws.length) await addPhotos(raws);
     } catch (e) {
       setError(e instanceof FriendlyError ? e.message : "La photo n'a pas pu être ouverte. Réessayez.");
     }
   }
 
-  // ------------------------------------------------------------------ recadrage
+  // ------------------------------------------------------------------ cadrage automatique
 
-  function openCrop(raws: RawPhoto[]) {
-    const [first, ...rest] = raws;
-    setCropFormat(format);
-    setCropping({ raw: first, framing: clampFraming(first, format, CENTERED), index: null, rest });
-    setPhase('crop');
-  }
-
-  function recrop(index: number) {
-    const s = slidesRef.current[index];
-    setCropFormat(format);
-    setCropping({ raw: s.raw, framing: s.framing, index, rest: [] });
-    setPhase('crop');
-  }
-
-  /** Le format ne se choisit que sur la 1re photo : toutes les photos d'un carrousel ont le même. */
-  const canChooseFormat = !!cropping && (cropping.index === 0 || (cropping.index === null && slides.length === 0));
-
-  function changeCropFormat(f: PhotoFormat) {
-    if (!cropping) return;
-    setCropFormat(f);
-    setCropping({ ...cropping, framing: clampFraming(cropping.raw, f, cropping.framing) });
-  }
-
-  /** Valide le recadrage. `centerRest` : les autres photos choisies ensemble sont centrées automatiquement. */
-  async function validateCrop(centerRest = false) {
-    if (!cropping) return;
-    setCropBusy(true);
+  /** Les photos sont cadrées toutes seules, au centre, au format portrait (le mieux mis en valeur sur Instagram). */
+  async function addPhotos(raws: RawPhoto[]) {
+    setBusy(true);
     setError(null);
     try {
-      const f = cropFormat;
-      let next = [...slidesRef.current];
-      // Nouveau format choisi : on recadre les autres photos dans ce format, en gardant leur cadrage au mieux.
-      if (f !== format && next.length) {
-        next = await Promise.all(next.map(async (s, i) => {
-          if (i === cropping.index) return s;
-          const framing = clampFraming(s.raw, f, s.framing);
-          return { ...s, framing, photo: await renderCrop(s.raw, f, framing), path: null };
-        }));
+      const next = [...slidesRef.current];
+      for (const raw of raws.slice(0, MAX_PHOTOS - next.length)) {
+        next.push({ key: Crypto.randomUUID(), photo: await autoCrop(raw, FORMAT), path: null });
       }
-      const photo = await renderCrop(cropping.raw, f, cropping.framing);
-      const slide: Slide = { key: Crypto.randomUUID(), raw: cropping.raw, framing: cropping.framing, photo, path: null };
-      if (cropping.index === null) next.push(slide);
-      else next[cropping.index] = slide;
-      let rest = cropping.rest.slice(0, MAX_PHOTOS - next.length);
-      if (centerRest) {
-        for (const raw of rest) {
-          const framing = clampFraming(raw, f, CENTERED);
-          next.push({ key: Crypto.randomUUID(), raw, framing, photo: await renderCrop(raw, f, framing), path: null });
-        }
-        rest = [];
-      }
-      setFormat(f);
       updateSlides(next);
-      if (rest.length) {
-        const [first, ...others] = rest;
-        setCropping({ raw: first, framing: clampFraming(first, f, CENTERED), index: null, rest: others });
-      } else {
-        setCropping(null);
-        setPhase('photos');
-      }
+      setPhase('photos');
     } catch (e) {
-      setError(e instanceof FriendlyError ? e.message : "La photo n'a pas pu être recadrée. Réessayez.");
+      setError(e instanceof FriendlyError ? e.message : "La photo n'a pas pu être préparée. Réessayez.");
     } finally {
-      setCropBusy(false);
+      setBusy(false);
     }
-  }
-
-  function cancelCrop() {
-    setCropping(null);
-    setError(null);
-    setPhase(slidesRef.current.length ? 'photos' : 'pick');
   }
 
   // ------------------------------------------------------------------ liste des photos
@@ -250,9 +190,6 @@ export function Create({ occasionId, initialPhoto, idea }: { occasionId?: string
     setPhase('preview');
   }
 
-  const togglePlatform = (p: Platform) =>
-    setPlatforms((cur) => (cur.includes(p) ? (cur.length > 1 ? cur.filter((x) => x !== p) : cur) : [...cur, p]));
-
   async function publish() {
     if (!slides.length) return;
     const tags = hashtags.split(/\s+/).filter(Boolean).map((t) => (t.startsWith('#') ? t : `#${t}`));
@@ -283,6 +220,7 @@ export function Create({ occasionId, initialPhoto, idea }: { occasionId?: string
     const first = slides[0].photo;
     const post: Post = {
       id: postId,
+      kind: 'post',
       // Seule la 1re photo est gardée sur le téléphone (10 photos rempliraient vite la mémoire du navigateur).
       imageUri: first.base64 && RNPlatform.OS === 'web' ? `data:image/jpeg;base64,${first.base64}` : first.uri,
       photoCount: slides.length,
@@ -301,7 +239,7 @@ export function Create({ occasionId, initialPhoto, idea }: { occasionId?: string
 
   // ------------------------------------------------------------------ rendu
 
-  const ratio = formatRatio(format);
+  const ratio = formatRatio(FORMAT);
   const header = (title: string, onBack: () => void = back) => (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
       <BackButton onPress={onBack} />
@@ -328,43 +266,15 @@ export function Create({ occasionId, initialPhoto, idea }: { occasionId?: string
       <ScrollView contentContainerStyle={{ padding: 20, gap: 18 }}>
         {header(occasion ? occasion.name : idea ? idea.title : 'Nouvelle publication')}
         <Body soft>{idea ? `À photographier : ${idea.photo}` : 'Prenez votre produit, votre vitrine ou votre équipe en photo. Une belle lumière fait toute la différence.'}</Body>
-        <Button title="PRENDRE UNE PHOTO" icon={<CameraIcon size={24} />} onPress={() => pick('camera')} style={{ minHeight: 72 }} />
-        <Button title="Choisir dans la galerie" kind="secondary" icon={<ImageIcon size={22} color={colors.green} />} onPress={() => pick('library')} />
+        <Button title="PRENDRE UNE PHOTO" icon={<CameraIcon size={24} />} loading={busy} onPress={() => pick('camera')} style={{ minHeight: 72 }} />
+        <Button title="Choisir dans la galerie" kind="secondary" icon={<ImageIcon size={22} color={colors.green} />} disabled={busy} onPress={() => pick('library')} />
         <Body soft size={14} center>Dans la galerie, vous pouvez choisir jusqu'à {MAX_PHOTOS} photos d'un coup.</Body>
         {error && <Notice tone="red" title="Nous avons besoin de votre attention" text={error} />}
       </ScrollView>
     );
   }
 
-  if (phase === 'crop' && cropping) {
-    const position = cropping.index !== null ? cropping.index + 1 : slides.length + 1;
-    return (
-      <ScrollView contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 40 }} scrollEnabled={!dragging}>
-        {header(`Recadrer la photo${position > 1 || cropping.rest.length ? ` ${position}` : ''}`, cancelCrop)}
-        <Body soft>Faites glisser la photo avec le doigt pour choisir ce qui apparaît.</Body>
-        <PhotoCropper
-          photo={cropping.raw}
-          format={cropFormat}
-          framing={cropping.framing}
-          onChange={(framing) => setCropping((c) => (c ? { ...c, framing } : c))}
-          onFormat={canChooseFormat ? changeCropFormat : undefined}
-          onDragging={setDragging}
-        />
-        {error && <Notice tone="red" title="Nous avons besoin de votre attention" text={error} />}
-        <Button title="VALIDER" icon={<CheckIcon size={22} />} loading={cropBusy} onPress={() => validateCrop()} style={{ minHeight: 64 }} />
-        {cropping.rest.length > 0 && !cropBusy && (
-          <Button
-            title={cropping.rest.length === 1 ? 'Valider, et centrer la photo suivante' : `Valider, et centrer les ${cropping.rest.length} suivantes`}
-            kind="secondary"
-            onPress={() => validateCrop(true)}
-          />
-        )}
-        <Button title="Annuler" kind="ghost" onPress={cancelCrop} disabled={cropBusy} />
-      </ScrollView>
-    );
-  }
-
-  if (phase === 'photos' || phase === 'crop') {
+  if (phase === 'photos') {
     const thumbW = 84;
     return (
       <ScrollView contentContainerStyle={{ padding: 20, gap: 14, paddingBottom: 40 }}>
@@ -380,7 +290,6 @@ export function Create({ occasionId, initialPhoto, idea }: { occasionId?: string
             <View style={{ flex: 1, gap: 8 }}>
               <Text style={{ fontWeight: '700', fontSize: 16, color: colors.text, fontFamily: fonts.body }}>Photo {i + 1}</Text>
               <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-                <SmallButton label="Recadrer" onPress={() => recrop(i)} />
                 <SmallButton label="Retirer" danger onPress={() => remove(i)} />
               </View>
             </View>
@@ -395,8 +304,8 @@ export function Create({ occasionId, initialPhoto, idea }: { occasionId?: string
 
         {room > 0 ? (
           <View style={{ flexDirection: 'row', gap: 10 }}>
-            <Button title="Photo" kind="secondary" icon={<CameraIcon size={20} color={colors.green} />} onPress={() => pick('camera')} style={{ flex: 1 }} />
-            <Button title="Galerie" kind="secondary" icon={<ImageIcon size={20} color={colors.green} />} onPress={() => pick('library')} style={{ flex: 1 }} />
+            <Button title="Photo" kind="secondary" icon={<CameraIcon size={20} color={colors.green} />} loading={busy} onPress={() => pick('camera')} style={{ flex: 1 }} />
+            <Button title="Galerie" kind="secondary" icon={<ImageIcon size={20} color={colors.green} />} disabled={busy} onPress={() => pick('library')} style={{ flex: 1 }} />
           </View>
         ) : (
           <Body soft size={14} center>{MAX_PHOTOS} photos au maximum : c'est la limite d'Instagram et Facebook.</Body>
@@ -494,23 +403,7 @@ export function Create({ occasionId, initialPhoto, idea }: { occasionId?: string
         </View>
       )}
 
-      <View style={{ gap: 8 }}>
-        <Body style={{ fontWeight: '600' }}>Publier sur</Body>
-        <View style={{ flexDirection: 'row', gap: 10 }}>
-          {(['instagram', 'facebook'] as Platform[]).map((p) => {
-            const on = platforms.includes(p);
-            const conn = connections.find((c) => c.platform === p)?.status === 'connected';
-            return (
-              <Pressable key={p} onPress={() => togglePlatform(p)} accessibilityRole="checkbox" accessibilityState={{ checked: on }}
-                style={{ flex: 1, minHeight: 52, borderRadius: 14, borderWidth: 1.5, borderColor: on ? colors.green : glass.line, backgroundColor: on ? colors.greenSoft : glass.bgStrong, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }}>
-                {on && <CheckIcon size={16} color={colors.green} />}
-                <Text style={{ color: on ? colors.green : colors.textSoft, fontWeight: '700', fontSize: 16, fontFamily: fonts.body }}>{p === 'instagram' ? 'Instagram' : 'Facebook'}</Text>
-                {!conn && <Text style={{ color: colors.textSoft, fontSize: 12 }}>(non connecté)</Text>}
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
+      <PlatformPicker value={platforms} onChange={setPlatforms} connections={connections} />
 
       {error && <Notice tone="red" title="Nous avons besoin de votre attention" text={error} />}
 

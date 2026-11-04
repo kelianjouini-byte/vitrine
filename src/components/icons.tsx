@@ -19,6 +19,13 @@ export const CalendarIcon = ({ size, color = '#000' }: P) => (
 export const GridIcon = ({ size, color = '#000' }: P) => (
   <S size={size}><Rect x={4} y={4} width={6.5} height={6.5} rx={1.5} {...st(color)} /><Rect x={13.5} y={4} width={6.5} height={6.5} rx={1.5} {...st(color)} /><Rect x={4} y={13.5} width={6.5} height={6.5} rx={1.5} {...st(color)} /><Rect x={13.5} y={13.5} width={6.5} height={6.5} rx={1.5} {...st(color)} /></S>
 );
+export const VideoIcon = ({ size, color = '#fff' }: P) => (
+  <S size={size}><Rect x={3} y={6} width={13} height={12} rx={2} {...st(color)} /><Path d="m16 10.5 5-3v9l-5-3" {...st(color)} /></S>
+);
+/** Story : un téléphone debout avec un anneau, comme les stories d'Instagram. */
+export const StoryIcon = ({ size, color = '#fff' }: P) => (
+  <S size={size}><Rect x={6.5} y={2.5} width={11} height={19} rx={2.5} {...st(color)} /><Circle cx={12} cy={10.5} r={3} {...st(color)} /><Path d="M9.5 17h5" {...st(color)} /></S>
+);
 export const CheckIcon = ({ size, color = '#fff' }: P) => (<S size={size}><Path d="m5 12.5 4.5 4.5L19 7.5" {...st(color)} strokeWidth={2.6} /></S>);
 export const BackIcon = ({ size, color = '#000' }: P) => (<S size={size}><Path d="M15 5 8 12l7 7" {...st(color)} /></S>);
 export const ImageIcon = ({ size, color = '#000' }: P) => (

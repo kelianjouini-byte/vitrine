@@ -24,6 +24,7 @@
         "npm:expo-notifications@~58.1.7",
         "npm:expo-splash-screen@~58.0.12",
         "npm:expo-status-bar@~58.0.4",
+        "npm:expo-video@~58.0.13",
         "npm:expo-web-browser@~58.0.7",
         "npm:expo@~58.0.22",
         "npm:react-dom@19.3.0",

@@ -1,9 +1,9 @@
-/** Prise de photo, recadrage et préparation avant l'envoi (accueil, idées, création). */
+/** Prise de photo ou de vidéo, cadrage automatique et préparation avant l'envoi (accueil, idées, création, story). */
 import { Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import { FriendlyError } from './api';
-import { cropRect, FORMATS, type Framing, type PhotoFormat } from './crop';
+import { CENTERED, cropRect, FORMATS, type Framing, type PhotoFormat } from './crop';
 export * from './crop';
 
 /** Photo telle que prise, avant recadrage (taille déjà raisonnable, orientation corrigée). */
@@ -84,5 +84,54 @@ export async function renderCrop(photo: RawPhoto, format: PhotoFormat, framing: 
   } catch {
     /* message ci-dessous */
   }
-  throw new FriendlyError("La photo n'a pas pu être recadrée. Réessayez ou choisissez-en une autre.");
+  throw new FriendlyError("La photo n'a pas pu être préparée. Réessayez ou choisissez-en une autre.");
+}
+
+/** Photo cadrée automatiquement, au centre (plus de page de recadrage : on gagne du temps). */
+export const autoCrop = (photo: RawPhoto, format: PhotoFormat) => renderCrop(photo, format, CENTERED);
+
+// ---------------------------------------------------------------- story
+
+/** Limites d'une story vidéo sur Instagram (les plus strictes des deux réseaux). */
+export const STORY_MAX_SECONDS = 60;
+const STORY_MAX_BYTES = 100 * 1024 * 1024;
+
+/** Ce qu'on met en story : une photo plein écran (déjà cadrée en 9:16) ou une vidéo. */
+export type StoryMedia =
+  | { kind: 'photo'; photo: PickedPhoto }
+  | { kind: 'video'; uri: string; seconds: number | null };
+
+/**
+ * Story : prendre une photo, filmer une vidéo, ou choisir l'une ou l'autre dans la galerie.
+ * Retourne null si la personne annule.
+ */
+export async function takeStoryMedia(source: 'photo' | 'video' | 'library'): Promise<StoryMedia | null> {
+  const camera = source !== 'library';
+  if (camera && Platform.OS !== 'web') {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) throw new FriendlyError("Vitrine a besoin de l'appareil photo. Vous pouvez aussi choisir dans la galerie.");
+  }
+  const opts: ImagePicker.ImagePickerOptions = {
+    mediaTypes: source === 'photo' ? ['images'] : source === 'video' ? ['videos'] : ['images', 'videos'],
+    quality: 0.9,
+    videoMaxDuration: STORY_MAX_SECONDS,
+  };
+  let res: ImagePicker.ImagePickerResult;
+  try {
+    res = camera ? await ImagePicker.launchCameraAsync(opts) : await ImagePicker.launchImageLibraryAsync(opts);
+  } catch {
+    throw new FriendlyError("La photo ou la vidéo n'a pas pu être ouverte. Réessayez.");
+  }
+  const a = res.canceled ? null : res.assets?.[0];
+  if (!a) return null;
+  if (a.type === 'video' || a.mimeType?.startsWith('video/')) {
+    // La durée est donnée en millisecondes.
+    const seconds = a.duration ? Math.round(a.duration / 1000) : null;
+    if (seconds && seconds > STORY_MAX_SECONDS) {
+      throw new FriendlyError(`Cette vidéo dure ${seconds} secondes. Une story vidéo dure ${STORY_MAX_SECONDS} secondes au maximum : choisissez une vidéo plus courte.`);
+    }
+    if (a.fileSize && a.fileSize > STORY_MAX_BYTES) throw new FriendlyError('Cette vidéo est trop lourde (plus de 100 Mo). Choisissez une vidéo plus courte.');
+    return { kind: 'video', uri: a.uri, seconds };
+  }
+  return { kind: 'photo', photo: await autoCrop(await normalize(a), 'story') };
 }
