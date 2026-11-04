@@ -26,6 +26,12 @@ export const VideoIcon = ({ size, color = '#fff' }: P) => (
 export const StoryIcon = ({ size, color = '#fff' }: P) => (
   <S size={size}><Rect x={6.5} y={2.5} width={11} height={19} rx={2.5} {...st(color)} /><Circle cx={12} cy={10.5} r={3} {...st(color)} /><Path d="M9.5 17h5" {...st(color)} /></S>
 );
+export const MusicIcon = ({ size, color = '#fff' }: P) => (
+  <S size={size}><Path d="M9 18V6l11-2v12" {...st(color)} /><Circle cx={6.5} cy={18} r={2.5} {...st(color)} /><Circle cx={17.5} cy={16} r={2.5} {...st(color)} /></S>
+);
+export const PlayIcon = ({ size, color = '#fff' }: P) => (<S size={size}><Path d="M8 5.5v13l10.5-6.5L8 5.5Z" {...st(color)} /></S>);
+export const StopIcon = ({ size, color = '#fff' }: P) => (<S size={size}><Rect x={6.5} y={6.5} width={11} height={11} rx={2} {...st(color)} /></S>);
+export const DownloadIcon = ({ size, color = '#fff' }: P) => (<S size={size}><Path d="M12 4v11M7 10.5l5 5 5-5M5 20h14" {...st(color)} /></S>);
 export const CheckIcon = ({ size, color = '#fff' }: P) => (<S size={size}><Path d="m5 12.5 4.5 4.5L19 7.5" {...st(color)} strokeWidth={2.6} /></S>);
 export const BackIcon = ({ size, color = '#000' }: P) => (<S size={size}><Path d="M15 5 8 12l7 7" {...st(color)} /></S>);
 export const ImageIcon = ({ size, color = '#000' }: P) => (
