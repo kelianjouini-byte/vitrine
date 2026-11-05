@@ -12,6 +12,7 @@ import { Home } from './src/screens/Home';
 import { Create } from './src/screens/Create';
 import { Story } from './src/screens/Story';
 import { Published } from './src/screens/Published';
+import { Offers } from './src/screens/Offers';
 import { Fetes } from './src/screens/Fetes';
 import { Posts } from './src/screens/Posts';
 import { Settings } from './src/screens/Settings';
@@ -63,6 +64,7 @@ function Root() {
         {route.name === 'create' && <Create key={(route.plannedFor ?? '') + (route.occasionId ?? route.idea?.title ?? 'new')} occasionId={route.occasionId} initialPhoto={route.photo} idea={route.idea} plannedFor={route.plannedFor} note={route.note} />}
         {route.name === 'story' && <Story />}
         {route.name === 'published' && <Published postId={route.postId} />}
+        {route.name === 'offers' && <Offers payment={route.payment} />}
       </View>
       {isTab && <TabBar />}
     </View>

@@ -15,7 +15,7 @@ export async function requireMerchant(req: Request) {
   if (error || !u.user) throw new HttpError(401, 'unauthenticated', 'Veuillez vous reconnecter.');
   const { data: business } = await db.from('businesses').select('*').eq('owner_id', u.user.id).maybeSingle();
   if (!business) throw new HttpError(400, 'no_business', 'Votre boutique n\'est pas encore enregistrée.');
-  return { db, userId: u.user.id, business };
+  return { db, userId: u.user.id, user: u.user, business };
 }
 
 /** Limitation de débit simple, basée sur l'historique en base. */

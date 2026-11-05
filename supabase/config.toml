@@ -17,3 +17,7 @@ verify_jwt = false
 
 [functions.meta-data-deletion]
 verify_jwt = false
+
+# Appelée par Stripe (pas par l'app) : vérifie elle-même la signature Stripe-Signature.
+[functions.stripe-webhook]
+verify_jwt = false

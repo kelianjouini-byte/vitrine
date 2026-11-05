@@ -20,7 +20,8 @@ export type Route =
   | { name: 'report'; month?: Month }
   | { name: 'create'; occasionId?: string; photo?: RawPhoto; idea?: PostIdea; plannedFor?: string; note?: string }
   | { name: 'story' }
-  | { name: 'published'; postId: string };
+  | { name: 'published'; postId: string }
+  | { name: 'offers'; payment?: 'ok' | 'annule' };
 
 export const TAB_ROUTES = ['home', 'planning', 'fetes', 'posts'] as const;
 
@@ -67,6 +68,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         await clearAll();
         await signOut().catch(() => {});
         window.history.replaceState(null, '', window.location.pathname);
+      }
+      // Retour de la page de paiement Stripe (version web) : « …/vitrine/abonnement?paiement=ok ».
+      if (Platform.OS === 'web' && typeof window !== 'undefined' && /\/abonnement\/?$/.test(window.location.pathname)) {
+        const p = new URLSearchParams(window.location.search).get('paiement');
+        setStack([{ name: 'home' }, { name: 'settings' }, { name: 'offers', payment: p === 'ok' || p === 'annule' ? p : undefined }]);
+        window.history.replaceState(null, '', window.location.pathname.replace(/abonnement\/?$/, ''));
       }
       setBusiness(await load<Business | null>('business', null));
       setPosts(await load<Post[]>('posts', []));

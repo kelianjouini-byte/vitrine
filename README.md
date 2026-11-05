@@ -36,6 +36,8 @@ npx expo start --web        # ou l'ouvrir dans le navigateur
 | `TOKEN_ENCRYPTION_KEY` | secrets Supabase | Chiffrement des jetons Meta (`openssl rand -base64 32`) |
 | `PUBLIC_SITE_URL` | secrets Supabase | Site public (pages légales, suivi de suppression) |
 | `PUBLIC_APP_URL` | secrets Supabase | Facultatif : adresse de la version web, seule adresse https autorisée au retour de la connexion Meta (défaut `https://kelianjouini-byte.github.io/vitrine/`) |
+| `STRIPE_SECRET_KEY` | secrets Supabase | Paiement des abonnements (clé secrète Stripe, `sk_test_…` ou `sk_live_…`) |
+| `STRIPE_WEBHOOK_SECRET` | secrets Supabase | Vérifie que les messages du webhook viennent bien de Stripe (`whsec_…`) |
 
 **Aucune clé secrète ne doit jamais être mise dans l'app ou dans Git.**
 
@@ -66,9 +68,19 @@ Créer une clé sur https://platform.openai.com → API keys, ajouter un moyen d
 8. En mode développement, ajouter vos comptes comme testeurs. Le compte Instagram doit être **professionnel** et relié à une **Page Facebook**.
 9. Avant le public : vérification de l'entreprise, politique de confidentialité, CGU, vidéo de démo, demande d'accès avancé (revue Meta, compter plusieurs semaines).
 
-## 6. Configuration Stripe (Phase 2)
+## 6. Configuration Stripe (paiement)
 
-Tables `plans`, `subscriptions`, `stripe_events` déjà prêtes. À venir : Stripe Checkout, Billing, portail client, webhook signé et idempotent. Les tarifs vivent dans la table `plans`, pas dans le code.
+Offres : **1er mois offert**, puis **Mensuel 39 €/mois** (sans engagement) ou **Annuel 29 €/mois** (engagement 1 an, payé chaque mois). Les montants vivent dans la table `plans`.
+
+- Écran « Mon abonnement » (Réglages) → fonction `billing` → page de paiement Stripe Checkout (carte enregistrée, 1er prélèvement à la fin du mois offert).
+- Le produit « Vitrine », les prix (`lookup_key` `vitrine_mensuel` / `vitrine_annuel`) et deux réglages du portail client (avec et sans résiliation) sont **créés automatiquement** au premier usage.
+- Offre Annuel : pendant les 12 mois d'engagement, le portail permet de changer de carte et de voir les factures, mais pas de résilier en un clic.
+- Webhook `stripe-webhook` (signature vérifiée, idempotent via `stripe_events`) : met à jour `subscriptions`.
+- Suppression du compte : l'abonnement Stripe est arrêté immédiatement.
+
+Réglages à faire une fois :
+1. Secret `STRIPE_SECRET_KEY` dans Supabase (Edge Functions → Secrets).
+2. Dans Stripe → Webhooks : adresse `https://<projet>.supabase.co/functions/v1/stripe-webhook`, événements `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`. Copier la clé de signature dans le secret `STRIPE_WEBHOOK_SECRET`.
 
 ## 7. Déploiement
 
