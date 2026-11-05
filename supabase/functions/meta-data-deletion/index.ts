@@ -15,5 +15,5 @@ Deno.serve(handler(async (req) => {
   const code = crypto.randomUUID();
   await admin().from('social_accounts').delete().eq('meta_user_id', String(data.user_id));
   console.log('[vitrine] suppression Meta traitée', code);
-  return json({ url: `${Deno.env.get('PUBLIC_SITE_URL') ?? ''}/suppression?code=${code}`, confirmation_code: code });
+  return json({ url: `${Deno.env.get('PUBLIC_SITE_URL') ?? ''}/suppression/?code=${code}`, confirmation_code: code });
 }));
