@@ -1,5 +1,6 @@
 // POST { image_paths[] (ou image_path), post_id?, occasion?, merchant_note?, trade_hint?, idea?, tone? }
 // -> { postId, instagramCaption, facebookCaption, hashtags, callToAction, photoDescription, improvementTip }
+import { requireAccess } from '../_shared/access.ts';
 import { handler, json, HttpError } from '../_shared/http.ts';
 import { requireMerchant, rateLimit } from '../_shared/db.ts';
 import { generate, PROMPT_VERSION, containsInventedCommercialInfo } from '../_shared/openai.ts';
@@ -11,6 +12,7 @@ const AI_MAX_IMAGES = 3;
 
 Deno.serve(handler(async (req) => {
   const { db, userId, business } = await requireMerchant(req);
+  await requireAccess(db, business);
   const body = await req.json().catch(() => ({}));
   // Photos du carrousel, dans l'ordre (une seule pour un post classique).
   const imagePaths = readImagePaths(body, userId);

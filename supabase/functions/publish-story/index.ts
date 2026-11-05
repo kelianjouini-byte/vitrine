@@ -2,6 +2,7 @@
 // -> { publications: [{ platform, status, url, error, publishedAt }] }
 // La story (photo ou vidéo) a déjà été envoyée par l'appli dans le stockage privé (dossier de l'utilisateur).
 // Meta va la chercher grâce à une adresse signée valable 1 heure. Idempotent comme publish-post.
+import { requireAccess } from '../_shared/access.ts';
 import { handler, json, HttpError } from '../_shared/http.ts';
 import { requireMerchant } from '../_shared/db.ts';
 import { metaConfig, publishInstagramStory, publishFacebookStory } from '../_shared/meta.ts';
@@ -12,6 +13,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 Deno.serve(handler(async (req) => {
   metaConfig(); // lève meta_not_configured si les secrets Meta manquent
   const { db, userId, business } = await requireMerchant(req);
+  await requireAccess(db, business);
   const body = await req.json().catch(() => ({}));
   const platforms = readPlatforms(body.platforms);
   const key = String(body.idempotency_key ?? '');

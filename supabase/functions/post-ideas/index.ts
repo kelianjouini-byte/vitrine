@@ -1,5 +1,6 @@
 // POST { occasions?: [{ name, date }], trade_hint? } -> { ideas: [{ title, photo, why }] }
 // L'assistant « Je ne sais pas quoi poster » : 3 idées adaptées à la boutique.
+import { requireAccess } from '../_shared/access.ts';
 import { handler, json } from '../_shared/http.ts';
 import { rateLimit, requireMerchant } from '../_shared/db.ts';
 import { suggestIdeas } from '../_shared/openai.ts';
@@ -7,6 +8,7 @@ import { IDEAS_PROMPT_VERSION } from '../_shared/ideas.ts';
 
 Deno.serve(handler(async (req) => {
   const { db, business } = await requireMerchant(req);
+  await requireAccess(db, business);
   const body = await req.json().catch(() => ({}));
 
   // Limitation des coûts : 12 demandes d'idées par heure et par boutique.

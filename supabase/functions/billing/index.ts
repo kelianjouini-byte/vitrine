@@ -1,11 +1,11 @@
 // Abonnement du commerçant. POST {action}
-//  - 'status'   : offres, fin du mois offert, abonnement en cours, paiement activé ou non
-//  - 'checkout' : {plan, returnUrl} -> lien vers la page de paiement Stripe (carte enregistrée, 1er prélèvement après le mois offert)
+//  - 'status'   : offres, fin de l'essai gratuit (15 jours), accès (essai, payé, terminé), abonnement en cours, paiement activé ou non
+//  - 'checkout' : {plan, returnUrl} -> lien vers la page de paiement Stripe (carte enregistrée, 1er prélèvement à la fin de l'essai gratuit)
 //  - 'portal'   : {returnUrl} -> lien vers l'espace Stripe (carte, factures, résiliation selon l'offre)
 // Les changements d'état arrivent ensuite par le webhook Stripe (fonction stripe-webhook).
 import { handler, json, HttpError, env } from '../_shared/http.ts';
 import { requireMerchant } from '../_shared/db.ts';
-import { isLive, isPlanId, PLAN_IDS, stripeTrialEnd, trialEndsAt } from '../_shared/billing.ts';
+import { accessState, isLive, isPlanId, PLAN_IDS, stripeTrialEnd, trialEndsAt } from '../_shared/billing.ts';
 import { portalConfiguration, priceFor, stripe, stripeConfigured } from '../_shared/stripe.ts';
 
 /** On ne renvoie le commerçant que vers l'appli Vitrine (jamais vers une adresse donnée par un tiers). */
@@ -25,6 +25,8 @@ Deno.serve(handler(async (req) => {
     const { data: plans } = await db.from('plans').select('id, name, monthly_price_cents, commitment_months').in('id', PLAN_IDS);
     return json({
       configured: stripeConfigured(),
+      access: accessState(business.created_at, sub),
+      trialStartedAt: business.created_at,
       trialEndsAt: trialEndsAt(business.created_at).toISOString(),
       plans: plans ?? [],
       subscription: sub && sub.stripe_subscription_id

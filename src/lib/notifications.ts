@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import { trialReminders } from './billing';
 import * as Notifications from 'expo-notifications';
 import { upcomingEvents, upcomingHolidays, type CommercialEvent } from './events';
 import type { Business, NotificationPrefs, Post } from './types';
@@ -47,13 +48,23 @@ export function onNotificationTap(fn: (data: Record<string, unknown> | undefined
 }
 
 /** Reprogramme tous les rappels selon les préférences. Retourne le nombre de rappels programmés. */
-export async function scheduleReminders(b: Business, prefs: NotificationPrefs, plan?: { posts: Post[]; choices: PlanChoices }): Promise<number> {
+export async function scheduleReminders(b: Business, prefs: NotificationPrefs, plan?: { posts: Post[]; choices: PlanChoices; trialEndsAt?: string | null }): Promise<number> {
   if (!notificationsSupported) return 0;
   await Notifications.cancelAllScheduledNotificationsAsync();
   if (!prefs.enabled) return 0;
   if (!(await askPermission())) return 0;
   const now = new Date();
   let count = 0;
+  // Tout en premier : la fin de l'essai gratuit (le commerçant ne doit pas être surpris par le blocage).
+  if (plan?.trialEndsAt) {
+    for (const r of trialReminders(plan.trialEndsAt, prefs.hour, now)) {
+      await Notifications.scheduleNotificationAsync({
+        content: { title: r.title, body: r.body, data: { route: 'offers' } },
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: r.date },
+      });
+      count++;
+    }
+  }
   // En premier : les rappels du planning (le téléphone garde un nombre limité de rappels).
   if (plan && prefs.planReminders !== false) {
     for (const r of planReminders(b, plan.posts, plan.choices, upcomingEvents(b, now, 2, b.postalCode), prefs.hour, now, 14, upcomingHolidays(now, 12, b.postalCode))) {

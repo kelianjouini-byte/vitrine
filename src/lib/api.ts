@@ -24,6 +24,9 @@ export class FriendlyError extends Error {}
 /** Le compte n'a pas encore d'e-mail : il faut le protéger avant de s'abonner. */
 export class AccountNotProtectedError extends FriendlyError {}
 
+/** L'essai gratuit est terminé et il n'y a pas d'abonnement. */
+export class TrialOverError extends FriendlyError {}
+
 function requireBackend() {
   if (!supabase) throw new NotConfiguredError('serveur');
   return supabase;
@@ -44,6 +47,7 @@ async function callFunction<T>(name: string, body: Record<string, unknown>): Pro
     if (payload?.code === 'openai_not_configured') throw new NotConfiguredError('ia');
     if (payload?.code === 'meta_not_configured') throw new NotConfiguredError('meta');
     if (payload?.code === 'stripe_not_configured') throw new NotConfiguredError('paiement');
+    if (payload?.code === 'trial_over') throw new TrialOverError(payload.message ?? 'Votre essai gratuit est terminé.');
     if (payload?.code === 'account_not_protected') throw new AccountNotProtectedError(payload.message ?? '');
     // Fonction pas encore installée sur le serveur : on le dit honnêtement.
     if ((error as { context?: Response }).context?.status === 404 && !payload?.code) throw new NotConfiguredError('serveur');
@@ -491,7 +495,7 @@ export async function billingStatus(): Promise<BillingStatus> {
   return callFunction<BillingStatus>('billing', { action: 'status' });
 }
 
-/** Lien vers la page de paiement Stripe (la carte est enregistrée, 1er prélèvement après le mois offert). */
+/** Lien vers la page de paiement Stripe (la carte est enregistrée, 1er prélèvement à la fin de l'essai gratuit). */
 export async function checkoutUrl(plan: PlanId, returnUrl: string): Promise<string> {
   const { url } = await callFunction<{ url: string }>('billing', { action: 'checkout', plan, returnUrl });
   return url;
