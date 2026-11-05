@@ -51,21 +51,27 @@ export function friendlyMetaError(e: unknown): string {
     if (e.tokenInvalid) return 'Votre compte doit être reconnecté.';
     if (e.code === 4 || e.code === 17 || e.code === 32 || e.code === 613) return 'Trop de publications en peu de temps. Réessayez plus tard.';
     if (e.code === 10 || (e.code && e.code >= 200 && e.code < 300)) return 'Vitrine n\'a pas l\'autorisation de publier. Reconnectez votre compte.';
-    if (e.code === 9004 || e.code === 36003) return 'La photo n\'a pas été acceptée (format ou taille).';
+    if (e.code === 9004 || e.code === 36003) return 'La photo ou la vidéo n\'a pas été acceptée (format ou taille).';
   }
   return 'La publication a échoué. Réessayez.';
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** Attend qu'Instagram ait fini de préparer un conteneur (photo ou carrousel). */
-async function waitContainer(id: string, token: string) {
-  for (let i = 0; i < 10; i++) {
+/** Meta dit-il que les clés sont posées ? (sans rien lever : sert au bouton « Connecter »). */
+export function metaReady(): boolean {
+  return !!(env('META_APP_ID') && env('META_APP_SECRET') && env('TOKEN_ENCRYPTION_KEY'));
+}
+
+/** Attend qu'Instagram ait fini de préparer un conteneur (photo, carrousel ou vidéo, plus longue). */
+async function waitContainer(id: string, token: string, tries = 10) {
+  for (let i = 0; i < tries; i++) {
     const s = await graph<{ status_code: string }>(id, { fields: 'status_code', access_token: token });
     if (s.status_code === 'FINISHED') return;
     if (s.status_code === 'ERROR' || s.status_code === 'EXPIRED') throw new MetaError(9004, undefined, `conteneur ${s.status_code}`, false);
     await sleep(1500);
   }
+  // Pas encore prêt : on tente quand même la publication, Meta dira si c'est trop tôt.
 }
 
 /**
@@ -107,4 +113,42 @@ export async function publishFacebook(pageId: string, pageToken: string, imageUr
   }
   const res = await graph<{ id: string }>(`${pageId}/feed`, params, 'POST');
   return { id: res.id, url: `https://www.facebook.com/${res.id}` };
+}
+
+// ------------------------------------------------------------------ Stories
+
+export type StoryMedia = { kind: 'photo' | 'video'; url: string };
+
+/** Instagram : story photo ou vidéo (media_type STORIES), puis publication. Une story n'a pas de lien public. */
+export async function publishInstagramStory(igUserId: string, token: string, media: StoryMedia) {
+  const params: Record<string, string> = { media_type: 'STORIES', access_token: token };
+  params[media.kind === 'video' ? 'video_url' : 'image_url'] = media.url;
+  const container = await graph<{ id: string }>(`${igUserId}/media`, params, 'POST');
+  // Une vidéo peut demander jusqu'à ~1 min de préparation chez Instagram.
+  await waitContainer(container.id, token, media.kind === 'video' ? 45 : 10);
+  const published = await graph<{ id: string }>(`${igUserId}/media_publish`, { creation_id: container.id, access_token: token }, 'POST');
+  return { id: published.id, url: null };
+}
+
+/**
+ * Facebook : story de Page.
+ * Photo : photo envoyée sans être publiée, puis /photo_stories.
+ * Vidéo : 3 temps (start -> Meta va chercher le fichier à notre adresse -> finish).
+ */
+export async function publishFacebookStory(pageId: string, pageToken: string, media: StoryMedia) {
+  if (media.kind === 'photo') {
+    const photo = await graph<{ id: string }>(`${pageId}/photos`, { url: media.url, published: 'false', access_token: pageToken }, 'POST');
+    const res = await graph<{ post_id?: string }>(`${pageId}/photo_stories`, { photo_id: photo.id, access_token: pageToken }, 'POST');
+    return { id: res.post_id ?? photo.id, url: null };
+  }
+  const start = await graph<{ video_id: string; upload_url?: string }>(`${pageId}/video_stories`, { upload_phase: 'start', access_token: pageToken }, 'POST');
+  const uploadUrl = start.upload_url ?? `https://rupload.facebook.com/video-upload/${GRAPH_VERSION}/${start.video_id}`;
+  const up = await fetch(uploadUrl, { method: 'POST', headers: { Authorization: `OAuth ${pageToken}`, file_url: media.url } });
+  const upData = await up.json().catch(() => ({}));
+  if (!up.ok || upData.error || upData.success === false) {
+    const e = upData.error ?? {};
+    throw new MetaError(e.code ?? 9004, e.error_subcode, e.message ?? `envoi vidéo ${up.status}`, e.code === 190);
+  }
+  const res = await graph<{ post_id?: string }>(`${pageId}/video_stories`, { upload_phase: 'finish', video_id: start.video_id, access_token: pageToken }, 'POST');
+  return { id: res.post_id ?? start.video_id, url: null };
 }

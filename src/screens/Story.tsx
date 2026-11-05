@@ -8,7 +8,7 @@ import { MusicBar, MusicList } from '../components/MusicPicker';
 import { WebVideoRecorder } from '../components/WebVideoRecorder';
 import { colors, fonts, radius } from '../lib/theme';
 import { useApp } from '../lib/store';
-import { FriendlyError, NotConfiguredError, publishStory } from '../lib/api';
+import { FriendlyError, metaConfigured, NotConfiguredError, publishStory } from '../lib/api';
 import { STORY_MAX_SECONDS, takeStoryMedia, type StoryMedia } from '../lib/photo';
 import { upcomingEvents } from '../lib/events';
 import { suggestTrack } from '../lib/music';
@@ -62,9 +62,22 @@ export function Story() {
     let publications: PublicationResult[];
     try {
       if (media.kind === 'photo' && !media.photo.base64) throw new FriendlyError("La photo n'a pas pu être lue. Choisissez-en une autre.");
+      // Vidéo avec musique : on fabrique d'abord la vidéo avec le son, c'est elle qui part.
+      let withSound: Blob | undefined;
+      if (media.kind === 'video' && withMusic && (await metaConfigured())) {
+        setPublishing(false);
+        setMaking(0);
+        try {
+          withSound = (await makeVideoWithMusic(media.uri, track, setMaking)).blob;
+        } finally {
+          setMaking(null);
+          setPublishing(true);
+        }
+      }
       publications = await publishStory({
+        storyId: idempotencyKey.current,
         platforms,
-        media: media.kind === 'photo' ? { kind: 'photo', base64: media.photo.base64! } : { kind: 'video', uri: media.uri },
+        media: media.kind === 'photo' ? { kind: 'photo', base64: media.photo.base64! } : { kind: 'video', uri: media.uri, blob: withSound },
         idempotencyKey: idempotencyKey.current,
       });
     } catch (e) {
@@ -78,7 +91,7 @@ export function Story() {
     const ok = publications.filter((x) => x.status === 'published').length;
     const photo = media.kind === 'photo' ? media.photo : null;
     const post: Post = {
-      id: Crypto.randomUUID(),
+      id: idempotencyKey.current, // même identifiant que sur le serveur
       kind: 'story',
       mediaType: media.kind,
       imageUri: photo ? (photo.base64 ? `data:image/jpeg;base64,${photo.base64}` : photo.uri) : '',

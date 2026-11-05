@@ -35,6 +35,7 @@ npx expo start --web        # ou l'ouvrir dans le navigateur
 | `META_GRAPH_VERSION` | secrets Supabase | Version Graph API (défaut `v23.0`) |
 | `TOKEN_ENCRYPTION_KEY` | secrets Supabase | Chiffrement des jetons Meta (`openssl rand -base64 32`) |
 | `PUBLIC_SITE_URL` | secrets Supabase | Site public (pages légales, suivi de suppression) |
+| `PUBLIC_APP_URL` | secrets Supabase | Facultatif : adresse de la version web, seule adresse https autorisée au retour de la connexion Meta (défaut `https://kelianjouini-byte.github.io/vitrine/`) |
 
 **Aucune clé secrète ne doit jamais être mise dans l'app ou dans Git.**
 
@@ -59,8 +60,11 @@ Créer une clé sur https://platform.openai.com → API keys, ajouter un moyen d
 3. URL de redirection OAuth valide : `https://<ref>.supabase.co/functions/v1/meta-oauth`.
 4. URL de suppression des données : `https://<ref>.supabase.co/functions/v1/meta-data-deletion`.
 5. Permissions : `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`, `instagram_basic`, `instagram_content_publish`, `business_management` (à revérifier dans la doc Meta à jour).
-6. En mode développement, ajouter vos comptes comme testeurs. Le compte Instagram doit être **professionnel** et relié à une **Page Facebook**.
-7. Avant le public : vérification de l'entreprise, politique de confidentialité, CGU, vidéo de démo, demande d'accès avancé (revue Meta, compter plusieurs semaines).
+6. Domaine de l'app : `kelianjouini-byte.github.io` (la version web revient sur `…/vitrine/meta-connected` après la connexion). Dès que `META_APP_ID`, `META_APP_SECRET` et `TOKEN_ENCRYPTION_KEY` sont posés, le bouton « Connecter Instagram et Facebook » apparaît ; avant, l'appli affiche « Bientôt disponible ».
+7. Plusieurs Pages sur le compte : Vitrine demande « Sur quelle Page publier ? » (jetons gardés chiffrés 30 minutes dans `meta_pending_pages`, lisible seulement par le serveur).
+7b. Publication : posts (1 à 10 photos) via `publish-post`, stories photo ou vidéo (MP4/MOV) via `publish-story`.
+8. En mode développement, ajouter vos comptes comme testeurs. Le compte Instagram doit être **professionnel** et relié à une **Page Facebook**.
+9. Avant le public : vérification de l'entreprise, politique de confidentialité, CGU, vidéo de démo, demande d'accès avancé (revue Meta, compter plusieurs semaines).
 
 ## 6. Configuration Stripe (Phase 2)
 

@@ -284,26 +284,96 @@ export async function publishPost(input: PublishInput): Promise<PublicationResul
 }
 
 export interface PublishStoryInput {
+  /** Identifiant de la story (le même dans l'appli et sur le serveur). */
+  storyId: string;
   platforms: Platform[];
-  media: { kind: 'photo'; base64: string } | { kind: 'video'; uri: string };
+  /** Photo (JPEG en base64) ou vidéo (adresse locale, ou fichier déjà prêt avec la musique). */
+  media: { kind: 'photo'; base64: string } | { kind: 'video'; uri: string; blob?: Blob };
   idempotencyKey: string;
 }
 
-/**
- * Publie une story (photo ou vidéo) sur Instagram et Facebook.
- * La publication des stories côté serveur sera branchée avec l'accès développeur Meta :
- * en attendant, on le dit honnêtement (jamais de faux succès).
- */
-export async function publishStory(_input: PublishStoryInput): Promise<PublicationResult[]> {
-  throw new NotConfiguredError('meta');
+/** Formats vidéo acceptés par Instagram et Facebook pour une story. */
+const STORY_VIDEO_TYPES: Record<string, string> = { 'video/mp4': 'mp4', 'video/quicktime': 'mov' };
+
+/** Envoie la vidéo de la story dans le stockage privé. Retourne son chemin. */
+async function uploadStoryVideo(uri: string, given?: Blob): Promise<string> {
+  const sb = requireBackend();
+  const userId = await currentUserId();
+  if (!userId) throw new NotConfiguredError('compte');
+  let blob: Blob;
+  try {
+    blob = given ?? (await (await fetch(uri)).blob());
+  } catch {
+    throw new FriendlyError("La vidéo n'a pas pu être lue. Réessayez.");
+  }
+  // « video/mp4;codecs=avc1 » -> « video/mp4 » ; un fichier sans type venant du téléphone est traité comme un MP4.
+  const type = (blob.type || 'video/mp4').split(';')[0].trim().toLowerCase();
+  const ext = STORY_VIDEO_TYPES[type];
+  if (!ext) throw new FriendlyError("Ce navigateur enregistre la vidéo dans un format qu'Instagram refuse. Filmez-la avec l'appareil photo du téléphone, puis choisissez-la dans vos vidéos.");
+  if (blob.size > 50 * 1024 * 1024) throw new FriendlyError('La vidéo est trop lourde. Choisissez une vidéo plus courte.');
+  const path = `${userId}/${Crypto.randomUUID()}.${ext}`;
+  const { error } = await sb.storage.from('post-images').upload(path, await blob.arrayBuffer(), { contentType: type });
+  if (error) throw new FriendlyError("La vidéo n'a pas pu être envoyée. Réessayez.");
+  return path;
+}
+
+/** Publie une story (photo ou vidéo) sur Instagram et Facebook. Jamais de faux succès. */
+export async function publishStory(input: PublishStoryInput): Promise<PublicationResult[]> {
+  requireBackend();
+  if (!(await ensureSession())) throw new NotConfiguredError('compte');
+  // On vérifie d'abord que Meta est branché : inutile d'envoyer une vidéo pour rien.
+  if (!(await metaConfigured())) throw new NotConfiguredError('meta');
+  const path = input.media.kind === 'photo' ? await uploadPhoto(input.media.base64) : await uploadStoryVideo(input.media.uri, input.media.blob);
+  const res = await callFunction<{ publications: PublicationResult[] }>('publish-story', {
+    story_id: input.storyId,
+    media_path: path,
+    media_type: input.media.kind,
+    platforms: input.platforms,
+    idempotency_key: input.idempotencyKey,
+  });
+  return res.publications;
 }
 
 // ---------------------------------------------------------------- Meta
+
+/**
+ * Les clés Meta sont-elles posées sur le serveur ? Sans serveur, ou si la question échoue : non.
+ * Sert à afficher « Bientôt disponible » au lieu d'un bouton qui ne marcherait pas.
+ */
+export async function metaConfigured(): Promise<boolean> {
+  if (!supabase) return false;
+  try {
+    const res = await callFunction<{ configured?: boolean }>('meta-oauth', { action: 'status' });
+    return res?.configured === true;
+  } catch {
+    return false;
+  }
+}
 
 /** Retourne l'URL officielle de connexion Meta (OAuth). Aucun mot de passe ne passe par Vitrine. */
 export async function metaLoginUrl(redirectUri: string): Promise<string> {
   const res = await callFunction<{ url: string }>('meta-oauth', { action: 'start', redirect_uri: redirectUri });
   return res.url;
+}
+
+/** Une Page Facebook proposée au choix (« Sur quelle Page publier ? »). */
+export interface MetaPageChoice {
+  id: string;
+  name: string;
+  /** Le compte Instagram relié à cette Page (ex. « @vitrine »), ou null. */
+  instagram: string | null;
+}
+
+/** Le compte gère plusieurs Pages : la liste à choisir (sans aucun jeton). */
+export async function metaPendingPages(): Promise<MetaPageChoice[]> {
+  const res = await callFunction<{ pages: MetaPageChoice[] }>('meta-oauth', { action: 'pending_pages' });
+  return Array.isArray(res?.pages) ? res.pages : [];
+}
+
+/** Enregistre la Page choisie. Retourne true si un Instagram y est relié. */
+export async function chooseMetaPage(pageId: string): Promise<boolean> {
+  const res = await callFunction<{ instagram?: boolean }>('meta-oauth', { action: 'choose_page', page_id: pageId });
+  return res?.instagram === true;
 }
 
 export async function socialConnections(): Promise<SocialConnection[]> {
