@@ -9,7 +9,7 @@ import { buildWeek, dayKey, DAY_NAMES, postsOfDay, WEEK_GOAL, weekCount, weekday
 
 export const KIND_BADGE = {
   post: { text: 'Post', tone: 'green' },
-  story: { text: 'Story', tone: 'blue' },
+  story: { text: 'Story', tone: 'sand' },
   both: { text: 'Post + Story', tone: 'orange' },
   rest: { text: 'Repos', tone: 'grey' },
 } as const;
@@ -34,7 +34,7 @@ export function Planning() {
   return (
     <ScrollView contentContainerStyle={{ padding: 20, gap: 12, paddingBottom: 32 }}>
       <Title size={30}>Ma semaine</Title>
-      <Body soft>Vitrine vous conseille quoi publier. Vous pouvez préparer vos posts à l'avance.</Body>
+      <Body soft>Votre semaine, jour par jour. Touchez un jour pour préparer votre post à l'avance.</Body>
 
       <View style={{ ...glassSurface, borderRadius: radius.lg - 2, flexDirection: 'row', alignItems: 'center', padding: 6 }}>
         <WeekArrow dir="prev" disabled={offset <= -4} onPress={() => setOffset(offset - 1)} />
@@ -42,7 +42,7 @@ export function Planning() {
           <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text, fontFamily: fonts.body }}>{weekLabel(start)}</Text>
           {offset !== 0 && (
             <Pressable onPress={() => setOffset(0)} accessibilityRole="button" hitSlop={8}>
-              <Text style={{ fontSize: 14, color: colors.green, fontWeight: '600', fontFamily: fonts.body }}>Revenir à cette semaine</Text>
+              <Text style={{ fontSize: 15, color: colors.green, fontWeight: '600', fontFamily: fonts.body }}>Revenir à cette semaine</Text>
             </Pressable>
           )}
         </View>
@@ -50,8 +50,8 @@ export function Planning() {
       </View>
 
       <View style={{ flexDirection: 'row', gap: 10 }}>
-        <Counter value={count.post} goal={WEEK_GOAL.post} label="posts cette semaine" />
-        <Counter value={count.story} goal={WEEK_GOAL.story} label="stories cette semaine" />
+        <Counter value={count.post} goal={WEEK_GOAL.post} one="post" many="posts" />
+        <Counter value={count.story} goal={WEEK_GOAL.story} one="story" many="stories" />
       </View>
 
       {days.map((d) => (
@@ -60,14 +60,14 @@ export function Planning() {
 
       <Label>Vos jours de fermeture</Label>
       <Card style={{ gap: 10 }}>
-        <Body soft size={14}>Vitrine n'y conseille rien : ce sont vos jours de repos.</Body>
+        <Body soft size={15}>Vitrine n'y conseille rien : ce sont vos jours de repos.</Body>
         <View style={{ flexDirection: 'row', gap: 6 }}>
           {DAY_NAMES.map((n, i) => {
             const on = closed.includes(i);
             return (
               <Pressable key={n} onPress={() => toggleClosed(i)} accessibilityRole="checkbox" accessibilityState={{ checked: on }} accessibilityLabel={`${n} : boutique fermée`}
                 style={{ flex: 1, minHeight: 48, borderRadius: 12, borderWidth: 1.5, borderColor: on ? colors.green : 'rgba(36,51,43,0.10)', backgroundColor: on ? colors.greenSoft : 'rgba(255,255,255,0.82)', alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ fontWeight: '700', fontSize: 14, color: on ? colors.green : colors.text, fontFamily: fonts.body }}>{n.slice(0, 3)}</Text>
+                <Text style={{ fontWeight: '700', fontSize: 15, color: on ? colors.green : colors.text, fontFamily: fonts.body }}>{n.slice(0, 3)}</Text>
               </Pressable>
             );
           })}
@@ -86,12 +86,18 @@ function WeekArrow({ dir, disabled, onPress }: { dir: 'prev' | 'next'; disabled:
   );
 }
 
-function Counter({ value, goal, label }: { value: number; goal: number; label: string }) {
+/**
+ * Objectif de la semaine, dit de façon encourageante : jamais de « 0 / 3 » mis en avant.
+ * Rien de fait : « 3 posts conseillés ». En cours : « 1 sur 3 ». Atteint : « 3 sur 3, bravo ».
+ */
+function Counter({ value, goal, one, many }: { value: number; goal: number; one: string; many: string }) {
   const done = value >= goal;
+  const big = value === 0 ? `${goal} ${goal > 1 ? many : one}` : `${value} sur ${goal}`;
+  const small = value === 0 ? 'conseillés cette semaine' : done ? 'Bravo, objectif atteint' : `${many} faits cette semaine`;
   return (
     <View style={{ ...glassSurface, flex: 1, borderRadius: radius.md, padding: 12, gap: 2 }}>
-      <Text style={{ fontFamily: fonts.title, fontSize: 20, fontWeight: '700', color: done ? colors.green : colors.text }}>{value} / {goal}</Text>
-      <Text style={{ fontSize: 13, color: colors.textSoft, fontFamily: fonts.body }}>{label}</Text>
+      <Text style={{ fontFamily: fonts.title, fontSize: 20, fontWeight: '700', color: done ? colors.green : colors.text }}>{big}</Text>
+      <Text style={{ fontSize: 15, color: colors.textSoft, fontFamily: fonts.body }}>{small}</Text>
     </View>
   );
 }
@@ -100,29 +106,32 @@ function DayRow({ day, isToday, past, posts, onPress }: { day: PlanDay; isToday:
   const done = posts.find((p) => p.status !== 'scheduled');
   const ready = posts.find((p) => p.status === 'scheduled');
   const shown = ready ?? done;
+  // Jour déjà passé sans publication : on ne montre plus le conseil (inutile de culpabiliser).
+  const gone = past && !shown;
   const k = KIND_BADGE[day.kind];
   const text = shown
     ? (shown.kind === 'story' ? (shown.mediaType === 'video' ? 'Story vidéo' : 'Story photo') : shown.caption.split('\n')[0].slice(0, 60))
     : day.kind === 'rest'
       ? (day.holiday ? 'Jour férié : fermé' : day.closed ? 'Boutique fermée' : 'Pas besoin de publier ce jour-là')
       : day.idea?.title ?? '';
+  const line = gone ? 'Jour passé' : text;
   const dim = day.kind === 'rest' && !shown;
   return (
-    <Card onPress={onPress} style={[{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, opacity: dim || (past && !shown) ? 0.7 : 1 }, isToday && { borderWidth: 2, borderColor: colors.green }]}>
+    <Card onPress={onPress} style={[{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, opacity: gone ? 0.55 : dim ? 0.75 : 1 }, isToday && { borderWidth: 2, borderColor: colors.green }]}>
       <View style={{ width: 48, alignItems: 'center' }}>
-        <Text style={{ fontSize: 12, fontWeight: '700', letterSpacing: 0.5, color: isToday ? colors.green : colors.textSoft, fontFamily: fonts.body }}>{isToday ? 'AUJ.' : DAY_NAMES[weekday(day.date)].slice(0, 3).toUpperCase()}</Text>
+        <Text style={{ fontSize: 13, fontWeight: '700', letterSpacing: 0.5, color: isToday ? colors.green : colors.textSoft, fontFamily: fonts.body }}>{isToday ? 'AUJ.' : DAY_NAMES[weekday(day.date)].slice(0, 3).toUpperCase()}</Text>
         <Text style={{ fontFamily: fonts.title, fontSize: 22, fontWeight: '700', color: isToday ? colors.green : colors.text }}>{day.date.getDate()}</Text>
       </View>
       {shown && <PostThumb post={shown} width={46} height={46} />}
       <View style={{ flex: 1, gap: 4 }}>
         <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
-          <Badge text={shown ? (shown.kind === 'story' ? 'Story' : 'Post') : k.text} tone={shown ? (shown.kind === 'story' ? 'blue' : 'green') : k.tone} />
+          {!gone && <Badge text={shown ? (shown.kind === 'story' ? 'Story' : 'Post') : k.text} tone={shown ? (shown.kind === 'story' ? 'sand' : 'green') : k.tone} />}
           {ready && <Badge text="Prévu" tone="green" />}
           {done && <Badge text="Publié" tone="green" />}
-          {!shown && day.occasion && <Badge text={day.occasion.name} tone="orange" />}
-          {day.holiday && <Badge text="Férié" tone="orange" />}
+          {!shown && !gone && day.occasion && <Badge text={day.occasion.name} tone="orange" />}
+          {day.holiday && <Badge text="Férié" tone="green" />}
         </View>
-        <Body soft size={14} style={{ lineHeight: 19 }}>{text}</Body>
+        <Body soft size={15} style={{ lineHeight: 20 }}>{line}</Body>
       </View>
       <Chevron color={colors.textSoft} />
     </Card>

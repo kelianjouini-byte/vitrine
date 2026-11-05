@@ -75,7 +75,7 @@ export function PlanDay({ day: key }: { day: string }) {
   const honest = (
     <View style={{ flexDirection: 'row', gap: 10 }}>
       <ClockIcon size={20} color={colors.green} />
-      <Body soft size={14} style={{ flex: 1 }}>
+      <Body soft size={15} style={{ flex: 1 }}>
         {notificationsSupported ? `${when}, Vitrine vous le rappellera. ` : 'Dans l\'application sur téléphone, Vitrine vous le rappelle le jour venu. '}
         La publication toute seule arrivera dès que la connexion Instagram et Facebook sera ouverte.
       </Body>
@@ -87,7 +87,7 @@ export function PlanDay({ day: key }: { day: string }) {
   const storyDone = done.some((p) => p.kind === 'story');
   // La story se fait le jour même : un bouton aujourd'hui, sinon on explique.
   const storyPart = isToday ? (
-    <Button title="FAIRE MA STORY" icon={<StoryIcon size={22} />} style={{ minHeight: 64 }} kind={day.kind === 'both' ? 'secondary' : 'primary'} onPress={() => go({ name: 'story' })} />
+    <Button title="Faire ma story" icon={<StoryIcon size={22} />} style={{ minHeight: 64 }} kind={day.kind === 'both' ? 'secondary' : 'primary'} onPress={() => go({ name: 'story' })} />
   ) : (
     <Notice tone="green" title="Une story se fait le jour même"
       text={notificationsSupported ? `C'est fait pour être sur le vif. ${when}, Vitrine vous enverra l'idée.` : 'C\'est fait pour être sur le vif. Revenez ce jour-là : le bouton pour la faire sera ici.'} />
@@ -107,15 +107,15 @@ export function PlanDay({ day: key }: { day: string }) {
             <PostThumb post={ready} width={96} height={120} />
             <View style={{ flex: 1, gap: 6 }}>
               <Body size={15}>{ready.caption.length > 180 ? `${ready.caption.slice(0, 180)}...` : ready.caption}</Body>
-              <Body size={14} style={{ color: '#2F5FA8' }}>{ready.hashtags.slice(0, 5).join(' ')}</Body>
+              <Body size={15} style={{ color: '#2F5FA8' }}>{ready.hashtags.slice(0, 5).join(' ')}</Body>
             </View>
           </View>
         </Card>
         <Card style={{ gap: 10 }}>{honest}</Card>
         {error && <Notice tone="orange" title="Pas encore possible" text={error} />}
-        <Button title="PUBLIER MAINTENANT" onPress={() => publishReady(ready)} loading={publishing} style={{ minHeight: 64 }} />
+        <Button title="Publier maintenant" onPress={() => publishReady(ready)} loading={publishing} style={{ minHeight: 64 }} />
         <Button title="Retirer du planning" kind="ghost" onPress={() => unplan(ready)} disabled={publishing} />
-        <Body soft size={13} center>Le post retiré reste dans « Mes posts ».</Body>
+        <Body soft size={15} center>Le post retiré reste dans « Mes posts ».</Body>
         {day.kind === 'both' && !storyDone && (
           <>
             <Label>Et la story du jour</Label>
@@ -172,7 +172,7 @@ export function PlanDay({ day: key }: { day: string }) {
                 {day.kind === 'both' && <Label>Le post</Label>}
                 <Title size={21}>{idea.title}</Title>
                 <Body>{idea.photo}</Body>
-                <Body soft size={14}>{idea.why}</Body>
+                <Body soft size={15}>{idea.why}</Body>
               </>
             ) : null}
             {day.kind === 'both' && day.storyIdea && (
@@ -192,7 +192,7 @@ export function PlanDay({ day: key }: { day: string }) {
           </View>
 
           {hasPost && (
-            <Button title={isToday ? 'FAIRE MON POST' : 'PRÉPARER MAINTENANT'} icon={<CameraIcon size={22} />} style={{ minHeight: 64 }}
+            <Button title={isToday ? 'Faire mon post' : 'Préparer maintenant'} icon={<CameraIcon size={22} />} style={{ minHeight: 64 }}
               onPress={() => go({ name: 'create', idea: idea ?? undefined, occasionId: day.occasion?.id, plannedFor: isToday ? undefined : key, note: day.announce ? holidayNote(b, day.announce) : undefined })} />
           )}
           {hasStory && !storyDone && storyPart}
@@ -200,7 +200,7 @@ export function PlanDay({ day: key }: { day: string }) {
             <Button title="Une autre idée" kind="secondary" icon={<RefreshIcon size={18} color={colors.green} />} onPress={otherIdea} />
           )}
           {hasPost && !isToday && (
-            <Body soft size={14}>Vous prenez la photo, l'IA écrit le texte, et le post est rangé dans ce jour. Le jour venu, il ne reste qu'à appuyer sur « Publier ».</Body>
+            <Body soft size={15}>Vous prenez la photo, l'IA écrit le texte, et le post est rangé dans ce jour. Le jour venu, il ne reste qu'à appuyer sur « Publier ».</Body>
           )}
         </>
       )}

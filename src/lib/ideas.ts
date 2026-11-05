@@ -17,7 +17,7 @@ export function basicIdeas(input: { products?: string; occasion?: { name: string
   }
   ideas.push({
     title: firstProduct ? `À l'honneur : ${firstProduct.toLowerCase()}` : 'Votre produit du moment',
-    photo: firstProduct ? `${firstProduct}, de près, à la lumière du jour.` : 'Le produit que vous aimez le plus en ce moment, de près, à la lumière du jour.',
+    photo: firstProduct ? `${firstProduct.charAt(0).toUpperCase()}${firstProduct.slice(1)} en gros plan, à la lumière du jour.` : 'Le produit que vous aimez le plus en ce moment, de près, à la lumière du jour.',
     why: 'Un beau produit en gros plan donne envie de passer vous voir.',
   });
   ideas.push({

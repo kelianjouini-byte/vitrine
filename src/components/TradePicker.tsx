@@ -59,13 +59,13 @@ export function TradePicker({ value, onChange, detecting, detectedFrom, error }:
       <TextInput
         value={query}
         onChangeText={setQuery}
-        placeholder="Ex. fleuriste, tatoueur, épicerie fine…"
+        placeholder="Ex. : fleuriste, coiffeur…"
         placeholderTextColor="#A3ABA5"
         accessibilityLabel="Rechercher votre métier"
         autoCorrect={false}
         style={{ minHeight: 54, borderRadius: 14, borderWidth: 1.5, borderColor: error ? colors.red : glass.line, backgroundColor: glass.bgStrong, paddingHorizontal: 16, fontSize: 17, color: colors.text, fontFamily: fonts.body }}
       />
-      {!query ? <Text style={{ color: colors.textSoft, fontSize: 14, fontFamily: fonts.body }}>Les plus courants :</Text> : null}
+      {!query ? <Text style={{ color: colors.textSoft, fontSize: 15, fontFamily: fonts.body }}>Les plus courants :</Text> : null}
       <View style={{ gap: 8 }}>
         {results.map((t) => (
           <Pressable key={t.id} onPress={() => onChange({ businessType: t.id, trade: t.label })} accessibilityRole="button"
@@ -81,7 +81,7 @@ export function TradePicker({ value, onChange, detecting, detectedFrom, error }:
           </Pressable>
         ) : null}
       </View>
-      {error ? <Text style={{ color: colors.red, fontSize: 14 }}>{error}</Text> : null}
+      {error ? <Text style={{ color: colors.red, fontSize: 15 }}>{error}</Text> : null}
     </View>
   );
 }

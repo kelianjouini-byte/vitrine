@@ -58,7 +58,7 @@ export function Card({ children, style, onPress }: { children: React.ReactNode; 
 const BADGES = {
   green: [colors.greenSoft, colors.green],
   orange: [colors.orangeSoft, colors.orangeText],
-  blue: [colors.blueSoft, colors.blueText],
+  sand: [colors.sandSoft, colors.sandText],
   grey: ['#EEF1ED', colors.textSoft],
   red: [colors.redSoft, colors.red],
 } as const;
@@ -66,7 +66,7 @@ export function Badge({ text, tone = 'grey' }: { text: string; tone?: keyof type
   const [bg, fg] = BADGES[tone];
   return (
     <View style={{ backgroundColor: bg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 }}>
-      <Text style={{ color: fg, fontSize: 13, fontWeight: '700', fontFamily: fonts.body }}>{text}</Text>
+      <Text style={{ color: fg, fontSize: 14, fontWeight: '700', fontFamily: fonts.body }}>{text}</Text>
     </View>
   );
 }
@@ -77,7 +77,7 @@ export function DateTile({ date, tone = 'orange' }: { date: Date; tone?: keyof t
   return (
     <View style={{ width: 54, height: 58, borderRadius: 14, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>
       <Text style={{ fontFamily: fonts.title, fontSize: 22, fontWeight: '700', color: fg }}>{date.getDate()}</Text>
-      <Text style={{ fontSize: 11, fontWeight: '700', color: fg, letterSpacing: 0.5 }}>{months[date.getMonth()]}</Text>
+      <Text style={{ fontSize: 12, fontWeight: '700', color: fg, letterSpacing: 0.5 }}>{months[date.getMonth()]}</Text>
     </View>
   );
 }
@@ -87,11 +87,11 @@ export function Field({ label, hint, error, ...props }: TextInputProps & { label
     <View style={{ gap: 6 }}>
       <Text style={{ fontSize: 16, fontWeight: '600', color: colors.text, fontFamily: fonts.body }}>{label}</Text>
       <TextInput
-        placeholderTextColor="#A3ABA5"
+        placeholderTextColor="#9AA39D"
         {...props}
         style={[s.input, error ? { borderColor: colors.red } : null, props.multiline ? { minHeight: 96, textAlignVertical: 'top', paddingTop: 14 } : null]}
       />
-      {error ? <Text style={{ color: colors.red, fontSize: 14 }}>{error}</Text> : hint ? <Text style={{ color: colors.textSoft, fontSize: 14 }}>{hint}</Text> : null}
+      {error ? <Text style={{ color: colors.red, fontSize: 15 }}>{error}</Text> : hint ? <Text style={{ color: colors.textSoft, fontSize: 15, lineHeight: 21 }}>{hint}</Text> : null}
     </View>
   );
 }
@@ -115,8 +115,8 @@ export function Notice({ tone = 'orange', title, text }: { tone?: 'orange' | 're
   const fg = { orange: colors.orangeText, red: colors.red, green: colors.green }[tone];
   return (
     <View style={{ backgroundColor: bg, borderRadius: radius.md, padding: 14, gap: 4 }}>
-      <Text style={{ color: fg, fontWeight: '700', fontSize: 15, fontFamily: fonts.body }}>{title}</Text>
-      {text ? <Text style={{ color: colors.text, fontSize: 14, lineHeight: 20, fontFamily: fonts.body }}>{text}</Text> : null}
+      <Text style={{ color: fg, fontWeight: '700', fontSize: 16, fontFamily: fonts.body }}>{title}</Text>
+      {text ? <Text style={{ color: colors.text, fontSize: 15, lineHeight: 21, fontFamily: fonts.body }}>{text}</Text> : null}
     </View>
   );
 }
@@ -144,7 +144,7 @@ export const Chevron = ({ color = colors.green }: { color?: string }) => <Chevro
 
 const s = StyleSheet.create({
   round: { ...glassSurface, width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  label: { fontSize: 13, fontWeight: '700', letterSpacing: 1.2, color: colors.textSoft, textTransform: 'uppercase', fontFamily: fonts.body },
+  label: { fontSize: 14, fontWeight: '700', letterSpacing: 1, color: colors.textSoft, textTransform: 'uppercase', fontFamily: fonts.body },
   btn: { minHeight: 58, borderRadius: radius.md + 2, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 },
   btnPrimary: { ...greenGradient, boxShadow: '0px 12px 24px -12px rgba(31,95,69,0.6)' },
   card: { ...glassSurface, borderRadius: radius.lg - 2, padding: 16 },
@@ -165,8 +165,10 @@ export function PlatformPicker({ value, onChange, connections }: { value: Platfo
             <Pressable key={p} onPress={() => toggle(p)} accessibilityRole="checkbox" accessibilityState={{ checked: on }}
               style={{ flex: 1, minHeight: 52, borderRadius: 14, borderWidth: 1.5, borderColor: on ? colors.green : glass.line, backgroundColor: on ? colors.greenSoft : glass.bgStrong, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }}>
               {on && <CheckIcon size={16} color={colors.green} />}
-              <Text style={{ color: on ? colors.green : colors.textSoft, fontWeight: '700', fontSize: 16, fontFamily: fonts.body }}>{p === 'instagram' ? 'Instagram' : 'Facebook'}</Text>
-              {!conn && <Text style={{ color: colors.textSoft, fontSize: 12 }}>(non connecté)</Text>}
+              <View style={{ alignItems: 'center' }}>
+                <Text style={{ color: on ? colors.green : colors.textSoft, fontWeight: '700', fontSize: 16, fontFamily: fonts.body }}>{p === 'instagram' ? 'Instagram' : 'Facebook'}</Text>
+                {!conn && <Text style={{ color: colors.textSoft, fontSize: 14, fontFamily: fonts.body }}>pas encore connecté</Text>}
+              </View>
             </Pressable>
           );
         })}
@@ -185,7 +187,7 @@ export function PostThumb({ post, width, height }: { post: Post; width: number; 
         : <VideoIcon size={28} color={colors.green} />}
       {tag && (
         <View style={{ position: 'absolute', top: 4, right: 4, backgroundColor: 'rgba(20,28,23,0.75)', borderRadius: 8, paddingHorizontal: 5 }}>
-          <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>{tag}</Text>
+          <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>{tag}</Text>
         </View>
       )}
     </View>

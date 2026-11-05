@@ -46,7 +46,7 @@ export function Settings() {
       <Card style={{ gap: 4 }}>
         <Body style={{ fontWeight: '700' }} size={18}>{b.businessName}</Body>
         <Body soft>{tradeLabel(b)} · {b.city} ({b.postalCode})</Body>
-        <Body soft size={14}>Ton : {toneLabel(b.tone)}</Body>
+        <Body soft size={15}>Ton : {toneLabel(b.tone)}</Body>
       </Card>
 
       <Label>Carte d'identité de la boutique</Label>
@@ -70,11 +70,11 @@ export function Settings() {
         </View>
         {prefs.enabled && (
           <>
-            <Body soft size={14}>Combien de jours avant ?</Body>
+            <Body soft size={15}>Combien de jours avant ?</Body>
             <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
               {[3, 7, 14].map((n) => <Chip key={n} label={`${n} jours`} selected={prefs.daysBefore === n} onPress={() => setPrefs({ ...prefs, daysBefore: n })} />)}
             </View>
-            <Body soft size={14}>À quelle heure ?</Body>
+            <Body soft size={15}>À quelle heure ?</Body>
             <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
               {[8, 9, 12, 18].map((h) => <Chip key={h} label={`${h}h`} selected={prefs.hour === h} onPress={() => setPrefs({ ...prefs, hour: h })} />)}
             </View>
@@ -83,42 +83,35 @@ export function Settings() {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <View style={{ flex: 1 }}>
             <Body style={{ fontWeight: '600' }}>Le lundi : 3 idées pour votre semaine</Body>
-            <Body soft size={14}>Un petit rappel avec des idées de photos.</Body>
+            <Body soft size={15}>Un petit rappel avec des idées de photos.</Body>
           </View>
           <Switch value={prefs.weeklyIdeas !== false} onValueChange={(v) => setPrefs({ ...prefs, weeklyIdeas: v })} trackColor={{ true: colors.green, false: '#D6DBD5' }} thumbColor="#fff" />
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <View style={{ flex: 1 }}>
             <Body style={{ fontWeight: '600' }}>Le planning : l'idée du jour</Body>
-            <Body soft size={14}>Les jours de post ou de story, et quand un post préparé est prêt.</Body>
+            <Body soft size={15}>Les jours de post ou de story, et quand un post préparé est prêt.</Body>
           </View>
           <Switch value={prefs.planReminders !== false} onValueChange={(v) => setPrefs({ ...prefs, planReminders: v })} trackColor={{ true: colors.green, false: '#D6DBD5' }} thumbColor="#fff" />
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <View style={{ flex: 1 }}>
             <Body style={{ fontWeight: '600' }}>Le 1er du mois : votre bilan</Body>
-            <Body soft size={14}>Un petit rappel quand le bilan du mois est prêt.</Body>
+            <Body soft size={15}>Un petit rappel quand le bilan du mois est prêt.</Body>
           </View>
           <Switch value={prefs.monthlyReport !== false} onValueChange={(v) => setPrefs({ ...prefs, monthlyReport: v })} trackColor={{ true: colors.green, false: '#D6DBD5' }} thumbColor="#fff" />
         </View>
-        {!notificationsSupported && <Body soft size={13}>Les rappels fonctionnent dans l'application sur téléphone.</Body>}
-      </Card>
-
-      <Label>État des services</Label>
-      <Card style={{ gap: 8 }}>
-        <ServiceLine name="Compte en ligne" ok={isBackendConfigured} />
-        <ServiceLine name="Écriture par l'IA" ok={isBackendConfigured} hint="dépend du serveur" />
-        <ServiceLine name="Publication Instagram / Facebook" ok={isBackendConfigured} hint="dépend du serveur et de Meta" />
+        {!notificationsSupported && <Notice tone="orange" title="Sur la version internet, les rappels n'arrivent pas encore" text="Ils arriveront avec l'application Vitrine à installer sur votre téléphone. En attendant, ouvrez Vitrine de temps en temps : l'accueil et le planning vous disent quoi publier." />}
       </Card>
 
       <Label>Mes données</Label>
-      <Body soft size={14}>Vos photos et textes vous appartiennent. Vous pouvez tout supprimer à tout moment.</Body>
+      <Body soft size={15}>Vos photos et vos textes vous appartiennent. Vous pouvez tout supprimer à tout moment : votre boutique, vos posts et vos connexions.</Body>
       {!confirmDelete ? (
-        <Button title="Supprimer mon compte et mes données" kind="danger" onPress={() => setConfirmDelete(true)} />
+        <Button title="Supprimer mon compte" kind="danger" onPress={() => setConfirmDelete(true)} />
       ) : (
         <Card style={{ gap: 12, borderColor: colors.red }}>
           <Body style={{ fontWeight: '700' }}>Tout supprimer ?</Body>
-          <Body soft size={14}>Votre boutique, vos posts et vos connexions seront effacés. Les posts déjà en ligne restent sur Instagram et Facebook.</Body>
+          <Body soft size={15}>Votre boutique, vos posts et vos connexions seront effacés. Les posts déjà en ligne restent sur Instagram et Facebook.</Body>
           {deleteError && <Notice tone="red" title={deleteError} />}
           <Button title="Oui, tout supprimer" kind="danger" loading={deleting} onPress={deleteEverything} />
           <Button title="Annuler" kind="ghost" onPress={() => setConfirmDelete(false)} />
@@ -159,21 +152,11 @@ function IdentityCard() {
 
   return (
     <Card style={{ gap: 14 }}>
-      <Body soft size={14}>Plus l'IA connaît votre boutique, plus ses textes et ses idées vous ressemblent.</Body>
+      <Body soft size={15}>Plus l'IA connaît votre boutique, plus ses textes et ses idées vous ressemblent.</Body>
       <IdentityFields value={form} onChange={(v) => { setForm(v); setStatus(null); }} />
       {status && <Notice tone={status.ok ? 'green' : 'red'} title={status.text} />}
       <Button title="Enregistrer" loading={saving} disabled={!changed} onPress={submit} />
     </Card>
-  );
-}
-
-function ServiceLine({ name, ok, hint }: { name: string; ok: boolean; hint?: string }) {
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: ok ? colors.green : colors.orange }} />
-      <Body size={15} style={{ flex: 1 }}>{name}</Body>
-      <Body soft size={13}>{ok ? 'Branché' : 'Pas encore configuré'}</Body>
-    </View>
   );
 }
 
@@ -215,7 +198,7 @@ function Account({ onLoggedIn }: { onLoggedIn: () => Promise<void> }) {
         </>
       ) : (
         <>
-          <Body soft size={14}>Nous avons envoyé un code à {email}.</Body>
+          <Body soft size={15}>Nous avons envoyé un code à {email}.</Body>
           <Field label="Code reçu" value={code} onChangeText={setCode} keyboardType="number-pad" placeholder="123456" />
           <Button title="Valider" loading={busy} onPress={() => run(async () => { await verifyLoginCode(email.trim(), code); setUserId(await currentUserId()); await onLoggedIn(); })} />
           <Button title="Changer d'e-mail" kind="ghost" onPress={() => setStep('email')} />

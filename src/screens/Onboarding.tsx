@@ -122,7 +122,7 @@ export function Onboarding() {
         ))}
       </View>
       <ScrollView contentContainerStyle={{ padding: 20, gap: 18, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
-        <Body soft size={14}>Étape {step} sur {STEPS}</Body>
+        <Body soft size={15}>Étape {step} sur {STEPS}</Body>
 
         {step === 1 && (
           <>
@@ -132,11 +132,11 @@ export function Onboarding() {
             </View>
             <Title size={30}>Votre boutique</Title>
             <Body soft>Quelques informations pour écrire des posts qui vous ressemblent.</Body>
-            <Field label="Votre prénom" value={form.ownerFirstName} onChangeText={(v) => set('ownerFirstName', v)} placeholder="Marie" error={errors.ownerFirstName} autoComplete="given-name" />
-            <Field label="Nom de la boutique" value={form.businessName} onChangeText={(v) => set('businessName', v)} placeholder="Fleurs de Marie" error={errors.businessName} />
+            <Field label="Votre prénom" value={form.ownerFirstName} onChangeText={(v) => set('ownerFirstName', v)} placeholder="Ex. : Marie" error={errors.ownerFirstName} autoComplete="given-name" />
+            <Field label="Nom de la boutique" value={form.businessName} onChangeText={(v) => set('businessName', v)} placeholder="Ex. : Fleurs de Marie" error={errors.businessName} />
             <View style={{ flexDirection: 'row', gap: 12 }}>
-              <View style={{ flex: 2 }}><Field label="Ville" value={form.city} onChangeText={(v) => set('city', v)} placeholder="Lyon" error={errors.city} /></View>
-              <View style={{ flex: 1.3 }}><Field label="Code postal" value={form.postalCode} onChangeText={(v) => set('postalCode', v.replace(/\D/g, '').slice(0, 5))} placeholder="69002" keyboardType="number-pad" error={errors.postalCode} /></View>
+              <View style={{ flex: 2 }}><Field label="Ville" value={form.city} onChangeText={(v) => set('city', v)} placeholder="Ex. : Lyon" error={errors.city} /></View>
+              <View style={{ flex: 1.3 }}><Field label="Code postal" value={form.postalCode} onChangeText={(v) => set('postalCode', v.replace(/\D/g, '').slice(0, 5))} placeholder="Ex. : 69002" keyboardType="number-pad" error={errors.postalCode} /></View>
             </View>
             <TradePicker
               value={{ businessType: form.businessType, trade: form.trade }}
@@ -182,7 +182,7 @@ export function Onboarding() {
             <Title size={30} style={{ textAlign: 'center' }}>{'Votre boutique est prête\u00a0!'}</Title>
             <Body soft center>Prenez votre première photo, Vitrine s'occupe du reste.</Body>
             {saveError ? <Body style={{ color: colors.red }} center>{saveError}</Body> : null}
-            <Button title="COMMENCER" onPress={finish} loading={saving} style={{ alignSelf: 'stretch', marginTop: 12 }} />
+            <Button title="Commencer" onPress={finish} loading={saving} style={{ alignSelf: 'stretch', marginTop: 12 }} />
             <Button title="Retour" kind="ghost" onPress={() => setStep(3)} />
           </View>
         )}

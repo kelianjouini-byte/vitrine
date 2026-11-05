@@ -26,7 +26,7 @@ export function HolidayCard({ business: b, holiday: h, onSave, announceLabel }: 
     <Card style={{ gap: 12, backgroundColor: 'rgba(252,239,217,0.75)' }}>
       <Label>Jour férié</Label>
       <Title size={22}>{holidayName(h)}</Title>
-      <Body soft size={14} style={{ marginTop: -6 }}>{dayLabel(h.date)}</Body>
+      <Body soft size={15} style={{ marginTop: -6 }}>{dayLabel(h.date)}</Body>
       <Body style={{ fontWeight: '600' }}>Êtes-vous ouvert ce jour-là ?</Body>
       <View style={{ flexDirection: 'row', gap: 10 }}>
         <Choice label="Oui, ouvert" selected={answer?.open === true} onPress={() => set(true)} />
@@ -44,7 +44,7 @@ export function HolidayCard({ business: b, holiday: h, onSave, announceLabel }: 
         />
       )}
       {answer && announceLabel && (
-        <Body soft size={14}>
+        <Body soft size={15}>
           Vitrine vous conseille un post le {announceLabel} pour prévenir vos clients que vous êtes {answer.open ? 'ouvert' : 'fermé'}.
         </Body>
       )}

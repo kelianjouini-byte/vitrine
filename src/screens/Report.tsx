@@ -91,7 +91,7 @@ export function Report({ initialMonth }: { initialMonth?: Month }) {
           <IconTile size={48} tone="orange"><EyeIcon size={26} color={colors.orangeText} /></IconTile>
           <View style={{ flex: 1, gap: 2 }}>
             <Text style={{ color: colors.text, fontSize: 20, fontWeight: '700', fontFamily: fonts.body }}>Clients touchés</Text>
-            <Body soft size={14}>Toutes les personnes qui ont vu vos posts et vos stories {ofMonth(month)}.</Body>
+            <Body soft size={15}>Toutes les personnes qui ont vu vos posts et vos stories {ofMonth(month)}.</Body>
           </View>
           <Badge text="Bientôt" tone="orange" />
         </View>
@@ -99,7 +99,7 @@ export function Report({ initialMonth }: { initialMonth?: Month }) {
           <ViewsPart icon={<CameraIcon size={18} color={colors.green} />} label="Vues des posts" />
           <ViewsPart icon={<StoryIcon size={18} color={colors.green} />} label="Vues des stories" />
         </View>
-        <Body soft size={13}>Les vrais chiffres arriveront dès qu'Instagram et Facebook seront branchés.</Body>
+        <Body soft size={15}>Les vrais chiffres arriveront dès qu'Instagram et Facebook seront branchés.</Body>
       </Card>
 
       {s.posts.length > 0 && (
@@ -154,7 +154,7 @@ export function Report({ initialMonth }: { initialMonth?: Month }) {
           {advice.kind === 'ready' && (
             <>
               <Body size={17}>{advice.text}</Body>
-              {advice.basic && <Body soft size={13}>Conseil de base : l'IA n'est pas encore branchée.</Body>}
+              {advice.basic && <Body soft size={15}>Conseil de base : l'IA n'est pas encore branchée.</Body>}
             </>
           )}
           {advice.kind === 'error' && (
@@ -166,7 +166,7 @@ export function Report({ initialMonth }: { initialMonth?: Month }) {
         </View>
       )}
 
-      <Body soft size={13} center>Ces chiffres viennent de vos vrais posts et stories publiés avec Vitrine. Le temps gagné est une estimation.</Body>
+      <Body soft size={15} center>Ces chiffres viennent de vos vrais posts et stories publiés avec Vitrine. Le temps gagné est une estimation.</Body>
     </ScrollView>
   );
 }
@@ -177,7 +177,7 @@ function Tile({ icon, tone, value, label, hint, soon }: { icon: React.ReactNode;
       <IconTile size={42} tone={tone}>{icon}</IconTile>
       {soon ? <View style={{ alignSelf: 'flex-start' }}><Badge text="Bientôt" tone="orange" /></View> : <Title size={30}>{value}</Title>}
       <Body style={{ fontWeight: '700' }} size={15}>{label}</Body>
-      {hint ? <Body soft size={13}>{hint}</Body> : null}
+      {hint ? <Body soft size={15}>{hint}</Body> : null}
     </Card>
   );
 }
@@ -197,8 +197,8 @@ function ViewsPart({ icon, label }: { icon: React.ReactNode; label: string }) {
     <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: glass.bgStrong, borderRadius: radius.sm + 2, borderWidth: 1, borderColor: glass.line, padding: 10 }}>
       {icon}
       <View style={{ flex: 1 }}>
-        <Text style={{ color: colors.text, fontSize: 14, fontWeight: '600', fontFamily: fonts.body }}>{label}</Text>
-        <Text style={{ color: colors.orangeText, fontSize: 13, fontFamily: fonts.body }}>bientôt</Text>
+        <Text style={{ color: colors.text, fontSize: 15, fontWeight: '600', fontFamily: fonts.body }}>{label}</Text>
+        <Text style={{ color: colors.orangeText, fontSize: 14, fontFamily: fonts.body }}>bientôt</Text>
       </View>
     </View>
   );
