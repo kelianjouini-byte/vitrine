@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Linking, Pressable, ScrollView, Switch, View } from 'react-native';
-import { Body, Button, Card, Chip, Field, Label, Notice, Title, BackButton } from '../components/ui';
+import { Body, Button, Card, Chevron, Chip, Field, Label, Notice, Title, BackButton } from '../components/ui';
 import { BackIcon } from '../components/icons';
 import { NetworkCards } from '../components/NetworkCards';
 import { IdentityFields, type Identity } from '../components/IdentityFields';
@@ -16,7 +16,7 @@ import { EmailCodeForm } from '../components/AccountForms';
 const LEGAL_SITE = 'https://kelianjouini-byte.github.io/vitrine';
 
 export function Settings() {
-  const { business, prefs, setPrefs, back, resetAll, saveBusiness, refreshConnections } = useApp();
+  const { business, prefs, setPrefs, back, go, resetAll, saveBusiness, refreshConnections } = useApp();
   const b = business!;
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -52,6 +52,15 @@ export function Settings() {
 
       <Label>Mon compte</Label>
       <Account />
+
+      <Label>Mon abonnement</Label>
+      <Card onPress={() => go({ name: 'offers' })} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Body style={{ fontWeight: '700' }}>Voir les offres</Body>
+          <Body soft size={15}>1er mois offert, puis Mensuel 39 € ou Annuel 29 € par mois.</Body>
+        </View>
+        <Chevron />
+      </Card>
 
       <Label>Mes réseaux</Label>
       <NetworkCards />
@@ -108,7 +117,7 @@ export function Settings() {
       ) : (
         <Card style={{ gap: 12, borderColor: colors.red }}>
           <Body style={{ fontWeight: '700' }}>Tout supprimer ?</Body>
-          <Body soft size={15}>Votre boutique, vos posts et vos connexions seront effacés. Les posts déjà en ligne restent sur Instagram et Facebook.</Body>
+          <Body soft size={15}>Votre boutique, vos posts et vos connexions seront effacés, et votre abonnement arrêté. Les posts déjà en ligne restent sur Instagram et Facebook.</Body>
           {deleteError && <Notice tone="red" title={deleteError} />}
           <Button title="Oui, tout supprimer" kind="danger" loading={deleting} onPress={deleteEverything} />
           <Button title="Annuler" kind="ghost" onPress={() => setConfirmDelete(false)} />

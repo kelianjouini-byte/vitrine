@@ -11,14 +11,18 @@ import type { Business, GeneratedPost, Platform, PostIdea, PublicationResult, So
 import { tradeLabel } from './business';
 import type { CommercialEvent } from './events';
 import type { RemotePost } from './sync';
+import type { BillingStatus, PlanId } from './billing';
 
 export class NotConfiguredError extends Error {
-  constructor(public what: 'serveur' | 'ia' | 'meta' | 'compte') {
+  constructor(public what: 'serveur' | 'ia' | 'meta' | 'compte' | 'paiement') {
     super(`${what} non configuré`);
   }
 }
 
 export class FriendlyError extends Error {}
+
+/** Le compte n'a pas encore d'e-mail : il faut le protéger avant de s'abonner. */
+export class AccountNotProtectedError extends FriendlyError {}
 
 function requireBackend() {
   if (!supabase) throw new NotConfiguredError('serveur');
@@ -39,6 +43,8 @@ async function callFunction<T>(name: string, body: Record<string, unknown>): Pro
     }
     if (payload?.code === 'openai_not_configured') throw new NotConfiguredError('ia');
     if (payload?.code === 'meta_not_configured') throw new NotConfiguredError('meta');
+    if (payload?.code === 'stripe_not_configured') throw new NotConfiguredError('paiement');
+    if (payload?.code === 'account_not_protected') throw new AccountNotProtectedError(payload.message ?? '');
     // Fonction pas encore installée sur le serveur : on le dit honnêtement.
     if ((error as { context?: Response }).context?.status === 404 && !payload?.code) throw new NotConfiguredError('serveur');
     throw new FriendlyError(payload?.message ?? 'Le serveur ne répond pas. Vérifiez votre connexion et réessayez.');
@@ -476,4 +482,23 @@ export async function disconnectMeta(platform: Platform): Promise<void> {
 
 export async function deleteAccountRemote(): Promise<void> {
   await callFunction('account', { action: 'delete' });
+}
+
+// ---------------------------------------------------------------- Abonnement (Stripe)
+
+export async function billingStatus(): Promise<BillingStatus> {
+  if (!(await ensureSession())) throw new NotConfiguredError('compte');
+  return callFunction<BillingStatus>('billing', { action: 'status' });
+}
+
+/** Lien vers la page de paiement Stripe (la carte est enregistrée, 1er prélèvement après le mois offert). */
+export async function checkoutUrl(plan: PlanId, returnUrl: string): Promise<string> {
+  const { url } = await callFunction<{ url: string }>('billing', { action: 'checkout', plan, returnUrl });
+  return url;
+}
+
+/** Lien vers l'espace Stripe du commerçant : carte bancaire, factures, résiliation. */
+export async function billingPortalUrl(returnUrl: string): Promise<string> {
+  const { url } = await callFunction<{ url: string }>('billing', { action: 'portal', returnUrl });
+  return url;
 }

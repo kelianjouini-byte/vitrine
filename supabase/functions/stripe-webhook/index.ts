@@ -1,0 +1,51 @@
+// Webhook Stripe : Stripe prévient Vitrine quand un abonnement est créé, payé, en retard ou résilié.
+// Appelé par Stripe (pas par l'app) : pas de jeton utilisateur, on vérifie la signature Stripe-Signature.
+// Événements à cocher dans Stripe : checkout.session.completed, customer.subscription.created,
+// customer.subscription.updated, customer.subscription.deleted, invoice.payment_failed.
+import { handler, json, HttpError, env } from '../_shared/http.ts';
+import { admin } from '../_shared/db.ts';
+import { subscriptionRow, verifyStripeSignature, type StripeSubscription } from '../_shared/billing.ts';
+import { stripe } from '../_shared/stripe.ts';
+
+Deno.serve(handler(async (req) => {
+  const secret = env('STRIPE_WEBHOOK_SECRET');
+  if (!secret) throw new HttpError(503, 'stripe_not_configured', 'Webhook non configuré.');
+  const body = await req.text();
+  if (!(await verifyStripeSignature(body, req.headers.get('stripe-signature'), secret))) {
+    throw new HttpError(400, 'bad_signature', 'Signature invalide.');
+  }
+  const event = JSON.parse(body) as { id: string; type: string; data: { object: Record<string, unknown> } };
+  const db = admin();
+
+  // Idempotence : un même événement n'est traité qu'une fois (Stripe peut le renvoyer).
+  const { error: dup } = await db.from('stripe_events').insert({ id: event.id });
+  if (dup) return json({ received: true, duplicate: true });
+
+  try {
+    let subscriptionId: string | undefined;
+    const obj = event.data.object;
+    if (event.type === 'checkout.session.completed') subscriptionId = obj.subscription as string | undefined;
+    else if (event.type.startsWith('customer.subscription.')) subscriptionId = obj.id as string;
+    else if (event.type === 'invoice.payment_failed') {
+      // Selon la version de l'API, l'abonnement est à la racine ou dans parent.subscription_details.
+      const parent = obj.parent as { subscription_details?: { subscription?: string } } | undefined;
+      subscriptionId = (obj.subscription as string | undefined) ?? parent?.subscription_details?.subscription;
+    }
+
+    if (subscriptionId) {
+      // On relit l'abonnement chez Stripe : l'état le plus récent fait foi, quel que soit l'ordre d'arrivée des événements.
+      const sub = await stripe<StripeSubscription>('GET', `subscriptions/${subscriptionId}`);
+      const businessId = sub.metadata?.business_id;
+      if (businessId) {
+        const { error } = await db.from('subscriptions').upsert({ business_id: businessId, ...subscriptionRow(sub) }, { onConflict: 'business_id' });
+        if (error) throw new Error(error.message);
+        console.log('[vitrine] abonnement', businessId, sub.status, event.type);
+      }
+    }
+    return json({ received: true });
+  } catch (e) {
+    // Échec : on oublie l'événement pour que Stripe puisse le renvoyer.
+    await db.from('stripe_events').delete().eq('id', event.id);
+    throw e;
+  }
+}));
