@@ -1,25 +1,35 @@
-// Connexion Meta (OAuth officiel). Trois actions :
+// Connexion Meta (OAuth officiel). Quatre actions :
+//  POST {action:'status'}               -> { configured }  (le bouton « Connecter » sait s'il peut servir)
 //  POST {action:'start', redirect_uri}  -> { url }   (l'app ouvre cette URL Meta)
 //  GET  ?code=...&state=...             -> callback Meta : échange du code, stockage CHIFFRÉ des jetons,
-//                                          puis redirection vers l'app (vitrine://meta-connected?status=ok|error)
+//                                          puis redirection vers l'app (vitrine://meta-connected ou la version web, ?status=ok|error)
 //  POST {action:'disconnect', platform}
 import { handler, json, HttpError, env } from '../_shared/http.ts';
 import { admin, requireMerchant } from '../_shared/db.ts';
 import { encrypt, hmac } from '../_shared/crypto.ts';
-import { graph, metaConfig, META_SCOPES, GRAPH_VERSION } from '../_shared/meta.ts';
+import { graph, metaConfig, metaReady, META_SCOPES, GRAPH_VERSION } from '../_shared/meta.ts';
 
 const callbackUrl = () => `${Deno.env.get('SUPABASE_URL')}/functions/v1/meta-oauth`;
-const ALLOWED_REDIRECT = /^(vitrine:\/\/|exp:\/\/|https:\/\/)/;
+/** Version web de Vitrine (GitHub Pages par défaut). Seule adresse https acceptée pour le retour. */
+const WEB_APP_URL = () => env('PUBLIC_APP_URL') ?? 'https://kelianjouini-byte.github.io/vitrine/';
+
+/** Retour autorisé : l'appli (vitrine://), Expo Go en test (exp://), la version web officielle ou un test local. */
+function allowedRedirect(r: string): boolean {
+  if (/^(vitrine|exp):\/\//.test(r)) return true;
+  if (/^http:\/\/localhost(:\d+)?\//.test(r)) return true;
+  return r.startsWith(WEB_APP_URL());
+}
 
 Deno.serve(handler(async (req) => {
   if (req.method === 'GET') return callback(req);
   const body = await req.json().catch(() => ({}));
+  if (body.action === 'status') return json({ configured: metaReady() });
   const { appId, appSecret } = metaConfig();
   const { db, business } = await requireMerchant(req);
 
   if (body.action === 'start') {
     const redirect = String(body.redirect_uri ?? '');
-    if (!ALLOWED_REDIRECT.test(redirect)) throw new HttpError(400, 'bad_redirect', 'Adresse de retour invalide.');
+    if (!allowedRedirect(redirect)) throw new HttpError(400, 'bad_redirect', 'Adresse de retour invalide.');
     const payload = btoa(JSON.stringify({ b: business.id, r: redirect, e: Date.now() + 10 * 60_000 }));
     const state = `${payload}.${await hmac(payload, appSecret)}`;
     const url = new URL(`https://www.facebook.com/${GRAPH_VERSION}/dialog/oauth`);
