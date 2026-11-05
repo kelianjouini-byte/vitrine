@@ -3,7 +3,8 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Body, Card, Chevron, DateTile, IconTile, Label, Notice, Title } from '../components/ui';
 import { takePhoto } from '../lib/photo';
 import { accountState, FriendlyError } from '../lib/api';
-import { BulbIcon, CameraIcon, CheckIcon, LinkIcon, StoreIcon, StoryIcon } from '../components/icons';
+import { BulbIcon, CameraIcon, ChartUpIcon, CheckIcon, LinkIcon, StoreIcon, StoryIcon } from '../components/icons';
+import { daysLeft, isLiveStatus, TRIAL_REPORT_DAYS_BEFORE } from '../lib/billing';
 import { colors, fonts, glassSurface, greenGradient } from '../lib/theme';
 import { useApp } from '../lib/store';
 import { daysUntil, inDaysLabel, upcomingEvents, upcomingHolidays } from '../lib/events';
@@ -12,7 +13,8 @@ import { initials } from '../lib/business';
 import { MonthReportCard } from '../components/MonthReportCard';
 
 export function Home() {
-  const { business, posts, connections, go } = useApp();
+  const { business, posts, connections, go, billing } = useApp();
+  const trialLeft = billing?.access === 'trial' && !isLiveStatus(billing.subscription?.status) ? daysLeft(billing.trialEndsAt) : null;
   const b = business!;
   // Prochaine fête ou prochain jour férié, le plus proche des deux.
   const next = useMemo(() => [upcomingEvents(b, new Date(), 12, b.postalCode)[0], upcomingHolidays(new Date(), 12, b.postalCode)[0]]
@@ -95,6 +97,17 @@ export function Home() {
             <Text style={{ color: colors.green, fontWeight: '700', fontSize: 16, fontFamily: fonts.body }}>Choisir une photo dans la galerie →</Text>
           </Pressable>
         </View>
+      )}
+
+      {trialLeft !== null && trialLeft <= TRIAL_REPORT_DAYS_BEFORE && (
+        <Card onPress={() => go({ name: 'offers' })} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: 'rgba(252,239,217,0.8)' }}>
+          <IconTile size={44} tone="orange"><ChartUpIcon size={22} color={colors.orangeText} /></IconTile>
+          <View style={{ flex: 1 }}>
+            <Body style={{ fontWeight: '700' }}>{trialLeft <= 1 ? 'Dernier jour de votre essai gratuit' : `Votre essai gratuit se termine dans ${trialLeft} jours`}</Body>
+            <Body soft size={15}>Voir mon bilan et choisir mon offre.</Body>
+          </View>
+          <Chevron />
+        </Card>
       )}
 
       {guest && posts.length > 0 && (

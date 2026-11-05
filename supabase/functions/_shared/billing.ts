@@ -1,24 +1,25 @@
 /**
  * Règles d'abonnement de Vitrine, sans dépendance (testées avec node --test).
- * 1er mois offert, puis « Mensuel » (sans engagement) ou « Annuel » (engagement 12 mois, payé chaque mois).
+ * 15 jours offerts, puis « Mensuel » (sans engagement) ou « Annuel » (engagement 12 mois, payé chaque mois).
  */
 
 export type PlanId = 'monthly' | 'annual';
 export const PLAN_IDS: PlanId[] = ['monthly', 'annual'];
-export const TRIAL_DAYS = 30;
+/** Essai gratuit (décision de Kelian, 5 nov. 2026) : 15 jours, sans carte bancaire. */
+export const TRIAL_DAYS = 15;
 const DAY = 86_400_000;
 
 export function isPlanId(v: unknown): v is PlanId {
   return v === 'monthly' || v === 'annual';
 }
 
-/** Fin du mois offert : 30 jours après la création de la boutique. */
+/** Fin de l'essai gratuit : 15 jours après la création de la boutique. */
 export function trialEndsAt(businessCreatedAt: string): Date {
   return new Date(new Date(businessCreatedAt).getTime() + TRIAL_DAYS * DAY);
 }
 
 /**
- * Date de fin d'essai à donner à Stripe (en secondes), ou null si le mois offert est déjà passé.
+ * Date de fin d'essai à donner à Stripe (en secondes), ou null si l'essai gratuit est déjà passé.
  * Stripe demande une fin d'essai à au moins 48 h : dans ce cas, on arrondit en faveur du commerçant.
  */
 export function stripeTrialEnd(businessCreatedAt: string, now = new Date()): number | null {
@@ -57,7 +58,7 @@ const iso = (s?: number | null) => (s ? new Date(s * 1000).toISOString() : null)
 export function subscriptionRow(sub: StripeSubscription) {
   const plan: PlanId = sub.metadata?.plan === 'annual' ? 'annual' : 'monthly';
   const periodEnd = sub.current_period_end ?? sub.items?.data?.[0]?.current_period_end;
-  // L'engagement d'un an compte 12 mois payés : il commence à la fin du mois offert.
+  // L'engagement d'un an compte 12 mois payés : il commence à la fin de l'essai gratuit.
   const start = sub.trial_end ?? sub.start_date;
   return {
     stripe_customer_id: sub.customer,
@@ -74,6 +75,25 @@ export function subscriptionRow(sub: StripeSubscription) {
 /** Un abonnement en cours (on ne peut pas en prendre un 2e). */
 export function isLive(status: string | null | undefined): boolean {
   return status === 'trialing' || status === 'active' || status === 'past_due' || status === 'unpaid' || status === 'paused';
+}
+
+/**
+ * Accès à l'appli :
+ * - 'paid'    : abonnement Stripe en cours (y compris pendant les jours gratuits restants, carte enregistrée) ;
+ * - 'free'    : accès offert à la main par Kelian (status 'free' dans la table subscriptions) ;
+ * - 'trial'   : essai gratuit en cours ;
+ * - 'expired' : essai terminé, pas d'abonnement -> l'appli n'affiche plus que les offres.
+ */
+export type Access = 'paid' | 'free' | 'trial' | 'expired';
+
+export function accessState(
+  businessCreatedAt: string,
+  sub: { status?: string | null; stripe_subscription_id?: string | null } | null | undefined,
+  now = new Date(),
+): Access {
+  if (sub?.stripe_subscription_id && isLive(sub.status)) return 'paid';
+  if (sub?.status === 'free') return 'free';
+  return now < trialEndsAt(businessCreatedAt) ? 'trial' : 'expired';
 }
 
 /** Encodage « formulaire » de l'API Stripe : {a:{b:1}, c:[x]} -> a[b]=1&c[0]=x */

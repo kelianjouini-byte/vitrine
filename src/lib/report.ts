@@ -165,3 +165,53 @@ export function reportReminderText(m: Month): { title: string; body: string } {
     body: 'Vos posts du mois, le temps gagné et un conseil pour le mois qui commence.',
   };
 }
+
+// ---------------------------------------------------------------- Bilan de l'essai gratuit (15 jours)
+
+/** Durée de l'essai (même valeur que TRIAL_DAYS côté serveur, supabase/functions/_shared/billing.ts). */
+export const TRIAL_LENGTH_DAYS = 15;
+
+/** On montre le bilan de l'essai à partir de 3 jours avant la fin. */
+export const TRIAL_REPORT_DAYS_BEFORE = 3;
+
+export interface TrialSummary {
+  posts: number;
+  stories: number;
+  minutesSaved: number;
+  /** Nombre de jours d'essai écoulés (1 à 15). */
+  days: number;
+  /** Même rythme sur un mois de 30 jours (projection, pas une promesse). */
+  month: { posts: number; stories: number; minutesSaved: number };
+}
+
+/** Ce que le commerçant a vraiment publié pendant son essai, et ce que ça donnerait sur un mois au même rythme. */
+export function trialSummary(posts: Post[], startIso: string, endIso: string, now = new Date()): TrialSummary {
+  const start = new Date(startIso).getTime();
+  const end = Math.min(new Date(endIso).getTime(), now.getTime());
+  const done = posts.filter(isPublished).filter((p) => {
+    const t = new Date(p.publishedAt ?? p.createdAt).getTime();
+    return t >= start && t <= end;
+  });
+  const stories = done.filter(isStory).length;
+  const count = done.length - stories;
+  const minutes = count * MINUTES_SAVED_PER_POST + stories * MINUTES_SAVED_PER_STORY;
+  const days = Math.min(TRIAL_LENGTH_DAYS, Math.max(1, Math.ceil((end - start) / 86_400_000)));
+  const k = 30 / days;
+  return {
+    posts: count,
+    stories,
+    minutesSaved: minutes,
+    days,
+    month: { posts: Math.round(count * k), stories: Math.round(stories * k), minutesSaved: Math.round((minutes * k) / 5) * 5 },
+  };
+}
+
+/** Rappels de fin d'essai : 3 jours avant (avec le bilan), puis le dernier jour. À l'heure choisie par le commerçant. */
+export function trialReminders(endIso: string, hour: number, now = new Date()): { date: Date; title: string; body: string }[] {
+  const end = new Date(endIso);
+  const at = (daysBefore: number) => new Date(end.getFullYear(), end.getMonth(), end.getDate() - daysBefore, hour, 0);
+  return [
+    { date: at(TRIAL_REPORT_DAYS_BEFORE), title: 'Votre essai gratuit se termine dans 3 jours', body: 'Regardez votre bilan : ce que Vitrine a fait pour vous en quelques jours.' },
+    { date: at(0), title: 'Dernier jour de votre essai gratuit', body: 'Choisissez votre offre pour continuer à publier avec Vitrine.' },
+  ].filter((r) => r.date > now && r.date < end);
+}

@@ -13,6 +13,7 @@ import { Create } from './src/screens/Create';
 import { Story } from './src/screens/Story';
 import { Published } from './src/screens/Published';
 import { Offers } from './src/screens/Offers';
+import { isBlocked } from './src/lib/billing';
 import { Fetes } from './src/screens/Fetes';
 import { Posts } from './src/screens/Posts';
 import { Settings } from './src/screens/Settings';
@@ -36,7 +37,7 @@ export default function App() {
 }
 
 function Root() {
-  const { ready, business, route } = useApp();
+  const { ready, business, route, billing } = useApp();
   const insets = useSafeAreaInsets();
   // Écran d'ouverture court : le temps de charger, avec un minimum pour ne pas « clignoter ».
   const [minDone, setMinDone] = useState(false);
@@ -47,6 +48,17 @@ function Root() {
   }, []);
   if (!ready || !minDone) return <Splash />;
   if (!business) return <Onboarding />;
+  // Essai gratuit terminé sans abonnement : seul l'écran des offres reste (avec « Supprimer mon compte »).
+  if (isBlocked(billing)) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.bg }}>
+        <GlassBackground />
+        <View style={{ flex: 1, paddingTop: insets.top, width: '100%', maxWidth: 560, alignSelf: 'center' }}>
+          <Offers blocked payment={route.name === 'offers' ? route.payment : undefined} />
+        </View>
+      </View>
+    );
+  }
 
   const isTab = (TAB_ROUTES as readonly string[]).includes(route.name);
   return (

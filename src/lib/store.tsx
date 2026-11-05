@@ -2,7 +2,9 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import type { DayChoice, PlanChoices } from './planning';
 import { load, save, clearAll } from './storage';
 import { onNotificationTap, scheduleReminders } from './notifications';
-import { fetchBusinessRemote, fetchRemotePosts, signOut, socialConnections } from './api';
+import { billingStatus, fetchBusinessRemote, fetchRemotePosts, signOut, socialConnections } from './api';
+import { isLiveStatus, type BillingStatus } from './billing';
+import { isBackendConfigured } from './config';
 import { mergePosts } from './sync';
 import { Platform } from 'react-native';
 import type { Business, NotificationPrefs, Post, PostIdea, SocialConnection } from './types';
@@ -46,6 +48,9 @@ interface AppState {
   syncPosts: () => Promise<void>;
   /** Après « Retrouver mon compte » : reprend la boutique et l'historique du serveur. false = aucune boutique trouvée. */
   restoreFromServer: () => Promise<boolean>;
+  /** Essai gratuit et abonnement (null : pas de serveur, ou pas encore lu). */
+  billing: BillingStatus | null;
+  refreshBilling: () => Promise<void>;
 }
 
 const DEFAULT_PREFS: NotificationPrefs = { enabled: true, daysBefore: 7, hour: 9, weeklyIdeas: true, monthlyReport: true };
@@ -60,6 +65,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [connections, setConnections] = useState<SocialConnection[]>([]);
   const [planChoices, setPlanChoices] = useState<PlanChoices>({});
   const [stack, setStack] = useState<Route[]>([{ name: 'home' }]);
+  const [billing, setBilling] = useState<BillingStatus | null>(null);
+
+  const refreshBilling = useCallback(async () => {
+    if (!isBackendConfigured) return;
+    try { setBilling(await billingStatus()); } catch { /* hors ligne : on garde le dernier état connu */ }
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -82,6 +93,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // On affiche l'app tout de suite ; l'état des réseaux arrive juste après.
       setReady(true);
       setConnections(await socialConnections());
+      // Essai gratuit / abonnement : décide si l'appli est ouverte ou si seules les offres s'affichent.
+      await refreshBilling();
       // L'historique du serveur complète celui du téléphone (posts publiés depuis un autre appareil).
       await syncPosts().catch(() => {});
     })();
@@ -93,6 +106,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Appui sur une notification : le rappel du lundi ouvre les idées, celui du 1er du mois ouvre le bilan.
   useEffect(() => onNotificationTap((data) => {
+    if (data?.route === 'offers') setStack([{ name: 'home' }, { name: 'offers' }]);
     if (data?.route === 'ideas') setStack([{ name: 'home' }, { name: 'ideas' }]);
     if (data?.route === 'planDay' && typeof data.day === 'string') setStack([{ name: 'planning' }, { name: 'planDay', day: data.day }]);
     if (data?.route === 'report') {
@@ -155,9 +169,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Les rappels (fêtes, idées du lundi, bilan, planning) sont reprogrammés dès que quelque chose change.
   useEffect(() => {
     if (!ready || !business) return;
-    const t = setTimeout(() => scheduleReminders(business, prefs, { posts, choices: planChoices }).catch(() => {}), 800);
+    // Rappels de fin d'essai seulement si le commerçant n'a pas encore choisi d'offre.
+    const trialEndsAt = billing?.access === 'trial' && !isLiveStatus(billing.subscription?.status) ? billing.trialEndsAt : null;
+    const t = setTimeout(() => scheduleReminders(business, prefs, { posts, choices: planChoices, trialEndsAt }).catch(() => {}), 800);
     return () => clearTimeout(t);
-  }, [ready, business, prefs, posts, planChoices]);
+  }, [ready, business, prefs, posts, planChoices, billing]);
 
   const refreshConnections = useCallback(async () => setConnections(await socialConnections()), []);
 
@@ -167,12 +183,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setPosts([]);
     setPrefsState(DEFAULT_PREFS);
     setPlanChoices({});
+    setBilling(null);
     setStack([{ name: 'home' }]);
   }, []);
 
   const value = useMemo<AppState>(
-    () => ({ ready, business, posts, prefs, connections, route: stack[stack.length - 1], go, back, saveBusiness, upsertPost, planChoices, setDayChoice, setPrefs, refreshConnections, resetAll, syncPosts, restoreFromServer }),
-    [ready, business, posts, prefs, connections, stack, go, back, saveBusiness, upsertPost, planChoices, setDayChoice, setPrefs, refreshConnections, resetAll, syncPosts, restoreFromServer],
+    () => ({ ready, business, posts, prefs, connections, route: stack[stack.length - 1], go, back, saveBusiness, upsertPost, planChoices, setDayChoice, setPrefs, refreshConnections, resetAll, syncPosts, restoreFromServer, billing, refreshBilling }),
+    [ready, business, posts, prefs, connections, stack, go, back, saveBusiness, upsertPost, planChoices, setDayChoice, setPrefs, refreshConnections, resetAll, syncPosts, restoreFromServer, billing, refreshBilling],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

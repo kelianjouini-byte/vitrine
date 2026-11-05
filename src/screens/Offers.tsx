@@ -3,6 +3,8 @@ import { ActivityIndicator, Linking, Platform as RNPlatform, Pressable, ScrollVi
 import * as WebBrowser from 'expo-web-browser';
 import { BackButton, Badge, Body, Button, Card, Label, Notice, Title } from '../components/ui';
 import { EmailCodeForm } from '../components/AccountForms';
+import { DeleteAccount } from '../components/DeleteAccount';
+import { TrialReportCard } from '../components/TrialReportCard';
 import { colors, fonts } from '../lib/theme';
 import { useApp } from '../lib/store';
 import { isBackendConfigured } from '../lib/config';
@@ -11,7 +13,7 @@ import {
   FriendlyError, NotConfiguredError, protectAccount, type AccountState,
 } from '../lib/api';
 import {
-  daysLeft, euros, frenchDate, isLiveStatus, offersFrom, statusText, yearlySaving, type BillingStatus, type Offer, type PlanId,
+  daysLeft, euros, frenchDate, isLiveStatus, offersFrom, statusText, TRIAL_DAYS, TRIAL_REPORT_DAYS_BEFORE, yearlySaving, type BillingStatus, type Offer, type PlanId,
 } from '../lib/billing';
 
 const SITE = 'https://kelianjouini-byte.github.io/vitrine';
@@ -35,9 +37,12 @@ async function openStripe(url: string, onBack: () => void) {
   onBack();
 }
 
-/** Mon abonnement : les deux offres, le mois offert, puis le paiement par Stripe. */
-export function Offers({ payment }: { payment?: 'ok' | 'annule' }) {
-  const { back } = useApp();
+/**
+ * Mon abonnement : les deux offres, l'essai gratuit de 15 jours, puis le paiement par Stripe.
+ * blocked : l'essai est terminé sans abonnement. Cet écran est alors le seul de l'appli (avec « Supprimer mon compte »).
+ */
+export function Offers({ payment, blocked }: { payment?: 'ok' | 'annule'; blocked?: boolean }) {
+  const { back, refreshBilling } = useApp();
   const [status, setStatus] = useState<BillingStatus | null>(null);
   const [account, setAccount] = useState<AccountState | null>(null);
   const [loading, setLoading] = useState(true);
@@ -67,10 +72,10 @@ export function Offers({ payment }: { payment?: 'ok' | 'annule' }) {
     refresh();
     // Après le paiement, Stripe prévient le serveur en quelques secondes : on relit une fois de plus.
     if (payment === 'ok') {
-      const t = setTimeout(refresh, 4000);
+      const t = setTimeout(() => { refresh(); refreshBilling(); }, 4000);
       return () => clearTimeout(t);
     }
-  }, [refresh, payment]);
+  }, [refresh, refreshBilling, payment]);
 
   async function run(fn: () => Promise<string>) {
     setBusy(true);
@@ -95,10 +100,17 @@ export function Offers({ payment }: { payment?: 'ok' | 'annule' }) {
 
   return (
     <ScrollView contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 48 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        <BackButton onPress={back} />
-        <Title size={26}>Mon abonnement</Title>
-      </View>
+      {blocked ? (
+        <View style={{ gap: 6 }}>
+          <Title size={28}>Votre essai gratuit est terminé</Title>
+          <Body soft>Choisissez une offre pour continuer à publier avec Vitrine. Votre boutique et vos posts sont gardés.</Body>
+        </View>
+      ) : (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <BackButton onPress={back} />
+          <Title size={26}>Mon abonnement</Title>
+        </View>
+      )}
 
       {payment === 'ok' && <Notice tone="green" title="Merci, c'est enregistré !" text="Votre abonnement est en place. Vous recevrez un reçu par e-mail." />}
       {payment === 'annule' && !live && <Notice tone="orange" title="Paiement annulé" text="Rien n'a été prélevé. Vous pouvez choisir une offre quand vous voulez." />}
@@ -122,12 +134,17 @@ export function Offers({ payment }: { payment?: 'ok' | 'annule' }) {
         </Card>
       ) : (
         <>
-          <Card style={{ gap: 6, borderColor: colors.green }}>
-            <Body style={{ fontWeight: '700' }} size={18}>1er mois offert</Body>
-            <Body soft size={15}>
-              {trialEnd && trialDays ? `Encore ${trialDays} jour${trialDays > 1 ? 's' : ''} gratuits, jusqu'au ${frenchDate(trialEnd)}.` : trialEnd ? 'Votre mois offert est terminé.' : 'Pour les deux offres.'}
-            </Body>
-          </Card>
+          {status && (trialDays === 0 || (trialDays ?? 99) <= TRIAL_REPORT_DAYS_BEFORE) && status.access !== 'free' && (
+            <TrialReportCard billing={status} ended={trialDays === 0} />
+          )}
+          {!blocked && (
+            <Card style={{ gap: 6, borderColor: colors.green }}>
+              <Body style={{ fontWeight: '700' }} size={18}>{TRIAL_DAYS} jours offerts</Body>
+              <Body soft size={15}>
+                {trialEnd && trialDays ? `Encore ${trialDays} jour${trialDays > 1 ? 's' : ''} gratuit${trialDays > 1 ? 's' : ''}, jusqu'au ${frenchDate(trialEnd)}.` : trialEnd ? 'Votre essai gratuit est terminé.' : 'Pour les deux offres, sans carte bancaire.'}
+              </Body>
+            </Card>
+          )}
 
           <Label>Choisissez votre offre</Label>
           {offers.map((o) => (
@@ -136,7 +153,7 @@ export function Offers({ payment }: { payment?: 'ok' | 'annule' }) {
           <Body soft size={15}>Tout est compris dans les deux offres : les textes écrits par l'IA, la publication sur Instagram et Facebook, les fêtes de votre métier, le planning et le bilan du mois.</Body>
 
           {notReady ? (
-            <Notice tone="orange" title="Le paiement en ligne arrive bientôt" text="Votre mois offert continue en attendant. Vous pourrez choisir votre offre ici." />
+            <Notice tone="orange" title="Le paiement en ligne arrive bientôt" text="Vous pouvez continuer à utiliser Vitrine en attendant. Vous pourrez choisir votre offre ici." />
           ) : account?.kind === 'guest' ? (
             <Card style={{ gap: 12 }}>
               <Body style={{ fontWeight: '700' }}>D'abord, protégez votre compte</Body>
@@ -160,6 +177,7 @@ export function Offers({ payment }: { payment?: 'ok' | 'annule' }) {
       )}
 
       <Body soft size={15} center>TVA non applicable, art. 293 B du CGI.</Body>
+      {blocked && <DeleteAccount />}
       <Button title="Conditions d'utilisation" kind="ghost" onPress={() => Linking.openURL(`${SITE}/conditions/`)} />
     </ScrollView>
   );

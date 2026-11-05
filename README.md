@@ -70,9 +70,11 @@ Créer une clé sur https://platform.openai.com → API keys, ajouter un moyen d
 
 ## 6. Configuration Stripe (paiement)
 
-Offres : **1er mois offert**, puis **Mensuel 39 €/mois** (sans engagement) ou **Annuel 29 €/mois** (engagement 1 an, payé chaque mois). Les montants vivent dans la table `plans`.
+Offres : **15 jours offerts** (sans carte bancaire), puis **Mensuel 39 €/mois** (sans engagement) ou **Annuel 29 €/mois** (engagement 1 an, payé chaque mois). Les montants vivent dans la table `plans`.
 
-- Écran « Mon abonnement » (Réglages) → fonction `billing` → page de paiement Stripe Checkout (carte enregistrée, 1er prélèvement à la fin du mois offert).
+- Écran « Mon abonnement » (Réglages) → fonction `billing` → page de paiement Stripe Checkout (carte enregistrée, 1er prélèvement à la fin de l'essai).
+- Fin de l'essai sans abonnement : l'appli n'affiche plus que « Mon abonnement » (bilan des 15 jours + offres + suppression du compte), et le serveur refuse d'écrire ou de publier (`_shared/access.ts`, erreur `trial_over`). Seulement quand `STRIPE_SECRET_KEY` est défini. Accès offert à la main : `status = 'free'` dans `subscriptions`.
+- Bilan de l'essai (3 jours avant la fin) : posts et stories vraiment publiés, temps gagné, et projection sur un mois au même rythme.
 - Le produit « Vitrine », les prix (`lookup_key` `vitrine_mensuel` / `vitrine_annuel`) et deux réglages du portail client (avec et sans résiliation) sont **créés automatiquement** au premier usage.
 - Offre Annuel : pendant les 12 mois d'engagement, le portail permet de changer de carte et de voir les factures, mais pas de résilier en un clic.
 - Webhook `stripe-webhook` (signature vérifiée, idempotent via `stripe_events`) : met à jour `subscriptions`.

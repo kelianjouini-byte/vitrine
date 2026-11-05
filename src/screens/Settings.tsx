@@ -9,33 +9,16 @@ import { useApp } from '../lib/store';
 import { toneLabel, tradeLabel } from '../lib/business';
 import { isBackendConfigured } from '../lib/config';
 import { notificationsSupported } from '../lib/notifications';
-import { accountState, confirmProtectAccount, currentUserId, deleteAccountRemote, FriendlyError, protectAccount, saveBusinessRemote, signOut, type AccountState } from '../lib/api';
+import { accountState, confirmProtectAccount, FriendlyError, protectAccount, saveBusinessRemote, signOut, type AccountState } from '../lib/api';
 import { EmailCodeForm } from '../components/AccountForms';
+import { DeleteAccount } from '../components/DeleteAccount';
 
 /** Pages légales publiques (public/confidentialite, public/conditions), servies par GitHub Pages. */
 const LEGAL_SITE = 'https://kelianjouini-byte.github.io/vitrine';
 
 export function Settings() {
-  const { business, prefs, setPrefs, back, go, resetAll, saveBusiness, refreshConnections } = useApp();
+  const { business, prefs, setPrefs, back, go, saveBusiness, refreshConnections } = useApp();
   const b = business!;
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-
-  async function deleteEverything() {
-    setDeleting(true);
-    setDeleteError(null);
-    try {
-      if (isBackendConfigured && (await currentUserId())) {
-        await deleteAccountRemote();
-        await signOut();
-      }
-      await resetAll();
-    } catch (e) {
-      setDeleteError(e instanceof FriendlyError ? e.message : 'La suppression a échoué. Réessayez.');
-      setDeleting(false);
-    }
-  }
 
   return (
     <ScrollView contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 48 }}>
@@ -57,7 +40,7 @@ export function Settings() {
       <Card onPress={() => go({ name: 'offers' })} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         <View style={{ flex: 1, gap: 2 }}>
           <Body style={{ fontWeight: '700' }}>Voir les offres</Body>
-          <Body soft size={15}>1er mois offert, puis Mensuel 39 € ou Annuel 29 € par mois.</Body>
+          <Body soft size={15}>15 jours offerts, puis Mensuel 39 € ou Annuel 29 € par mois.</Body>
         </View>
         <Chevron />
       </Card>
@@ -112,17 +95,7 @@ export function Settings() {
 
       <Label>Mes données</Label>
       <Body soft size={15}>Vos photos et vos textes vous appartiennent. Vous pouvez tout supprimer à tout moment : votre boutique, vos posts et vos connexions.</Body>
-      {!confirmDelete ? (
-        <Button title="Supprimer mon compte" kind="danger" onPress={() => setConfirmDelete(true)} />
-      ) : (
-        <Card style={{ gap: 12, borderColor: colors.red }}>
-          <Body style={{ fontWeight: '700' }}>Tout supprimer ?</Body>
-          <Body soft size={15}>Votre boutique, vos posts et vos connexions seront effacés, et votre abonnement arrêté. Les posts déjà en ligne restent sur Instagram et Facebook.</Body>
-          {deleteError && <Notice tone="red" title={deleteError} />}
-          <Button title="Oui, tout supprimer" kind="danger" loading={deleting} onPress={deleteEverything} />
-          <Button title="Annuler" kind="ghost" onPress={() => setConfirmDelete(false)} />
-        </Card>
-      )}
+      <DeleteAccount />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' }}>
         <Button title="Confidentialité" kind="ghost" onPress={() => Linking.openURL(`${LEGAL_SITE}/confidentialite/`)} />
         <Button title="Conditions d'utilisation" kind="ghost" onPress={() => Linking.openURL(`${LEGAL_SITE}/conditions/`)} />

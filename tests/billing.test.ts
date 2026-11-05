@@ -1,20 +1,31 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  addMonths, formEncode, isLive, signForTest, stripeTrialEnd, subscriptionRow, trialEndsAt, verifyStripeSignature,
+  accessState, addMonths, formEncode, isLive, signForTest, stripeTrialEnd, subscriptionRow, trialEndsAt, verifyStripeSignature,
 } from '../supabase/functions/_shared/billing.ts';
 
-test('le mois offert dure 30 jours après la création de la boutique', () => {
-  assert.equal(trialEndsAt('2026-11-01T10:00:00Z').toISOString(), '2026-12-01T10:00:00.000Z');
+test("l'essai gratuit dure 15 jours après la création de la boutique", () => {
+  assert.equal(trialEndsAt('2026-11-01T10:00:00Z').toISOString(), '2026-11-16T10:00:00.000Z');
 });
 
-test('Stripe reçoit la fin du mois offert, sinon rien quand il est passé', () => {
+test("Stripe reçoit la fin de l'essai, sinon rien quand il est passé", () => {
   const now = new Date('2026-11-05T10:00:00Z');
-  assert.equal(stripeTrialEnd('2026-11-01T10:00:00Z', now), Date.parse('2026-12-01T10:00:00Z') / 1000);
-  assert.equal(stripeTrialEnd('2026-09-01T10:00:00Z', now), null);
+  assert.equal(stripeTrialEnd('2026-11-01T10:00:00Z', now), Date.parse('2026-11-16T10:00:00Z') / 1000);
+  assert.equal(stripeTrialEnd('2026-10-01T10:00:00Z', now), null);
   // Moins de 48 h restantes : on arrondit à 48 h (en faveur du commerçant).
-  const almost = stripeTrialEnd('2026-10-07T09:00:00Z', now)!;
+  const almost = stripeTrialEnd('2026-10-22T09:00:00Z', now)!;
   assert.ok(almost * 1000 >= now.getTime() + 2 * 86_400_000);
+});
+
+test("accès : essai, terminé, payé, offert à la main", () => {
+  const now = new Date('2026-11-20T10:00:00Z');
+  assert.equal(accessState('2026-11-10T10:00:00Z', null, now), 'trial');
+  assert.equal(accessState('2026-11-01T10:00:00Z', null, now), 'expired');
+  // Ligne créée au moment du paiement mais pas encore d'abonnement Stripe : toujours bloqué.
+  assert.equal(accessState('2026-11-01T10:00:00Z', { status: 'trialing', stripe_subscription_id: null }, now), 'expired');
+  assert.equal(accessState('2026-11-01T10:00:00Z', { status: 'active', stripe_subscription_id: 'sub_1' }, now), 'paid');
+  assert.equal(accessState('2026-11-01T10:00:00Z', { status: 'canceled', stripe_subscription_id: 'sub_1' }, now), 'expired');
+  assert.equal(accessState('2026-11-01T10:00:00Z', { status: 'free' }, now), 'free');
 });
 
 test('ajouter 12 mois garde le jour, ou le dernier jour du mois', () => {

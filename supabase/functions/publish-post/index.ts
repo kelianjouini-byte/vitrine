@@ -1,6 +1,7 @@
 // POST { post_id, caption, hashtags[], platforms[], image_paths[]?, idempotency_key }
 // -> { publications: [{ platform, status, url, error, publishedAt }] }
 // Idempotent : une publication déjà réussie n'est JAMAIS renvoyée à Meta (voir _shared/publish.ts).
+import { requireAccess } from '../_shared/access.ts';
 import { handler, json, HttpError } from '../_shared/http.ts';
 import { requireMerchant } from '../_shared/db.ts';
 import { postImagePaths, readImagePaths } from '../_shared/photos.ts';
@@ -10,6 +11,7 @@ import { readPlatforms, sendToNetworks } from '../_shared/publish.ts';
 Deno.serve(handler(async (req) => {
   metaConfig(); // lève meta_not_configured si les secrets Meta manquent
   const { db, userId, business } = await requireMerchant(req);
+  await requireAccess(db, business);
   const body = await req.json().catch(() => ({}));
   const platforms = readPlatforms(body.platforms);
   const caption = String(body.caption ?? '').trim().slice(0, 2000);

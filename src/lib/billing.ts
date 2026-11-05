@@ -1,10 +1,12 @@
 /**
  * Offres Vitrine, côté appli (affichage). Le montant réellement prélevé vient du serveur (table plans).
- * Décision de Kelian (5 nov. 2026) : 1er mois offert, puis Mensuel 39 € ou Annuel 29 € par mois (engagement 1 an, payé chaque mois).
+ * Décision de Kelian (5 nov. 2026) : 15 jours offerts (sans carte), puis Mensuel 39 € ou Annuel 29 € par mois (engagement 1 an, payé chaque mois).
  */
-import type { PlanId } from '../../supabase/functions/_shared/billing';
+import type { Access, PlanId } from '../../supabase/functions/_shared/billing';
 
-export type { PlanId };
+export type { Access, PlanId };
+export { TRIAL_DAYS } from '../../supabase/functions/_shared/billing';
+export { TRIAL_REPORT_DAYS_BEFORE, trialReminders, trialSummary, type TrialSummary } from './report';
 /** Même règle que le serveur (« abonnement en cours »). */
 export { isLive as isLiveStatus } from '../../supabase/functions/_shared/billing';
 
@@ -23,6 +25,9 @@ export const OFFERS: Offer[] = [
 export interface BillingStatus {
   /** false : le paiement en ligne n'est pas encore activé sur le serveur. */
   configured: boolean;
+  /** Essai en cours, payé, offert, ou essai terminé. */
+  access: Access;
+  trialStartedAt: string;
   trialEndsAt: string;
   plans: { id: PlanId; name: string; monthly_price_cents: number; commitment_months: number }[];
   subscription: null | {
@@ -69,7 +74,7 @@ export function statusText(s: NonNullable<BillingStatus['subscription']>, offers
   const name = offer ? `${offer.name}, ${euros(offer.priceCents)} par mois` : 'Vitrine';
   const next = s.currentPeriodEnd ? frenchDate(s.currentPeriodEnd) : null;
   if (s.status === 'trialing') {
-    return { tone: 'green', title: `Offre ${name}`, text: `Votre mois offert continue. 1er paiement le ${next ?? frenchDate(s.trialEnd ?? new Date().toISOString())}.` };
+    return { tone: 'green', title: `Offre ${name}`, text: `Vos jours gratuits continuent. 1er paiement le ${next ?? frenchDate(s.trialEnd ?? new Date().toISOString())}.` };
   }
   if (s.status === 'active' && s.cancelAtPeriodEnd) {
     return { tone: 'orange', title: `Offre ${name}`, text: next ? `Résilié : votre abonnement s'arrête le ${next}.` : 'Résilié.' };
@@ -79,4 +84,9 @@ export function statusText(s: NonNullable<BillingStatus['subscription']>, offers
     return { tone: 'red', title: 'Le dernier paiement n\'est pas passé', text: 'Touchez « Gérer mon paiement » pour changer de carte bancaire.' };
   }
   return { tone: 'orange', title: 'Abonnement terminé', text: 'Choisissez une offre pour continuer avec Vitrine.' };
+}
+
+/** L'appli est bloquée : essai terminé, pas d'abonnement, et le paiement est bien activé (sinon le commerçant ne pourrait pas payer). */
+export function isBlocked(status: BillingStatus | null): boolean {
+  return Boolean(status?.configured && status.access === 'expired');
 }
