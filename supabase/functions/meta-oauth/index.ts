@@ -1,12 +1,14 @@
-// Connexion Meta (OAuth officiel). Quatre actions :
+// Connexion Meta (OAuth officiel). Actions :
 //  POST {action:'status'}               -> { configured }  (le bouton « Connecter » sait s'il peut servir)
 //  POST {action:'start', redirect_uri}  -> { url }   (l'app ouvre cette URL Meta)
 //  GET  ?code=...&state=...             -> callback Meta : échange du code, stockage CHIFFRÉ des jetons,
-//                                          puis redirection vers l'app (vitrine://meta-connected ou la version web, ?status=ok|error)
+//                                          puis redirection vers l'app (vitrine://meta-connected ou la version web, ?status=ok|error|choose)
+//  POST {action:'pending_pages'}        -> { pages: [{id, name, instagram}] }  (plusieurs Pages : le commerçant choisit)
+//  POST {action:'choose_page', page_id} -> { ok, instagram }
 //  POST {action:'disconnect', platform}
 import { handler, json, HttpError, env } from '../_shared/http.ts';
 import { admin, requireMerchant } from '../_shared/db.ts';
-import { encrypt, hmac } from '../_shared/crypto.ts';
+import { decrypt, encrypt, hmac } from '../_shared/crypto.ts';
 import { graph, metaConfig, metaReady, META_SCOPES, GRAPH_VERSION } from '../_shared/meta.ts';
 
 const callbackUrl = () => `${Deno.env.get('SUPABASE_URL')}/functions/v1/meta-oauth`;
@@ -42,6 +44,21 @@ Deno.serve(handler(async (req) => {
     return json({ url: url.toString() });
   }
 
+  if (body.action === 'pending_pages') {
+    // La liste des Pages à choisir, SANS les jetons.
+    const pending = await readPending(business.id);
+    return json({ pages: (pending?.pages ?? []).map((p) => ({ id: p.id, name: p.name, instagram: p.ig?.username ? `@${p.ig.username}` : p.ig ? 'Instagram' : null })) });
+  }
+
+  if (body.action === 'choose_page') {
+    const pending = await readPending(business.id);
+    const page = pending?.pages.find((p) => p.id === String(body.page_id ?? ''));
+    if (!pending || !page) throw new HttpError(410, 'choice_expired', 'Le choix a expiré. Reconnectez votre compte.');
+    const hasIg = await saveConnection(db, { businessId: business.id, metaUserId: pending.metaUserId, granted: pending.granted }, page);
+    await db.from('meta_pending_pages').delete().eq('business_id', business.id);
+    return json({ ok: true, instagram: hasIg });
+  }
+
   if (body.action === 'disconnect') {
     const platform = body.platform === 'facebook' ? 'facebook' : 'instagram';
     await db.from('social_accounts').delete().eq('business_id', business.id).eq('platform', platform);
@@ -50,13 +67,43 @@ Deno.serve(handler(async (req) => {
   throw new HttpError(400, 'bad_action', 'Action inconnue.');
 }));
 
+interface PendingPage { id: string; name: string; token: string; ig: { id: string; username?: string } | null }
+interface Connection { businessId: string; metaUserId: string; granted: string[] }
+type MetaPage = { id: string; name: string; access_token: string; instagram_business_account?: { id: string; username?: string } };
+
+const toPending = (p: MetaPage): PendingPage => ({ id: p.id, name: p.name, token: p.access_token, ig: p.instagram_business_account ?? null });
+
+/** Pages en attente de choix pour cette boutique (null si rien ou expiré). */
+async function readPending(businessId: string) {
+  const { data } = await admin().from('meta_pending_pages').select('*').eq('business_id', businessId).maybeSingle();
+  if (!data || new Date(data.expires_at) < new Date()) return null;
+  return { pages: JSON.parse(await decrypt(data.encrypted_pages)) as PendingPage[], metaUserId: data.meta_user_id as string, granted: data.granted_scopes as string[] };
+}
+
+/**
+ * Enregistre la Page choisie (Facebook) et son Instagram professionnel lié. Remplace l'ancienne connexion.
+ * Le jeton de Page issu d'un jeton long n'expire pas. Retourne true si un Instagram est relié.
+ */
+async function saveConnection(db: ReturnType<typeof admin>, c: Connection, page: PendingPage): Promise<boolean> {
+  const base = { business_id: c.businessId, granted_scopes: c.granted, meta_user_id: c.metaUserId, connection_status: 'connected', token_expires_at: null };
+  const encrypted = await encrypt(page.token);
+  await db.from('social_accounts').delete().eq('business_id', c.businessId);
+  if (c.granted.includes('pages_manage_posts')) {
+    await db.from('social_accounts').insert({ ...base, platform: 'facebook', account_id: page.id, page_id: page.id, account_name: page.name, encrypted_access_token: encrypted });
+  }
+  if (page.ig && c.granted.includes('instagram_content_publish')) {
+    await db.from('social_accounts').insert({ ...base, platform: 'instagram', account_id: page.ig.id, page_id: page.id, account_name: page.ig.username ? `@${page.ig.username}` : page.name, encrypted_access_token: encrypted });
+  }
+  return !!page.ig;
+}
+
 async function callback(req: Request): Promise<Response> {
   const { appId, appSecret } = metaConfig();
   const params = new URL(req.url).searchParams;
   const [payload, sig] = (params.get('state') ?? '').split('.');
   if (!payload || sig !== (await hmac(payload, appSecret))) return new Response('Lien invalide.', { status: 400 });
   const state = JSON.parse(atob(payload)) as { b: string; r: string; e: number };
-  const back = (status: 'ok' | 'error', reason?: string) =>
+  const back = (status: 'ok' | 'error' | 'choose', reason?: string) =>
     Response.redirect(`${state.r}${state.r.includes('?') ? '&' : '?'}status=${status}${reason ? `&reason=${reason}` : ''}`, 302);
   if (Date.now() > state.e) return back('error', 'expired');
   const code = params.get('code');
@@ -71,22 +118,25 @@ async function callback(req: Request): Promise<Response> {
     const granted = perms.data.filter((p) => p.status === 'granted').map((p) => p.permission);
 
     // 2. Pages gérées + compte Instagram professionnel lié
-    const pages = await graph<{ data: { id: string; name: string; access_token: string; instagram_business_account?: { id: string; username?: string } }[] }>(
+    const pages = await graph<{ data: MetaPage[] }>(
       'me/accounts', { fields: 'id,name,access_token,instagram_business_account{id,username}', access_token: long.access_token });
     if (!pages.data.length) return back('error', 'no_page');
-    // MVP : première Page (choix de la Page à ajouter si plusieurs). Le jeton de Page issu d'un jeton long n'expire pas.
-    const page = pages.data.find((p) => p.instagram_business_account) ?? pages.data[0];
     const db = admin();
-    const base = { business_id: state.b, granted_scopes: granted, meta_user_id: me.id, connection_status: 'connected', token_expires_at: null };
-    const encrypted = await encrypt(page.access_token);
-
-    if (granted.includes('pages_manage_posts')) {
-      await db.from('social_accounts').upsert({ ...base, platform: 'facebook', account_id: page.id, page_id: page.id, account_name: page.name, encrypted_access_token: encrypted }, { onConflict: 'business_id,platform' });
+    const conn: Connection = { businessId: state.b, metaUserId: me.id, granted };
+    // Une seule Page : on la prend. Plusieurs : le commerçant choisit dans Vitrine (« Sur quelle Page publier ? »).
+    if (pages.data.length === 1) {
+      const hasIg = await saveConnection(db, conn, toPending(pages.data[0]));
+      return back(hasIg ? 'ok' : 'error', hasIg ? undefined : 'no_instagram');
     }
-    if (page.instagram_business_account && granted.includes('instagram_content_publish')) {
-      await db.from('social_accounts').upsert({ ...base, platform: 'instagram', account_id: page.instagram_business_account.id, page_id: page.id, account_name: page.instagram_business_account.username ? `@${page.instagram_business_account.username}` : page.name, encrypted_access_token: encrypted }, { onConflict: 'business_id,platform' });
-    }
-    return back(page.instagram_business_account ? 'ok' : 'error', page.instagram_business_account ? undefined : 'no_instagram');
+    // Les jetons de Page restent CHIFFRÉS en attendant le choix (30 minutes maximum).
+    await db.from('meta_pending_pages').upsert({
+      business_id: state.b,
+      meta_user_id: me.id,
+      granted_scopes: granted,
+      encrypted_pages: await encrypt(JSON.stringify(pages.data.slice(0, 50).map(toPending))),
+      expires_at: new Date(Date.now() + 30 * 60_000).toISOString(),
+    }, { onConflict: 'business_id' });
+    return back('choose');
   } catch (e) {
     console.error('[vitrine] meta callback', e instanceof Error ? e.message : '');
     return back('error', 'meta');

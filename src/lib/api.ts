@@ -356,6 +356,26 @@ export async function metaLoginUrl(redirectUri: string): Promise<string> {
   return res.url;
 }
 
+/** Une Page Facebook proposée au choix (« Sur quelle Page publier ? »). */
+export interface MetaPageChoice {
+  id: string;
+  name: string;
+  /** Le compte Instagram relié à cette Page (ex. « @vitrine »), ou null. */
+  instagram: string | null;
+}
+
+/** Le compte gère plusieurs Pages : la liste à choisir (sans aucun jeton). */
+export async function metaPendingPages(): Promise<MetaPageChoice[]> {
+  const res = await callFunction<{ pages: MetaPageChoice[] }>('meta-oauth', { action: 'pending_pages' });
+  return Array.isArray(res?.pages) ? res.pages : [];
+}
+
+/** Enregistre la Page choisie. Retourne true si un Instagram y est relié. */
+export async function chooseMetaPage(pageId: string): Promise<boolean> {
+  const res = await callFunction<{ instagram?: boolean }>('meta-oauth', { action: 'choose_page', page_id: pageId });
+  return res?.instagram === true;
+}
+
 export async function socialConnections(): Promise<SocialConnection[]> {
   if (!supabase) return [];
   // Vue sans jetons : le client ne voit jamais les jetons Meta.
