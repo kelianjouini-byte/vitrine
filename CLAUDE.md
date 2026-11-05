@@ -5,7 +5,7 @@
 
 ## 1. Présentation
 Vitrine est une application mobile SaaS (iOS / Android) pour les petits commerces indépendants français (fleuristes, boulangeries, coiffeurs, cavistes...). Le commerçant prend une photo, l'IA écrit la publication (texte, emojis, hashtags locaux) dans le ton de sa boutique, il valide, Vitrine publie sur Instagram et Facebook. Un calendrier des fêtes commerciales, filtré par métier, lui rappelle chaque occasion.
-Cible : commerçants de 55 à 70 ans peu à l'aise avec la technologie. Offres : Découverte (1 mois gratuit), Essentielle 29 €/mois, Premium 49 €/mois.
+Cible : commerçants de 55 à 70 ans peu à l'aise avec la technologie. Prix : 1er mois offert, puis 39 €/mois sans engagement ou 29 €/mois avec engagement 1 an (choix de Kelian, 5 nov. 2026).
 Le propriétaire du projet est francophone et débutant : **expliquer en français simple**, sans jargon.
 
 ## 2. Architecture technique
