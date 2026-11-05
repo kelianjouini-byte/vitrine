@@ -1,9 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Body, Card, Chevron, DateTile, IconTile, Label, Notice, Title } from '../components/ui';
 import { takePhoto } from '../lib/photo';
-import { FriendlyError } from '../lib/api';
-import { BulbIcon, CameraIcon, CheckIcon, LinkIcon, StoryIcon } from '../components/icons';
+import { accountState, FriendlyError } from '../lib/api';
+import { BulbIcon, CameraIcon, CheckIcon, LinkIcon, StoreIcon, StoryIcon } from '../components/icons';
 import { colors, fonts, glassSurface, greenGradient } from '../lib/theme';
 import { useApp } from '../lib/store';
 import { daysUntil, inDaysLabel, upcomingEvents, upcomingHolidays } from '../lib/events';
@@ -31,6 +31,9 @@ export function Home() {
   const [photoError, setPhotoError] = useState<string | null>(null);
   // Le gros bouton propose 2 choix : un post (photo + texte de l'IA) ou une story (photo ou vidéo).
   const [choosing, setChoosing] = useState(false);
+  // Compte sans e-mail : après le 1er post, on propose de le protéger (sinon, perdu en changeant de téléphone).
+  const [guest, setGuest] = useState(false);
+  useEffect(() => { accountState().then((a) => setGuest(a.kind === 'guest')).catch(() => {}); }, [posts.length]);
 
   // Post : l'appareil photo s'ouvre tout de suite, la photo est cadrée toute seule.
   async function shoot() {
@@ -92,6 +95,17 @@ export function Home() {
             <Text style={{ color: colors.green, fontWeight: '700', fontSize: 16, fontFamily: fonts.body }}>Choisir une photo dans la galerie →</Text>
           </Pressable>
         </View>
+      )}
+
+      {guest && posts.length > 0 && (
+        <Card onPress={() => go({ name: 'settings' })} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: 'rgba(252,239,217,0.8)' }}>
+          <IconTile size={44} tone="orange"><StoreIcon size={22} color={colors.orangeText} /></IconTile>
+          <View style={{ flex: 1 }}>
+            <Body style={{ fontWeight: '700' }}>Protégez votre compte</Body>
+            <Body soft size={15}>Ajoutez votre e-mail pour retrouver votre boutique si vous changez de téléphone.</Body>
+          </View>
+          <Chevron />
+        </Card>
       )}
 
       {next && (

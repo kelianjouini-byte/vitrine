@@ -9,7 +9,8 @@ import { useApp } from '../lib/store';
 import { toneLabel, tradeLabel } from '../lib/business';
 import { isBackendConfigured } from '../lib/config';
 import { notificationsSupported } from '../lib/notifications';
-import { currentUserId, deleteAccountRemote, FriendlyError, saveBusinessRemote, sendLoginCode, signOut, verifyLoginCode } from '../lib/api';
+import { accountState, confirmProtectAccount, currentUserId, deleteAccountRemote, FriendlyError, protectAccount, saveBusinessRemote, signOut, type AccountState } from '../lib/api';
+import { EmailCodeForm } from '../components/AccountForms';
 
 /** Pages légales publiques (public/confidentialite, public/conditions), servies par GitHub Pages. */
 const LEGAL_SITE = 'https://kelianjouini-byte.github.io/vitrine';
@@ -49,18 +50,14 @@ export function Settings() {
         <Body soft size={15}>Ton : {toneLabel(b.tone)}</Body>
       </Card>
 
-      <Label>Carte d'identité de la boutique</Label>
-      <IdentityCard />
-
       <Label>Mon compte</Label>
-      <Account onLoggedIn={async () => {
-        b.id = await saveBusinessRemote(b);
-        await saveBusiness({ ...b });
-        await refreshConnections();
-      }} />
+      <Account />
 
       <Label>Mes réseaux</Label>
       <NetworkCards />
+
+      <Label>Carte d'identité de la boutique</Label>
+      <IdentityCard />
 
       <Label>Rappels avant les fêtes</Label>
       <Card style={{ gap: 14 }}>
@@ -160,51 +157,48 @@ function IdentityCard() {
   );
 }
 
-/** Connexion par code reçu par e-mail (pas de mot de passe à retenir). */
-function Account({ onLoggedIn }: { onLoggedIn: () => Promise<void> }) {
-  const [userId, setUserId] = useState<string | null>(null);
-  const [email, setEmail] = useState('');
-  const [code, setCode] = useState('');
-  const [step, setStep] = useState<'email' | 'code'>('email');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => { currentUserId().then(setUserId); }, []);
+/**
+ * Mon compte. Un compte « invité » (créé sans e-mail à l'inscription) est protégé en lui ajoutant un e-mail :
+ * c'est le MÊME compte, rien n'est perdu. Sans e-mail, on ne propose pas de se déconnecter (le compte serait perdu).
+ */
+function Account() {
+  const { resetAll } = useApp();
+  const [state, setState] = useState<AccountState | null>(null);
+  const [confirmOut, setConfirmOut] = useState(false);
+  useEffect(() => { accountState().then(setState); }, []);
 
   if (!isBackendConfigured) {
     return <Notice tone="orange" title="Compte en ligne bientôt disponible" text="Pour l'instant, vos informations restent sur cet appareil." />;
   }
-  if (userId) {
+  if (!state) return null;
+
+  if (state.kind === 'email') {
     return (
       <Card style={{ gap: 10 }}>
-        <Body>Vous êtes connecté.</Body>
-        <Button title="Se déconnecter" kind="ghost" onPress={async () => { await signOut(); setUserId(null); }} />
+        <Body style={{ fontWeight: '700' }}>Votre compte est protégé</Body>
+        <Body soft size={15}>Adresse : {state.email}. Avec elle, vous retrouvez votre boutique sur un autre téléphone.</Body>
+        {!confirmOut ? (
+          <Button title="Se déconnecter de ce téléphone" kind="ghost" onPress={() => setConfirmOut(true)} />
+        ) : (
+          <>
+            <Body size={15}>Vitrine s'effacera de ce téléphone. Votre boutique et vos posts restent en sécurité : vous les retrouverez avec votre e-mail.</Body>
+            <Button title="Oui, me déconnecter" kind="secondary" onPress={async () => { await signOut(); await resetAll(); }} />
+            <Button title="Annuler" kind="ghost" onPress={() => setConfirmOut(false)} />
+          </>
+        )}
       </Card>
     );
   }
 
-  async function run(fn: () => Promise<void>) {
-    setBusy(true);
-    setError(null);
-    try { await fn(); } catch (e) { setError(e instanceof FriendlyError ? e.message : 'Réessayez dans un instant.'); } finally { setBusy(false); }
-  }
-
   return (
-    <Card style={{ gap: 12 }}>
-      {step === 'email' ? (
-        <>
-          <Field label="Votre e-mail" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoComplete="email" placeholder="marie@exemple.fr" />
-          <Button title="Recevoir mon code" loading={busy} disabled={!/^\S+@\S+\.\S+$/.test(email)} onPress={() => run(async () => { await sendLoginCode(email.trim()); setStep('code'); })} />
-        </>
-      ) : (
-        <>
-          <Body soft size={15}>Nous avons envoyé un code à {email}.</Body>
-          <Field label="Code reçu" value={code} onChangeText={setCode} keyboardType="number-pad" placeholder="123456" />
-          <Button title="Valider" loading={busy} onPress={() => run(async () => { await verifyLoginCode(email.trim(), code); setUserId(await currentUserId()); await onLoggedIn(); })} />
-          <Button title="Changer d'e-mail" kind="ghost" onPress={() => setStep('email')} />
-        </>
-      )}
-      {error && <Notice tone="red" title={error} />}
+    <Card style={{ gap: 12, backgroundColor: 'rgba(252,239,217,0.75)' }}>
+      <Body style={{ fontWeight: '700' }} size={18}>Protégez votre compte</Body>
+      <EmailCodeForm
+        intro="Ajoutez votre e-mail : si vous changez de téléphone, vous retrouverez votre boutique, vos posts et vos réseaux. Pas de mot de passe, juste un code."
+        sendLabel="Recevoir mon code"
+        onSend={protectAccount}
+        onVerify={async (email, code) => { await confirmProtectAccount(email, code); setState(await accountState()); }}
+      />
     </Card>
   );
 }

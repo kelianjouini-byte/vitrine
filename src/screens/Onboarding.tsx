@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Body, Button, Chip, Field, Title } from '../components/ui';
+import { Body, Button, Card, Chip, Field, Title } from '../components/ui';
+import { EmailCodeForm } from '../components/AccountForms';
 import { NetworkCards } from '../components/NetworkCards';
 import { LogoMark } from '../components/icons';
 import { GlassBackground } from '../components/GlassBackground';
@@ -10,16 +11,17 @@ import { TradePicker } from '../components/TradePicker';
 import { IdentityFields } from '../components/IdentityFields';
 import { matchTrade } from '../lib/trades';
 import { occasionCatalog } from '../lib/events';
-import { colors } from '../lib/theme';
+import { colors, fonts } from '../lib/theme';
 import { useApp } from '../lib/store';
-import { detectBusiness, saveBusinessRemote, suggestOccasionKeys, FriendlyError } from '../lib/api';
+import { detectBusiness, saveBusinessRemote, sendLoginCode, suggestOccasionKeys, verifyLoginCode, FriendlyError } from '../lib/api';
 import { isBackendConfigured } from '../lib/config';
 import type { Business, Tone } from '../lib/types';
 
 const STEPS = 4;
 
 export function Onboarding() {
-  const { saveBusiness } = useApp();
+  const { saveBusiness, restoreFromServer } = useApp();
+  const [restoring, setRestoring] = useState(false);
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<Partial<Business>>({ tone: DEFAULT_TONE });
@@ -132,6 +134,25 @@ export function Onboarding() {
             </View>
             <Title size={30}>Votre boutique</Title>
             <Body soft>Quelques informations pour écrire des posts qui vous ressemblent.</Body>
+            {isBackendConfigured && (!restoring ? (
+              <Pressable onPress={() => setRestoring(true)} accessibilityRole="button" hitSlop={10} style={{ minHeight: 44, justifyContent: 'center' }}>
+                <Text style={{ color: colors.green, fontWeight: '700', fontSize: 16, fontFamily: fonts.body }}>J'ai déjà un compte : retrouver ma boutique ›</Text>
+              </Pressable>
+            ) : (
+              <Card style={{ gap: 12 }}>
+                <Body style={{ fontWeight: '700' }} size={18}>Retrouver ma boutique</Body>
+                <EmailCodeForm
+                  intro="Écrivez l'e-mail qui protège votre compte. Vous recevrez un code pour retrouver votre boutique et vos posts."
+                  sendLabel="Recevoir mon code"
+                  onSend={sendLoginCode}
+                  onVerify={async (email, code) => {
+                    await verifyLoginCode(email, code);
+                    if (!(await restoreFromServer())) throw new FriendlyError("Aucune boutique n'est enregistrée avec ce compte. Créez-la avec le formulaire ci-dessous.");
+                  }}
+                />
+                <Button title="Annuler" kind="ghost" onPress={() => setRestoring(false)} />
+              </Card>
+            ))}
             <Field label="Votre prénom" value={form.ownerFirstName} onChangeText={(v) => set('ownerFirstName', v)} placeholder="Ex. : Marie" error={errors.ownerFirstName} autoComplete="given-name" />
             <Field label="Nom de la boutique" value={form.businessName} onChangeText={(v) => set('businessName', v)} placeholder="Ex. : Fleurs de Marie" error={errors.businessName} />
             <View style={{ flexDirection: 'row', gap: 12 }}>
