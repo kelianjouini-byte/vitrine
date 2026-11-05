@@ -62,7 +62,7 @@ function PublicationRow({ p }: { p: PublicationResult }) {
         </View>
         <View style={{ flex: 1 }}>
           <Body style={{ fontWeight: '700' }}>{ig ? 'Instagram' : 'Facebook'}</Body>
-          {p.error ? <Body soft size={14}>{p.error}</Body> : null}
+          {p.error ? <Body soft size={15}>{p.error}</Body> : null}
         </View>
         <Badge text={label} tone={tone} />
       </View>

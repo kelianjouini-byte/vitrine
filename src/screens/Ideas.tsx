@@ -99,7 +99,7 @@ export function Ideas() {
           {state.ideas.map((idea, i) => (
             <Card key={idea.title} style={{ gap: 10 }}>
               <Pressable onPress={() => shoot(idea)} accessibilityRole="button" accessibilityLabel={`Idée ${i + 1} : ${idea.title}. Prendre la photo`} style={{ gap: 8 }}>
-                <Text style={{ color: colors.orangeText, fontWeight: '700', fontSize: 13, letterSpacing: 1, fontFamily: fonts.body }}>IDÉE {i + 1}</Text>
+                <Text style={{ color: colors.orangeText, fontWeight: '700', fontSize: 14, letterSpacing: 1, fontFamily: fonts.body }}>IDÉE {i + 1}</Text>
                 <Body style={{ fontWeight: '700' }} size={19}>{idea.title}</Body>
                 <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
                   <View style={{ paddingTop: 2 }}><CameraIcon size={18} color={colors.green} /></View>
@@ -112,14 +112,14 @@ export function Ideas() {
                 </View>
               </Pressable>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <Body soft size={14} style={{ flex: 1 }}>Cette idée vous plaît ?</Body>
+                <Body soft size={15} style={{ flex: 1 }}>Cette idée vous plaît ?</Body>
                 <VoteButton up label="J'aime cette idée" on={votes[idea.title] === 1} onPress={() => vote(idea, 1)} />
                 <VoteButton up={false} label="Je n'aime pas cette idée" on={votes[idea.title] === -1} onPress={() => vote(idea, -1)} />
               </View>
             </Card>
           ))}
           {photoError && <Notice tone="red" title="Nous avons besoin de votre attention" text={photoError} />}
-          {!state.basic && <Body soft size={14} center>Vos avis aident Vitrine à mieux vous connaître.</Body>}
+          {!state.basic && <Body soft size={15} center>Vos avis aident Vitrine à mieux vous connaître.</Body>}
           <Button title="3 autres idées" kind="secondary" icon={<RefreshIcon size={20} color={colors.green} />} onPress={loadIdeas} />
         </>
       )}

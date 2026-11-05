@@ -74,6 +74,8 @@ export const StarIcon = ({ size, color = '#000' }: P) => (
 export const StoreIcon = ({ size, color = '#000' }: P) => (
   <S size={size}><Path d="M4 9.5 5.5 5h13L20 9.5M4 9.5c0 1.4 1.1 2.5 2.7 2.5s2.6-1.1 2.6-2.5c0 1.4 1.2 2.5 2.7 2.5s2.7-1.1 2.7-2.5c0 1.4 1 2.5 2.6 2.5S20 10.9 20 9.5M4 9.5h16M5.5 12v8h13v-8M10 20v-4.5h4V20" {...st(color)} /></S>
 );
+export const LinkIcon = ({ size, color = '#000' }: P) => (<S size={size}><Path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" {...st(color)} /></S>);
+export const TrashIcon = ({ size, color = '#000' }: P) => (<S size={size}><Path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" {...st(color)} /></S>);
 export const AlertIcon = ({ size, color = '#000' }: P) => (<S size={size}><Circle cx={12} cy={12} r={9} {...st(color)} /><Path d="M12 7v6M12 16.5v.5" {...st(color)} /></S>);
 
 /** Logo Vitrine « la boutique qui reçoit un j'aime » : store, vitrine aux reflets orange, porte et pastille cœur. `onGreen` : version blanche pour fond vert. */

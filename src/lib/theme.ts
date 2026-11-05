@@ -8,14 +8,14 @@ export const colors = {
   bg: '#F6F7F2',
   white: '#FFFFFF',
   text: '#24332B',
-  textSoft: '#6B766F',
+  textSoft: '#55615A',
   orange: '#F2B66D',
   orangeSoft: '#FCEFD9',
   orangeText: '#8A5A12',
   red: '#D96B61',
   redSoft: '#FBE7E5',
-  blueSoft: '#E6ECFA',
-  blueText: '#3C5BA9',
+  sandSoft: '#F1EBE2',
+  sandText: '#6A5841',
   border: '#E5EAE4',
 };
 

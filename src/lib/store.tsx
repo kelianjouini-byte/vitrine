@@ -2,7 +2,8 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import type { DayChoice, PlanChoices } from './planning';
 import { load, save, clearAll } from './storage';
 import { onNotificationTap, scheduleReminders } from './notifications';
-import { signOut, socialConnections } from './api';
+import { fetchBusinessRemote, fetchRemotePosts, signOut, socialConnections } from './api';
+import { mergePosts } from './sync';
 import { Platform } from 'react-native';
 import type { Business, NotificationPrefs, Post, PostIdea, SocialConnection } from './types';
 import type { RawPhoto } from './photo';
@@ -40,6 +41,10 @@ interface AppState {
   setPrefs: (p: NotificationPrefs) => void;
   refreshConnections: () => Promise<void>;
   resetAll: () => Promise<void>;
+  /** Relit l'historique des posts sur le serveur (nouveau téléphone, autre appareil). */
+  syncPosts: () => Promise<void>;
+  /** Après « Retrouver mon compte » : reprend la boutique et l'historique du serveur. false = aucune boutique trouvée. */
+  restoreFromServer: () => Promise<boolean>;
 }
 
 const DEFAULT_PREFS: NotificationPrefs = { enabled: true, daysBefore: 7, hour: 9, weeklyIdeas: true, monthlyReport: true };
@@ -70,6 +75,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // On affiche l'app tout de suite ; l'état des réseaux arrive juste après.
       setReady(true);
       setConnections(await socialConnections());
+      // L'historique du serveur complète celui du téléphone (posts publiés depuis un autre appareil).
+      await syncPosts().catch(() => {});
     })();
   }, []);
 
@@ -100,6 +107,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return next;
     });
   }, []);
+
+  const syncPosts = useCallback(async () => {
+    const remote = await fetchRemotePosts();
+    if (!remote.length) return;
+    setPosts((list) => {
+      const next = mergePosts(list, remote);
+      save('posts', next);
+      return next;
+    });
+  }, []);
+
+  const restoreFromServer = useCallback(async () => {
+    const b = await fetchBusinessRemote();
+    if (!b) return false;
+    setBusiness(b);
+    await save('business', b);
+    await syncPosts().catch(() => {});
+    setConnections(await socialConnections());
+    setStack([{ name: 'home' }]);
+    return true;
+  }, [syncPosts]);
 
   const setPrefs = useCallback((p: NotificationPrefs) => {
     setPrefsState(p);
@@ -136,8 +164,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo<AppState>(
-    () => ({ ready, business, posts, prefs, connections, route: stack[stack.length - 1], go, back, saveBusiness, upsertPost, planChoices, setDayChoice, setPrefs, refreshConnections, resetAll }),
-    [ready, business, posts, prefs, connections, stack, go, back, saveBusiness, upsertPost, planChoices, setDayChoice, setPrefs, refreshConnections, resetAll],
+    () => ({ ready, business, posts, prefs, connections, route: stack[stack.length - 1], go, back, saveBusiness, upsertPost, planChoices, setDayChoice, setPrefs, refreshConnections, resetAll, syncPosts, restoreFromServer }),
+    [ready, business, posts, prefs, connections, stack, go, back, saveBusiness, upsertPost, planChoices, setDayChoice, setPrefs, refreshConnections, resetAll, syncPosts, restoreFromServer],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

@@ -20,7 +20,7 @@ export function MusicBar({ trackId, on, onToggle, onChange }: { trackId: string;
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={{ color: on ? colors.text : colors.textSoft, fontWeight: '700', fontSize: 16, fontFamily: fonts.body }} numberOfLines={1}>{track?.title}</Text>
-          <Text style={{ color: colors.textSoft, fontSize: 13, fontFamily: fonts.body }}>{on ? 'Le son redescend tout seul à la fin' : 'Le son de la vidéo seulement'}</Text>
+          <Text style={{ color: colors.textSoft, fontSize: 15, fontFamily: fonts.body }}>{on ? 'Le son redescend tout seul à la fin' : 'Le son de la vidéo seulement'}</Text>
         </View>
       </View>
       <Button title="Changer la musique" kind="secondary" icon={<MusicIcon size={20} color={colors.green} />} onPress={onChange} />

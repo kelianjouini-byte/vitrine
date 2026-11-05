@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Platform as RNPlatform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import * as Crypto from 'expo-crypto';
 import { Body, Button, Chip, Field, Notice, PlatformPicker, Title, BackButton } from '../components/ui';
-import { CameraIcon, CheckIcon, ImageIcon, PencilIcon, RefreshIcon, SparkIcon } from '../components/icons';
+import { CameraIcon, CheckIcon, ImageIcon, PencilIcon, RefreshIcon, SparkIcon, TrashIcon } from '../components/icons';
 import { colors, fonts, glassSurface, radius } from '../lib/theme';
 import { useApp } from '../lib/store';
 import { upcomingEvents } from '../lib/events';
@@ -305,9 +305,9 @@ export function Create({ occasionId, initialPhoto, idea, plannedFor, note }: { o
         {header(occasion ? occasion.name : idea ? idea.title : 'Nouvelle publication')}
         {plannedLabel && <Body style={{ fontWeight: '600', color: colors.green }}>Pour {plannedLabel.toLowerCase()}</Body>}
         <Body soft>{idea ? `À photographier : ${idea.photo}` : 'Prenez votre produit, votre vitrine ou votre équipe en photo. Une belle lumière fait toute la différence.'}</Body>
-        <Button title="PRENDRE UNE PHOTO" icon={<CameraIcon size={24} />} loading={busy} onPress={() => pick('camera')} style={{ minHeight: 72 }} />
+        <Button title="Prendre une photo" icon={<CameraIcon size={24} />} loading={busy} onPress={() => pick('camera')} style={{ minHeight: 72 }} />
         <Button title="Choisir dans la galerie" kind="secondary" icon={<ImageIcon size={22} color={colors.green} />} disabled={busy} onPress={() => pick('library')} />
-        <Body soft size={14} center>Dans la galerie, vous pouvez choisir jusqu'à {MAX_PHOTOS} photos d'un coup.</Body>
+        <Body soft size={15} center>Dans la galerie, vous pouvez choisir jusqu'à {MAX_PHOTOS} photos d'un coup.</Body>
         {error && <Notice tone="red" title="Nous avons besoin de votre attention" text={error} />}
       </ScrollView>
     );
@@ -329,7 +329,7 @@ export function Create({ occasionId, initialPhoto, idea, plannedFor, note }: { o
             <View style={{ flex: 1, gap: 8 }}>
               <Text style={{ fontWeight: '700', fontSize: 16, color: colors.text, fontFamily: fonts.body }}>Photo {i + 1}</Text>
               <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-                <SmallButton label="Retirer" danger onPress={() => remove(i)} />
+                <SmallButton label="Retirer" icon={<TrashIcon size={18} color={colors.textSoft} />} onPress={() => remove(i)} />
               </View>
             </View>
             {slides.length > 1 && (
@@ -342,12 +342,12 @@ export function Create({ occasionId, initialPhoto, idea, plannedFor, note }: { o
         ))}
 
         {room > 0 ? (
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            <Button title="Photo" kind="secondary" icon={<CameraIcon size={20} color={colors.green} />} loading={busy} onPress={() => pick('camera')} style={{ flex: 1 }} />
-            <Button title="Galerie" kind="secondary" icon={<ImageIcon size={20} color={colors.green} />} disabled={busy} onPress={() => pick('library')} style={{ flex: 1 }} />
+          <View style={{ gap: 10 }}>
+            <Button title="Prendre une autre photo" kind="secondary" icon={<CameraIcon size={20} color={colors.green} />} loading={busy} onPress={() => pick('camera')} />
+            <Button title="Choisir dans mes photos" kind="secondary" icon={<ImageIcon size={20} color={colors.green} />} disabled={busy} onPress={() => pick('library')} />
           </View>
         ) : (
-          <Body soft size={14} center>{MAX_PHOTOS} photos au maximum : c'est la limite d'Instagram et Facebook.</Body>
+          <Body soft size={15} center>{MAX_PHOTOS} photos au maximum : c'est la limite d'Instagram et Facebook.</Body>
         )}
 
         {notesField}
@@ -356,11 +356,11 @@ export function Create({ occasionId, initialPhoto, idea, plannedFor, note }: { o
 
         {gen ? (
           <>
-            <Button title="VOIR MON POST" onPress={() => setPhase('preview')} style={{ minHeight: 64 }} />
+            <Button title="Voir mon post" onPress={() => setPhase('preview')} style={{ minHeight: 64 }} />
             <Button title="Écrire un nouveau texte pour ces photos" kind="secondary" icon={<RefreshIcon size={18} color={colors.green} />} onPress={() => generate()} />
           </>
         ) : (
-          <Button title="ÉCRIRE MON TEXTE" icon={<SparkIcon size={22} color={colors.white} />} onPress={start} style={{ minHeight: 64 }} />
+          <Button title="Écrire mon texte" icon={<SparkIcon size={22} color={colors.white} />} onPress={start} style={{ minHeight: 64 }} />
         )}
       </ScrollView>
     );
@@ -421,7 +421,7 @@ export function Create({ occasionId, initialPhoto, idea, plannedFor, note }: { o
       </View>
 
       {retryNotice && <Notice tone="orange" title="Pas de nouveau texte cette fois" text={retryNotice} />}
-      {gen?.improvementTip ? <Body soft size={14}>Conseil : {gen.improvementTip}</Body> : null}
+      {gen?.improvementTip ? <Body soft size={15}>Conseil : {gen.improvementTip}</Body> : null}
 
       {!aiNotice && (
         <View style={{ gap: 8 }}>
@@ -433,7 +433,7 @@ export function Create({ occasionId, initialPhoto, idea, plannedFor, note }: { o
       {!aiNotice && (
         <View style={{ gap: 8 }}>
           <Body style={{ fontWeight: '600' }}>Changer le ton</Body>
-          <Body soft size={14}>Le texte ne vous plaît pas ? Choisissez un autre ton, l'IA le réécrit. Seulement pour ce post.</Body>
+          <Body soft size={15}>Le texte ne vous plaît pas ? Choisissez un autre ton, l'IA le réécrit. Seulement pour ce post.</Body>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
             {TONES.map((t) => (
               <Chip key={t.id} label={t.label} selected={tone === t.id} onPress={() => { setTone(t.id); generate(false, t.id); }} />
@@ -448,15 +448,15 @@ export function Create({ occasionId, initialPhoto, idea, plannedFor, note }: { o
 
       {plannedLabel ? (
         <>
-          <Button title={`PRÉVOIR POUR ${DAY_NAMES[weekday(parseDayKey(plannedFor!))].toUpperCase()}`} icon={<CheckIcon size={20} />} loading={busy} onPress={keepForLater} style={{ minHeight: 64 }} />
+          <Button title={`Prévoir pour ${DAY_NAMES[weekday(parseDayKey(plannedFor!))].toLowerCase()}`} icon={<CheckIcon size={20} />} loading={busy} onPress={keepForLater} style={{ minHeight: 64 }} />
           <Button title="Publier maintenant" kind="secondary" disabled={busy} onPress={publish} />
         </>
       ) : (
-        <Button title="PUBLIER MAINTENANT" onPress={publish} style={{ minHeight: 64 }} />
+        <Button title="Publier maintenant" onPress={publish} style={{ minHeight: 64 }} />
       )}
       <View style={{ flexDirection: 'row', gap: 10 }}>
-        <Button title="MODIFIER" kind="secondary" icon={<PencilIcon size={18} color={colors.green} />} onPress={() => setEditing(true)} style={{ flex: 1 }} />
-        <Button title="REFAIRE" kind="secondary" icon={<RefreshIcon size={18} color={colors.green} />} onPress={() => generate()} style={{ flex: 1 }} />
+        <Button title="Modifier" kind="secondary" icon={<PencilIcon size={18} color={colors.green} />} onPress={() => setEditing(true)} style={{ flex: 1 }} />
+        <Button title="Autre texte" kind="secondary" icon={<RefreshIcon size={18} color={colors.green} />} onPress={() => generate()} style={{ flex: 1 }} />
       </View>
       <Button title={slides.length > 1 ? 'Changer les photos' : 'Changer la photo, ou en ajouter'} kind="ghost" onPress={() => { setError(null); setPhase('photos'); }} />
     </ScrollView>
@@ -467,12 +467,16 @@ const inputStyle = (minHeight: number) => ({
   minHeight, borderWidth: 1.5, borderColor: colors.border, borderRadius: 12, padding: 12, fontSize: 16, color: colors.text, textAlignVertical: 'top' as const, fontFamily: fonts.body,
 });
 
-function SmallButton({ label, a11y, onPress, disabled, danger }: { label: string; a11y?: string; onPress: () => void; disabled?: boolean; danger?: boolean }) {
-  const c = danger ? colors.red : colors.green;
+/** Petit bouton des photos (monter, descendre, retirer). « Retirer » est gris : ce n'est pas une erreur. */
+function SmallButton({ label, a11y, onPress, disabled, icon }: { label: string; a11y?: string; onPress: () => void; disabled?: boolean; icon?: React.ReactNode }) {
+  const c = icon ? colors.textSoft : colors.green;
   return (
     <Pressable onPress={onPress} disabled={disabled} accessibilityRole="button" accessibilityLabel={a11y ?? label}
-      style={({ pressed }) => ({ minHeight: 44, minWidth: 44, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1.5, borderColor: c, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.3 : pressed ? 0.8 : 1 })}>
-      <Text style={{ color: c, fontWeight: '700', fontSize: 15, fontFamily: fonts.body }}>{label}</Text>
+      style={({ pressed }) => ({ minHeight: 44, minWidth: 44, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1.5, borderColor: icon ? 'rgba(36,51,43,0.15)' : c, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.3 : pressed ? 0.8 : 1 })}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        {icon}
+        <Text style={{ color: c, fontWeight: '700', fontSize: 15, fontFamily: fonts.body }}>{label}</Text>
+      </View>
     </Pressable>
   );
 }

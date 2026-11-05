@@ -6,11 +6,11 @@ import { colors } from '../lib/theme';
 import { useApp } from '../lib/store';
 import type { PostStatus } from '../lib/types';
 
-const STATUS: Record<PostStatus, { label: string; tone: 'green' | 'orange' | 'red' | 'grey' | 'blue' }> = {
+const STATUS: Record<PostStatus, { label: string; tone: 'green' | 'orange' | 'red' | 'grey' | 'sand' }> = {
   draft: { label: 'Brouillon', tone: 'grey' },
   generating: { label: 'En écriture', tone: 'grey' },
   awaiting_approval: { label: 'À valider', tone: 'orange' },
-  scheduled: { label: 'Programmé', tone: 'blue' },
+  scheduled: { label: 'Programmé', tone: 'sand' },
   publishing: { label: 'En cours', tone: 'grey' },
   published: { label: 'Publié', tone: 'green' },
   partially_published: { label: 'Publié en partie', tone: 'orange' },
@@ -36,7 +36,7 @@ export function Posts() {
             <PostThumb post={p} width={64} height={80} />
             <View style={{ flex: 1, gap: 4 }}>
               <Body size={15} style={{ fontWeight: '600' }}>{p.caption.split('\n')[0].slice(0, 60)}</Body>
-              <Body soft size={13}>{new Date(p.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })} · {p.platforms.map((x) => (x === 'instagram' ? 'Instagram' : 'Facebook')).join(' + ')}</Body>
+              <Body soft size={15}>{new Date(p.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })} · {p.platforms.map((x) => (x === 'instagram' ? 'Instagram' : 'Facebook')).join(' + ')}</Body>
             </View>
             <Badge text={STATUS[p.status].label} tone={STATUS[p.status].tone} />
           </Card>

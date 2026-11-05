@@ -14,10 +14,10 @@ export function IdentityFields({ value, onChange, foundOnline }: { value: Identi
   const hint = foundOnline ? 'Trouvé sur internet : vérifiez et corrigez si besoin.' : undefined;
   return (
     <View style={{ gap: 16 }}>
-      <Field label="Vos produits" value={value.specialties} onChangeText={set('specialties')} placeholder="Bouquets de saison, plantes, compositions de mariage" hint={value.specialties ? hint : undefined} multiline maxLength={500} />
-      <Field label="Ce qui rend votre boutique unique" value={value.strengths} onChangeText={set('strengths')} placeholder="Fait maison, fleurs françaises, 3e génération" hint={value.strengths ? hint : undefined} maxLength={500} />
-      <Field label="Vos clients" value={value.audience} onChangeText={set('audience')} placeholder="Familles du quartier, jeunes couples" hint={value.audience ? hint : undefined} maxLength={300} />
-      <Field label="Votre boutique en quelques mots (facultatif)" value={value.description} onChangeText={set('description')} placeholder="Fleuriste de quartier depuis 1998" multiline maxLength={1000} />
+      <Field label="Vos produits" value={value.specialties} onChangeText={set('specialties')} placeholder="Ex. : bouquets de saison, plantes" hint={value.specialties ? hint : undefined} multiline maxLength={500} />
+      <Field label="Ce qui rend votre boutique unique" value={value.strengths} onChangeText={set('strengths')} placeholder="Ex. : fait maison, 3e génération" hint={value.strengths ? hint : undefined} multiline maxLength={500} />
+      <Field label="Vos clients" value={value.audience} onChangeText={set('audience')} placeholder="Ex. : familles du quartier" hint={value.audience ? hint : undefined} multiline maxLength={300} />
+      <Field label="Votre boutique en quelques mots (facultatif)" value={value.description} onChangeText={set('description')} placeholder="Ex. : fleuriste de quartier depuis 1998" multiline maxLength={1000} />
     </View>
   );
 }

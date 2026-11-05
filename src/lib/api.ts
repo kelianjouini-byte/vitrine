@@ -10,6 +10,7 @@ import { supabase } from './supabase';
 import type { Business, GeneratedPost, Platform, PostIdea, PublicationResult, SocialConnection, Tone } from './types';
 import { tradeLabel } from './business';
 import type { CommercialEvent } from './events';
+import type { RemotePost } from './sync';
 
 export class NotConfiguredError extends Error {
   constructor(public what: 'serveur' | 'ia' | 'meta' | 'compte') {
@@ -47,16 +48,99 @@ async function callFunction<T>(name: string, body: Record<string, unknown>): Pro
 
 // ---------------------------------------------------------------- Compte
 
+/** Où en est le compte sur ce téléphone : aucun, « invité » (sans e-mail) ou protégé par un e-mail. */
+export type AccountState = { kind: 'none' } | { kind: 'guest' } | { kind: 'email'; email: string };
+
+export async function accountState(): Promise<AccountState> {
+  if (!supabase) return { kind: 'none' };
+  const { data } = await supabase.auth.getSession();
+  const u = data.session?.user;
+  if (!u) return { kind: 'none' };
+  return u.is_anonymous || !u.email ? { kind: 'guest' } : { kind: 'email', email: u.email };
+}
+
+/**
+ * Protéger un compte invité : on lui ajoute un e-mail. C'est le MÊME compte (boutique, posts et réseaux gardés).
+ * Supabase envoie un code à 6 chiffres (modèle d'e-mail « Change Email Address » avec {{ .Token }}).
+ */
+export async function protectAccount(email: string): Promise<void> {
+  const sb = requireBackend();
+  const { error } = await sb.auth.updateUser({ email });
+  if (!error) return;
+  if (/already|exists|registered/i.test(error.message)) {
+    throw new FriendlyError('Cette adresse est déjà utilisée par un compte Vitrine. Utilisez-en une autre, ou retrouvez ce compte depuis un nouveau téléphone.');
+  }
+  throw new FriendlyError("Impossible d'envoyer le code. Vérifiez l'adresse e-mail et réessayez.");
+}
+
+export async function confirmProtectAccount(email: string, code: string): Promise<void> {
+  const sb = requireBackend();
+  const { error } = await sb.auth.verifyOtp({ email, token: code.trim(), type: 'email_change' });
+  if (error) throw new FriendlyError("Ce code n'est pas bon ou a expiré. Demandez-en un nouveau.");
+}
+
+/** Retrouver son compte sur un nouveau téléphone : code envoyé par e-mail. Ne crée jamais de nouveau compte. */
 export async function sendLoginCode(email: string): Promise<void> {
   const sb = requireBackend();
-  const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
-  if (error) throw new FriendlyError("Impossible d'envoyer le code. Vérifiez l'adresse e-mail.");
+  const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
+  if (!error) return;
+  if (/not found|signups not allowed|user/i.test(error.message)) {
+    throw new FriendlyError("Aucun compte Vitrine n'utilise cette adresse. Vérifiez-la, ou créez votre boutique.");
+  }
+  throw new FriendlyError("Impossible d'envoyer le code. Vérifiez l'adresse e-mail.");
 }
 
 export async function verifyLoginCode(email: string, code: string): Promise<void> {
   const sb = requireBackend();
   const { error } = await sb.auth.verifyOtp({ email, token: code.trim(), type: 'email' });
   if (error) throw new FriendlyError("Ce code n'est pas bon ou a expiré.");
+}
+
+/** La boutique enregistrée sur le serveur (pour la retrouver sur un nouveau téléphone). */
+export async function fetchBusinessRemote(): Promise<Business | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.from('businesses').select('*').maybeSingle();
+  if (error || !data) return null;
+  return {
+    id: data.id,
+    ownerFirstName: data.owner_first_name,
+    businessName: data.business_name,
+    businessType: data.business_type,
+    trade: data.trade ?? undefined,
+    occasionKeys: data.occasion_keys ?? undefined,
+    city: data.city,
+    postalCode: data.postal_code,
+    tone: data.tone,
+    audience: data.audience ?? undefined,
+    description: data.description ?? undefined,
+    specialties: data.specialties ?? undefined,
+    strengths: data.strengths ?? undefined,
+  };
+}
+
+/** L'historique enregistré sur le serveur (200 derniers posts), avec un lien temporaire vers la 1re photo. */
+export async function fetchRemotePosts(): Promise<RemotePost[]> {
+  if (!supabase || !(await currentUserId())) return [];
+  const { data, error } = await supabase
+    .from('posts')
+    .select('id, status, instagram_caption, hashtags, image_url, image_urls, created_at, published_at, post_publications(platform, status, platform_post_url, error_message, published_at)')
+    .order('created_at', { ascending: false })
+    .limit(200);
+  if (error || !data) return [];
+  const first = data.map((r) => (r.image_urls?.length ? r.image_urls[0] : r.image_url) as string);
+  // 7 jours : la liste est relue à chaque ouverture de l'appli, les liens sont donc renouvelés.
+  const { data: signed } = await supabase.storage.from('post-images').createSignedUrls(first, 7 * 86_400);
+  return data.map((r, i) => ({
+    id: r.id,
+    status: r.status,
+    instagram_caption: r.instagram_caption,
+    hashtags: r.hashtags,
+    image_urls: r.image_urls,
+    created_at: r.created_at,
+    published_at: r.published_at,
+    publications: (r.post_publications ?? []) as RemotePost['publications'],
+    imageUrl: signed?.[i]?.signedUrl ?? null,
+  }));
 }
 
 export async function currentUserId(): Promise<string | null> {

@@ -183,10 +183,10 @@ export function Story() {
       <ScrollView contentContainerStyle={{ padding: 20, gap: 16 }}>
         {header}
         <Body soft>Une photo ou une petite vidéo, en plein écran. Elle reste visible 24 heures sur Instagram et Facebook.</Body>
-        <Button title="PRENDRE UNE PHOTO" icon={<CameraIcon size={24} />} loading={busy} onPress={() => pick('photo')} style={{ minHeight: 72 }} />
-        <Button title="FILMER UNE VIDÉO" icon={<VideoIcon size={24} />} disabled={busy} onPress={() => pick('video')} style={{ minHeight: 72 }} />
+        <Button title="Prendre une photo" icon={<CameraIcon size={24} />} loading={busy} onPress={() => pick('photo')} style={{ minHeight: 72 }} />
+        <Button title="Filmer une vidéo" icon={<VideoIcon size={24} />} disabled={busy} onPress={() => pick('video')} style={{ minHeight: 72 }} />
         <Button title="Choisir dans la galerie" kind="secondary" icon={<ImageIcon size={22} color={colors.green} />} disabled={busy} onPress={() => pick('library')} />
-        <Body soft size={14} center>Une vidéo dure {STORY_MAX_SECONDS} secondes au maximum.</Body>
+        <Body soft size={15} center>Une vidéo dure {STORY_MAX_SECONDS} secondes au maximum.</Body>
         {error && <Notice tone="red" title="Nous avons besoin de votre attention" text={error} />}
       </ScrollView>
     );
@@ -201,7 +201,7 @@ export function Story() {
           : <StoryVideo uri={media.uri} seconds={media.seconds} music={withMusic ? track : null} />}
         <View style={{ position: 'absolute', top: 8, left: 10, right: 10, height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.75)' }} />
       </View>
-      {media.kind === 'video' && media.seconds ? <Body soft size={14} center>Vidéo de {media.seconds} secondes</Body> : null}
+      {media.kind === 'video' && media.seconds ? <Body soft size={15} center>Vidéo de {media.seconds} secondes</Body> : null}
 
       {media.kind === 'video' && musicSupported && (
         <MusicBar trackId={track} on={musicOn} onToggle={() => { audioContext(); setMusicOn((v) => !v); setSaved(false); }} onChange={() => { audioContext(); setChoosingMusic(true); }} />
@@ -211,11 +211,11 @@ export function Story() {
 
       {error && <Notice tone="red" title="Nous avons besoin de votre attention" text={error} />}
 
-      <Button title="PUBLIER LA STORY" onPress={publish} style={{ minHeight: 64 }} />
+      <Button title="Publier la story" onPress={publish} style={{ minHeight: 64 }} />
       {withMusic && (
         <Button title={saved ? 'Vidéo enregistrée' : 'Enregistrer la vidéo avec la musique'} kind="secondary" icon={<DownloadIcon size={20} color={colors.green} />} onPress={saveWithMusic} />
       )}
-      {saved && <Body soft size={14} center>Vous pouvez aussi la publier vous-même depuis Instagram, en attendant que Vitrine publie pour vous.</Body>}
+      {saved && <Body soft size={15} center>Vous pouvez aussi la publier vous-même depuis Instagram, en attendant que Vitrine publie pour vous.</Body>}
       <Button title={media.kind === 'video' ? 'Changer de vidéo' : 'Changer de photo'} kind="ghost" onPress={() => setMedia(null)} />
     </ScrollView>
   );
@@ -241,7 +241,7 @@ function WebStoryVideo({ uri, seconds, music }: { uri: string; seconds: number |
   return (
     <View style={{ width: '100%', height: '100%' }}>
       {React.createElement('video', { ref, src: uri, autoPlay: true, muted: true, loop: true, playsInline: true, style: { width: '100%', height: '100%', objectFit: 'cover' } })}
-      <Text style={{ position: 'absolute', bottom: 10, alignSelf: 'center', color: '#fff', fontSize: 13, fontFamily: fonts.body, opacity: 0.85 }}>{music ? 'Aperçu avec la musique' : 'Aperçu sans le son'}</Text>
+      <Text style={{ position: 'absolute', bottom: 10, alignSelf: 'center', color: '#fff', fontSize: 15, fontFamily: fonts.body, opacity: 0.9 }}>{music ? 'Aperçu avec la musique' : 'Aperçu sans le son'}</Text>
     </View>
   );
 }
@@ -255,7 +255,7 @@ function NativeStoryVideo({ uri }: { uri: string }) {
   return (
     <View style={{ width: '100%', height: '100%' }}>
       <VideoView player={player} style={{ width: '100%', height: '100%' }} contentFit="cover" nativeControls={false} />
-      <Text style={{ position: 'absolute', bottom: 10, alignSelf: 'center', color: '#fff', fontSize: 13, fontFamily: fonts.body, opacity: 0.85 }}>Aperçu sans le son</Text>
+      <Text style={{ position: 'absolute', bottom: 10, alignSelf: 'center', color: '#fff', fontSize: 15, fontFamily: fonts.body, opacity: 0.9 }}>Aperçu sans le son</Text>
     </View>
   );
 }

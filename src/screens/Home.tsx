@@ -1,9 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Body, Card, Chevron, DateTile, IconTile, Label, Notice, Title } from '../components/ui';
 import { takePhoto } from '../lib/photo';
-import { FriendlyError } from '../lib/api';
-import { BulbIcon, CameraIcon, CheckIcon, StoryIcon } from '../components/icons';
+import { accountState, FriendlyError } from '../lib/api';
+import { BulbIcon, CameraIcon, CheckIcon, LinkIcon, StoreIcon, StoryIcon } from '../components/icons';
 import { colors, fonts, glassSurface, greenGradient } from '../lib/theme';
 import { useApp } from '../lib/store';
 import { daysUntil, inDaysLabel, upcomingEvents, upcomingHolidays } from '../lib/events';
@@ -31,6 +31,9 @@ export function Home() {
   const [photoError, setPhotoError] = useState<string | null>(null);
   // Le gros bouton propose 2 choix : un post (photo + texte de l'IA) ou une story (photo ou vidéo).
   const [choosing, setChoosing] = useState(false);
+  // Compte sans e-mail : après le 1er post, on propose de le protéger (sinon, perdu en changeant de téléphone).
+  const [guest, setGuest] = useState(false);
+  useEffect(() => { accountState().then((a) => setGuest(a.kind === 'guest')).catch(() => {}); }, [posts.length]);
 
   // Post : l'appareil photo s'ouvre tout de suite, la photo est cadrée toute seule.
   async function shoot() {
@@ -48,7 +51,7 @@ export function Home() {
     <ScrollView contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 24 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <View style={{ flex: 1 }}>
-          <Body soft size={16}>Bonjour {b.ownerFirstName}</Body>
+          <Body size={17} style={{ color: colors.greenDark, fontWeight: '600' }}>Bonjour {b.ownerFirstName}</Body>
           <Title size={30}>{b.businessName}</Title>
         </View>
         <Pressable onPress={() => go({ name: 'settings' })} accessibilityLabel="Mon compte et réglages"
@@ -72,7 +75,7 @@ export function Home() {
       {choosing && (
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <Choice icon={<CameraIcon size={30} color={colors.green} />} title="Post" text="Photo + texte écrit par l'IA" onPress={shoot} />
-          <Choice icon={<StoryIcon size={30} color={colors.green} />} title="Story" text="Photo ou vidéo, plein écran" onPress={() => { setChoosing(false); go({ name: 'story' }); }} />
+          <Choice icon={<StoryIcon size={30} color={colors.green} />} title="Story" text="Photo ou vidéo qui reste 24 h" onPress={() => { setChoosing(false); go({ name: 'story' }); }} />
         </View>
       )}
 
@@ -94,12 +97,23 @@ export function Home() {
         </View>
       )}
 
+      {guest && posts.length > 0 && (
+        <Card onPress={() => go({ name: 'settings' })} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: 'rgba(252,239,217,0.8)' }}>
+          <IconTile size={44} tone="orange"><StoreIcon size={22} color={colors.orangeText} /></IconTile>
+          <View style={{ flex: 1 }}>
+            <Body style={{ fontWeight: '700' }}>Protégez votre compte</Body>
+            <Body soft size={15}>Ajoutez votre e-mail pour retrouver votre boutique si vous changez de téléphone.</Body>
+          </View>
+          <Chevron />
+        </Card>
+      )}
+
       {next && (
         <View style={{ gap: 10 }}>
           <Label>Prochaine occasion</Label>
           <Card onPress={openNext} style={{ gap: 12 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-              <DateTile date={next.date} tone={isHoliday ? 'blue' : 'orange'} />
+              <DateTile date={next.date} tone={isHoliday ? 'green' : 'orange'} />
               <View style={{ flex: 1 }}>
                 <Body style={{ fontWeight: '700' }} size={18}>{next.name}</Body>
                 <Body soft size={15}>{inDaysLabel(days)}</Body>
@@ -120,19 +134,33 @@ export function Home() {
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <View style={{ flex: 1 }}><MonthReportCard /></View>
           <View style={{ flex: 1 }}>
-            <Card onPress={() => go({ name: 'settings' })}>
-              <Title size={30}>{connected}/2</Title>
-              <Body soft size={14}>réseaux connectés</Body>
+            {/* Pas de « 0/2 » décourageant : tant que tout n'est pas connecté, on propose de le faire. */}
+            <Card onPress={() => go({ name: 'settings' })} style={{ gap: 6 }}>
+              {connected >= 2 ? (
+                <>
+                  <IconTile size={40}><CheckIcon size={20} color={colors.green} /></IconTile>
+                  <Body style={{ fontWeight: '700' }}>Instagram et Facebook connectés</Body>
+                </>
+              ) : (
+                <>
+                  <IconTile size={40} tone="orange"><LinkIcon size={20} color={colors.orangeText} /></IconTile>
+                  <Body style={{ fontWeight: '700' }}>{connected === 0 ? 'Connecter Instagram et Facebook' : 'Connecter mon 2e réseau'}</Body>
+                  <Text style={{ color: colors.green, fontWeight: '700', fontSize: 16, fontFamily: fonts.body }}>Connecter ›</Text>
+                </>
+              )}
             </Card>
           </View>
         </View>
-        <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-          <IconTile size={40}><CheckIcon size={20} color={colors.green} /></IconTile>
-          <View style={{ flex: 1 }}>
-            <Body style={{ fontWeight: '700' }}>{scheduled ? 'Publication programmée' : 'Aucune publication programmée'}</Body>
-            <Body soft size={14}>{scheduled ? new Date(scheduled.createdAt).toLocaleDateString('fr-FR') : 'Vous recevrez un rappel avant chaque fête.'}</Body>
-          </View>
-        </Card>
+        {scheduled && (
+          <Card onPress={() => go({ name: 'planning' })} style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+            <IconTile size={40}><CheckIcon size={20} color={colors.green} /></IconTile>
+            <View style={{ flex: 1 }}>
+              <Body style={{ fontWeight: '700' }}>Un post est prêt</Body>
+              <Body soft size={15}>Prévu le {new Date(scheduled.scheduledFor ?? scheduled.createdAt).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}</Body>
+            </View>
+            <Chevron />
+          </Card>
+        )}
       </View>
     </ScrollView>
   );
