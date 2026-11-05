@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, ScrollView, Switch, View } from 'react-native';
+import { Linking, Pressable, ScrollView, Switch, View } from 'react-native';
 import { Body, Button, Card, Chip, Field, Label, Notice, Title, BackButton } from '../components/ui';
 import { BackIcon } from '../components/icons';
 import { NetworkCards } from '../components/NetworkCards';
@@ -10,6 +10,9 @@ import { toneLabel, tradeLabel } from '../lib/business';
 import { isBackendConfigured } from '../lib/config';
 import { notificationsSupported } from '../lib/notifications';
 import { currentUserId, deleteAccountRemote, FriendlyError, saveBusinessRemote, sendLoginCode, signOut, verifyLoginCode } from '../lib/api';
+
+/** Pages légales publiques (public/confidentialite, public/conditions), servies par GitHub Pages. */
+const LEGAL_SITE = 'https://kelianjouini-byte.github.io/vitrine';
 
 export function Settings() {
   const { business, prefs, setPrefs, back, resetAll, saveBusiness, refreshConnections } = useApp();
@@ -121,6 +124,10 @@ export function Settings() {
           <Button title="Annuler" kind="ghost" onPress={() => setConfirmDelete(false)} />
         </Card>
       )}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' }}>
+        <Button title="Confidentialité" kind="ghost" onPress={() => Linking.openURL(`${LEGAL_SITE}/confidentialite/`)} />
+        <Button title="Conditions d'utilisation" kind="ghost" onPress={() => Linking.openURL(`${LEGAL_SITE}/conditions/`)} />
+      </View>
     </ScrollView>
   );
 }

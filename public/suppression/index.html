@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Supprimer mes données — Vitrine</title>
+<meta name="description" content="Comment supprimer votre compte Vitrine et toutes vos données.">
+<meta name="theme-color" content="#2F7658">
+<link rel="icon" href="../icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../legal.css">
+</head>
+<body>
+<header><div class="wrap">
+  <a href="../">Vitrine</a>
+  <h1>Supprimer mes données</h1>
+  <p>Vous pouvez tout effacer, à tout moment, gratuitement.</p>
+</div></header>
+
+<main class="wrap">
+<div class="code" id="confirmation" hidden>
+  Votre demande de suppression envoyée depuis Facebook a bien été traitée : la connexion entre Vitrine et votre compte Facebook / Instagram a été effacée.<br>
+  Numéro de confirmation : <strong id="code"></strong>
+</div>
+
+<h2>1. Depuis l'application Vitrine (le plus simple)</h2>
+<p>Ouvrez Vitrine, allez dans <strong>Réglages</strong>, tout en bas, puis touchez <strong>« Supprimer mon compte et mes données »</strong> et confirmez.</p>
+<p>Tout est effacé immédiatement : votre compte, votre boutique, vos photos et vidéos, vos publications préparées et la connexion à Instagram / Facebook.</p>
+
+<h2>2. Depuis Facebook</h2>
+<p>Vous pouvez retirer l'accès de Vitrine depuis Facebook : <strong>Paramètres et confidentialité → Paramètres → Applications et sites web</strong>, choisissez <strong>Vitrine</strong>, puis <strong>Retirer</strong>. Cochez la demande de suppression des données si elle vous est proposée.</p>
+<p>Vitrine efface alors la connexion à vos comptes Facebook et Instagram (jetons d'accès compris). Pour effacer aussi votre compte Vitrine et vos photos, utilisez l'application (point 1) ou écrivez-nous (point 3).</p>
+
+<h2>3. Par e-mail</h2>
+<p>Écrivez à <a href="mailto:vitrine.appli@outlook.fr?subject=Suppression%20de%20mes%20donn%C3%A9es%20Vitrine">vitrine.appli@outlook.fr</a> avec l'objet « Suppression de mes données », depuis l'adresse de votre compte, en indiquant le nom de votre boutique. Nous supprimons tout sous 30 jours au plus tard et vous confirmons la suppression par e-mail.</p>
+
+<h2>Ce qui n'est pas effacé</h2>
+<ul>
+  <li>Les posts déjà publiés restent sur vos comptes Instagram et Facebook : supprimez-les directement dans ces applications si vous le souhaitez.</li>
+  <li>Les factures sont conservées 10 ans, comme l'exige la loi.</li>
+</ul>
+<p>Plus de détails dans la <a href="../confidentialite/">politique de confidentialité</a>.</p>
+</main>
+
+<footer><div class="wrap">
+  <a href="../confidentialite/">Confidentialité</a><a href="../conditions/">Conditions d'utilisation</a><a href="../suppression/">Supprimer mes données</a>
+</div></footer>
+<script>
+  // Page de suivi demandée par Meta : ?code=… affiche le numéro de confirmation renvoyé par la fonction meta-data-deletion.
+  var code = new URLSearchParams(location.search).get('code');
+  if (code && /^[0-9a-f-]{36}$/i.test(code)) {
+    document.getElementById('code').textContent = code;
+    document.getElementById('confirmation').hidden = false;
+  }
+</script>
+</body>
+</html>
