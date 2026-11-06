@@ -74,13 +74,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     (async () => {
-      // Lien de test « …/vitrine/?nouveau » : on repart de zéro sur cet appareil (rien n'est supprimé sur le serveur).
+      // Lien de test « …/vitrine/app/?nouveau » : on repart de zéro sur cet appareil (rien n'est supprimé sur le serveur).
       if (Platform.OS === 'web' && typeof window !== 'undefined' && /[?&]nouveau\b/.test(window.location.search)) {
         await clearAll();
         await signOut().catch(() => {});
         window.history.replaceState(null, '', window.location.pathname);
       }
-      // Retour de la page de paiement Stripe (version web) : « …/vitrine/abonnement?paiement=ok ».
+      // Retour de la page de paiement Stripe (version web) : « …/vitrine/app/abonnement?paiement=ok ».
       if (Platform.OS === 'web' && typeof window !== 'undefined' && /\/abonnement\/?$/.test(window.location.pathname)) {
         const p = new URLSearchParams(window.location.search).get('paiement');
         setStack([{ name: 'home' }, { name: 'settings' }, { name: 'offers', payment: p === 'ok' || p === 'annule' ? p : undefined }]);

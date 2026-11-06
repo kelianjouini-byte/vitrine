@@ -1,4 +1,5 @@
-# Met en ligne la version web de Vitrine sur GitHub Pages à chaque modification de main.
+# Met en ligne Vitrine sur GitHub Pages à chaque modification de main :
+# le site de présentation à la racine, l'appli web dans /app (voir scripts/build-site.mjs).
 name: Version web (GitHub Pages)
 
 on:
@@ -33,7 +34,7 @@ jobs:
       - run: npx tsc --noEmit
       - run: npx expo export -p web
       - run: node scripts/web-icons.mjs
-      - run: cp dist/index.html dist/404.html
+      - run: node scripts/build-site.mjs
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

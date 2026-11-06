@@ -50,7 +50,7 @@
     ],
     "scheme": "vitrine",
     "experiments": {
-      "baseUrl": "/vitrine"
+      "baseUrl": "/vitrine/app"
     }
   }
 }
