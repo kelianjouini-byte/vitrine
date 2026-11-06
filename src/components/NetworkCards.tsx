@@ -9,6 +9,7 @@ import { useApp } from '../lib/store';
 import { isBackendConfigured } from '../lib/config';
 import { chooseMetaPage, metaConfigured, metaLoginUrl, metaPendingPages, NotConfiguredError, FriendlyError, type MetaPageChoice } from '../lib/api';
 import type { Platform } from '../lib/types';
+import { takeMetaReturn } from '../lib/metaReturn';
 
 /**
  * Connexion Instagram / Facebook via l'OAuth officiel de Meta.
@@ -51,8 +52,25 @@ export function NetworkCards() {
     if (!isBackendConfigured) return;
     let alive = true;
     metaConfigured().then((ok) => alive && setReady(ok));
+    // Version web : on revient de la page Facebook avec le résultat dans l'adresse.
+    const back = takeMetaReturn();
+    if (back) handleResult(back).catch(() => {});
     return () => { alive = false; };
   }, []);
+
+  /** Affiche le résultat de la connexion (« …?status=ok|error|choose&reason=… »). */
+  async function handleResult(url: string) {
+    await refreshConnections();
+    if (url.includes('status=choose')) {
+      const pages = await metaPendingPages();
+      if (pages.length) setChoices(pages);
+      else setMessage({ tone: 'red', title: "La connexion n'a pas abouti", text: 'Le choix a expiré. Réessayez.' });
+    } else {
+      setMessage(url.includes('status=ok')
+        ? { tone: 'green', title: 'Votre boutique est connectée.' }
+        : { tone: 'red', title: "La connexion n'a pas abouti", text: failureText(url) });
+    }
+  }
 
   async function connect() {
     setMessage(null);
@@ -60,23 +78,19 @@ export function NetworkCards() {
     try {
       const redirect = redirectUri();
       const url = await metaLoginUrl(redirect);
-      const res = await WebBrowser.openAuthSessionAsync(url, redirect);
-      await refreshConnections();
-      if (res.type === 'success' && res.url.includes('status=choose')) {
-        const pages = await metaPendingPages();
-        if (pages.length) setChoices(pages);
-        else setMessage({ tone: 'red', title: "La connexion n'a pas abouti", text: 'Le choix a expiré. Réessayez.' });
-      } else if (res.type === 'success') {
-        setMessage(res.url.includes('status=error')
-          ? { tone: 'red', title: "La connexion n'a pas abouti", text: failureText(res.url) }
-          : { tone: 'green', title: 'Votre boutique est connectée.' });
+      if (RNPlatform.OS === 'web' && typeof window !== 'undefined') {
+        // Même onglet : une fenêtre à part serait bloquée par le navigateur (Safari surtout).
+        window.location.assign(url);
+        return;
       }
+      const res = await WebBrowser.openAuthSessionAsync(url, redirect);
+      if (res.type === 'success') await handleResult(res.url);
+      else await refreshConnections();
     } catch (e) {
       if (e instanceof NotConfiguredError) setReady(false);
       else setMessage({ tone: 'red', title: 'Nous avons besoin de votre attention', text: e instanceof FriendlyError ? e.message : 'Réessayez dans un instant.' });
-    } finally {
-      setBusy(false);
     }
+    setBusy(false);
   }
 
   async function pick(page: MetaPageChoice) {

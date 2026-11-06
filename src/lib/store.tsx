@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { captureMetaReturn } from './metaReturn';
 import type { DayChoice, PlanChoices } from './planning';
 import { load, save, clearAll } from './storage';
 import { onNotificationTap, scheduleReminders } from './notifications';
@@ -80,6 +81,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         await signOut().catch(() => {});
         window.history.replaceState(null, '', window.location.pathname);
       }
+      // Retour de la connexion Instagram / Facebook (version web) : on rouvre Réglages, qui affiche le résultat.
+      if (captureMetaReturn()) setStack([{ name: 'home' }, { name: 'settings' }]);
       // Retour de la page de paiement Stripe (version web) : « …/vitrine/app/abonnement?paiement=ok ».
       if (Platform.OS === 'web' && typeof window !== 'undefined' && /\/abonnement\/?$/.test(window.location.pathname)) {
         const p = new URLSearchParams(window.location.search).get('paiement');
