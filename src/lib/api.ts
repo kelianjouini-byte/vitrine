@@ -69,6 +69,13 @@ export async function accountState(): Promise<AccountState> {
   return u.is_anonymous || !u.email ? { kind: 'guest' } : { kind: 'email', email: u.email };
 }
 
+/** Trop d'e-mails envoyés d'un coup (limite du serveur) : on le dit simplement. */
+function tooManyEmails(error: { message: string; status?: number }) {
+  if (error.status === 429 || /rate limit|security purposes|too many/i.test(error.message)) {
+    throw new FriendlyError('Trop de codes envoyés en peu de temps. Attendez quelques minutes, puis réessayez.');
+  }
+}
+
 /**
  * Protéger un compte invité : on lui ajoute un e-mail. C'est le MÊME compte (boutique, posts et réseaux gardés).
  * Supabase envoie un code à 6 chiffres (modèle d'e-mail « Change Email Address » avec {{ .Token }}).
@@ -77,6 +84,7 @@ export async function protectAccount(email: string): Promise<void> {
   const sb = requireBackend();
   const { error } = await sb.auth.updateUser({ email });
   if (!error) return;
+  tooManyEmails(error);
   if (/already|exists|registered/i.test(error.message)) {
     throw new FriendlyError('Cette adresse est déjà utilisée par un compte Vitrine. Utilisez-en une autre, ou retrouvez ce compte depuis un nouveau téléphone.');
   }
@@ -94,6 +102,7 @@ export async function sendLoginCode(email: string): Promise<void> {
   const sb = requireBackend();
   const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
   if (!error) return;
+  tooManyEmails(error);
   if (/not found|signups not allowed|user/i.test(error.message)) {
     throw new FriendlyError("Aucun compte Vitrine n'utilise cette adresse. Vérifiez-la, ou créez votre boutique.");
   }
