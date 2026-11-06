@@ -72,6 +72,9 @@ Deno.serve(handler(async (req) => {
       },
       metadata: { business_id: business.id, plan: body.plan },
       payment_method_collection: 'always',
+      // Facture entre professionnels : le nom et l'adresse de la boutique doivent y figurer.
+      billing_address_collection: 'required',
+      customer_update: { address: 'auto', name: 'auto' },
       success_url: `${back}${sep}paiement=ok`,
       cancel_url: `${back}${sep}paiement=annule`,
     });
