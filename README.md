@@ -62,7 +62,7 @@ Créer une clé sur https://platform.openai.com → API keys, ajouter un moyen d
 3. URL de redirection OAuth valide : `https://<ref>.supabase.co/functions/v1/meta-oauth`.
 4. URL de suppression des données : `https://<ref>.supabase.co/functions/v1/meta-data-deletion`.
 5. Permissions : `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`, `instagram_basic`, `instagram_content_publish`, `business_management` (à revérifier dans la doc Meta à jour).
-6. Domaine de l'app : `kelianjouini-byte.github.io` (la version web revient sur `…/vitrine/meta-connected` après la connexion). Dès que `META_APP_ID`, `META_APP_SECRET` et `TOKEN_ENCRYPTION_KEY` sont posés, le bouton « Connecter Instagram et Facebook » apparaît ; avant, l'appli affiche « Bientôt disponible ».
+6. Domaine de l'app : `kelianjouini-byte.github.io` (la version web revient sur `…/vitrine/app/meta-connected` après la connexion). Dès que `META_APP_ID`, `META_APP_SECRET` et `TOKEN_ENCRYPTION_KEY` sont posés, le bouton « Connecter Instagram et Facebook » apparaît ; avant, l'appli affiche « Bientôt disponible ».
 7. Plusieurs Pages sur le compte : Vitrine demande « Sur quelle Page publier ? » (jetons gardés chiffrés 30 minutes dans `meta_pending_pages`, lisible seulement par le serveur).
 7b. Publication : posts (1 à 10 photos) via `publish-post`, stories photo ou vidéo (MP4/MOV) via `publish-story`.
 8. En mode développement, ajouter vos comptes comme testeurs. Le compte Instagram doit être **professionnel** et relié à une **Page Facebook**.
@@ -90,7 +90,7 @@ Réglages à faire une fois :
 - App : `npx eas-cli@latest build -p all` (compte Expo nécessaire, compte Apple Developer 99 $/an, compte Google Play 25 $ une fois), puis `eas submit`.
 - Démo web : `npm run build:web && node scripts/build-demo.mjs` → `demo/index.html`.
 - Icônes et écran d'ouverture (logo « La devanture ») : `NODE_PATH=$(npm root -g) node scripts/build-icons.mjs` → `assets/*.png`.
-- Recommencer depuis l'inscription (test web) : ouvrir `https://kelianjouini-byte.github.io/vitrine/?nouveau` (efface les données de cet appareil seulement).
+- Recommencer depuis l'inscription (test web) : ouvrir `https://kelianjouini-byte.github.io/vitrine/app/?nouveau` (efface les données de cet appareil seulement).
 
 ## 8. Tests
 
@@ -105,3 +105,9 @@ deno check supabase/functions/*/index.ts   # Edge Functions
 - `CLAUDE.md` : guide du projet + règles.
 - `docs/ARCHITECTURE.md` : architecture, parcours, contraintes Meta.
 - `.claude/skills/` : 5 skills Claude Code (`/vitrine-architect`, `/vitrine-meta`, `/vitrine-design`, `/vitrine-ai`, `/vitrine-security`).
+
+## Adresses en ligne (GitHub Pages)
+- `https://kelianjouini-byte.github.io/vitrine/` : site de présentation (`site/index.html`).
+- `https://kelianjouini-byte.github.io/vitrine/app/` : l'appli web. Même origine que le site, donc les données gardées dans le navigateur ne changent pas.
+- Pages légales : `…/vitrine/conditions/`, `…/confidentialite/`, `…/suppression/`, `…/mentions-legales/` (dossier `public/`).
+- Les anciens liens de l'appli (`…/vitrine/abonnement`, `…/vitrine/meta-connected`) sont renvoyés vers `…/vitrine/app/…` par `404.html` (voir `scripts/build-site.mjs`).

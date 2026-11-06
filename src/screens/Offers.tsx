@@ -16,12 +16,12 @@ import {
   daysLeft, euros, frenchDate, isLiveStatus, offersFrom, statusText, TRIAL_DAYS, TRIAL_REPORT_DAYS_BEFORE, yearlySaving, type BillingStatus, type Offer, type PlanId,
 } from '../lib/billing';
 
-const SITE = 'https://kelianjouini-byte.github.io/vitrine';
+const SITE = 'https://kelianjouini-byte.github.io/vitrine/app';
 
 /** Adresse où Stripe renvoie le commerçant après le paiement. */
 function returnUrl(): string {
   if (RNPlatform.OS === 'web' && typeof window !== 'undefined') {
-    const base = window.location.pathname.replace(/[^/]*$/, ''); // « /vitrine/ »
+    const base = window.location.pathname.replace(/[^/]*$/, ''); // « /vitrine/app/ »
     return `${window.location.origin}${base}abonnement`;
   }
   return `${SITE}/abonnement`;

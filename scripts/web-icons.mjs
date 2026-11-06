@@ -3,7 +3,7 @@
 // Pas de mode « plein écran » volontairement : sur iPhone, il séparerait les données de celles de Safari
 // et le commerçant devrait recréer sa boutique.
 import { readFileSync, writeFileSync } from 'node:fs';
-const base = '/vitrine';
+const base = '/vitrine/app';
 const file = 'dist/index.html';
 const tags = [
   `<link rel="apple-touch-icon" sizes="180x180" href="${base}/apple-touch-icon.png">`,

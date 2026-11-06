@@ -1,0 +1,1125 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vitrine — L'appli qui gère les réseaux sociaux de votre commerce</title>
+<meta name="description" content="Prenez une photo : Vitrine écrit la publication dans le ton de votre boutique, avec les mots-clés de votre ville, et la publie sur Instagram et Facebook après votre accord. 15 jours gratuits, sans carte bancaire.">
+<meta name="color-scheme" content="light">
+<meta property="og:title" content="Vitrine — Une photo, on s'occupe du reste.">
+<meta property="og:description" content="Vos réseaux sociaux, gérés comme par un pro. Avec une seule photo.">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="fr_FR">
+<link rel="canonical" href="https://kelianjouini-byte.github.io/vitrine/">
+<meta property="og:url" content="https://kelianjouini-byte.github.io/vitrine/">
+<meta property="og:image" content="https://kelianjouini-byte.github.io/vitrine/partage.png">
+<meta name="theme-color" content="#2F7658">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<script>
+/* Ceux qui utilisent déjà l'appli arrivent directement dessus :
+   icône posée sur l'écran d'accueil, ou ancien lien de test « ?nouveau ». */
+(function(){try{
+  var standalone=(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true;
+  if(standalone||/[?&]nouveau\b/.test(location.search)) location.replace('app/'+location.search+location.hash);
+}catch(e){}})();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[
+ {"@type":"SoftwareApplication","name":"Vitrine","applicationCategory":"BusinessApplication","operatingSystem":"iOS, Android, Web","description":"Application qui écrit et publie les posts Instagram et Facebook des petits commerces à partir d'une photo.","offers":[{"@type":"Offer","name":"Mensuel","price":"39","priceCurrency":"EUR"},{"@type":"Offer","name":"Annuel","price":"29","priceCurrency":"EUR"}]},
+ {"@type":"Organization","name":"Vitrine","email":"vitrine.appli@outlook.fr","address":{"@type":"PostalAddress","addressLocality":"Éguilles","postalCode":"13510","addressCountry":"FR"}}
+]}
+</script>
+<style>
+:root{
+  --g:#2F7658; --g-dark:#1F5F45; --g-deep:#174A36; --g-light:#DCEFE3; --g-mist:#EEF6F1;
+  --bg:#F8FAF7; --white:#FFFFFF; --ink:#24332B; --ink-2:#758078; --orange:#F2B66D; --orange-deep:#E59A45; --red:#D96B61;
+  --line:rgba(36,51,43,.10);
+  --glass:rgba(255,255,255,.62); --glass-border:rgba(255,255,255,.85);
+  --shadow:0 1px 2px rgba(23,74,54,.06), 0 12px 32px rgba(23,74,54,.10);
+  --shadow-lg:0 2px 6px rgba(23,74,54,.06), 0 30px 70px rgba(23,74,54,.16);
+  --serif:"Fraunces", Georgia, "Times New Roman", serif;
+  --sans:"Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --r:22px; --logo-bg:var(--bg);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:18px;line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+img,svg{display:block}
+a{color:inherit}
+h1,h2,h3{font-family:var(--serif);font-weight:600;letter-spacing:-.015em;line-height:1.08;margin:0}
+p{margin:0}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--g)}
+.eyebrow::before{content:"";width:22px;height:2px;border-radius:2px;background:var(--orange)}
+.section{padding:120px 0;position:relative}
+.section-head{max-width:720px;margin-bottom:56px}
+.section-head h2{font-size:clamp(34px,4.4vw,52px);margin-top:14px}
+.section-head p{font-size:20px;color:var(--ink-2);margin-top:18px}
+.center{text-align:center;margin-left:auto;margin-right:auto}
+.center .eyebrow{justify-content:center}
+
+/* Reflets de fond (comme l'appli) */
+.blobs{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none}
+.blobs span{position:absolute;border-radius:50%;filter:blur(70px);opacity:.55}
+.blobs .b1{width:620px;height:620px;background:#CFE9DA;left:-160px;top:-120px;animation:drift1 16s ease-in-out infinite alternate}
+.blobs .b2{width:520px;height:520px;background:#FBE3C4;right:-140px;top:120px;animation:drift2 19s ease-in-out infinite alternate}
+.blobs .b3{width:460px;height:460px;background:#DCEFE3;left:30%;bottom:-200px;animation:drift3 22s ease-in-out infinite alternate}
+@keyframes drift1{to{transform:translate(120px,90px)}}
+@keyframes drift2{to{transform:translate(-110px,140px)}}
+@keyframes drift3{to{transform:translate(90px,-120px)}}
+
+/* Verre dépoli */
+.glass{background:var(--glass);border:1px solid var(--glass-border);backdrop-filter:blur(18px) saturate(1.2);-webkit-backdrop-filter:blur(18px) saturate(1.2);box-shadow:var(--shadow);border-radius:var(--r)}
+
+/* Boutons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:58px;padding:0 28px;border-radius:999px;font:600 18px/1 var(--sans);text-decoration:none;border:0;cursor:pointer;transition:transform .2s ease, box-shadow .2s ease, background .2s ease}
+.btn-primary{background:linear-gradient(180deg,#358563,var(--g));color:#fff;box-shadow:0 1px 0 rgba(255,255,255,.25) inset, 0 10px 24px rgba(47,118,88,.32)}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 1px 0 rgba(255,255,255,.25) inset, 0 16px 30px rgba(47,118,88,.36)}
+.btn-ghost{background:rgba(255,255,255,.7);color:var(--g-dark);border:1px solid rgba(47,118,88,.22)}
+.btn-ghost:hover{background:#fff}
+.btn svg{width:20px;height:20px}
+.ico{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+
+/* Barre du haut */
+.nav{position:sticky;top:12px;z-index:50;margin:12px auto 0;max-width:1180px;padding:0 16px}
+.nav-in{display:flex;align-items:center;gap:28px;padding:10px 10px 10px 18px;border-radius:999px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;font:600 24px/1 var(--serif);color:var(--ink)}
+.brand svg{width:36px;height:36px;color:var(--g)}
+.nav-links{display:flex;gap:26px;margin-left:auto;font-size:16px;font-weight:500}
+.nav-links a{text-decoration:none;color:var(--ink-2)}
+.nav-links a:hover{color:var(--g)}
+.nav .btn{min-height:46px;font-size:16px;padding:0 20px}
+
+/* Héros */
+.hero{padding:70px 0 40px}
+.hero-grid{display:grid;grid-template-columns:.92fr 1.18fr;gap:36px;align-items:center}
+.hero h1{font-size:clamp(38px,4.6vw,60px)}
+.hero h1 em{font-style:normal;color:var(--g);position:relative;white-space:nowrap}
+.hero h1 em::after{content:"";position:absolute;left:2%;right:2%;bottom:.04em;height:.14em;background:var(--orange);opacity:.55;border-radius:6px;z-index:-1}
+.hero .lead{font-size:21px;color:#4C5A52;margin-top:24px;max-width:540px}
+.hero-ctas{display:flex;gap:14px;flex-wrap:wrap;margin-top:34px}
+.reassure{display:flex;gap:20px;flex-wrap:wrap;margin-top:22px;font-size:15px;color:var(--ink-2);font-weight:500}
+.reassure span{display:inline-flex;align-items:center;gap:7px}
+.reassure svg{width:18px;height:18px;color:var(--g)}
+.stores{display:flex;gap:12px;flex-wrap:wrap;margin-top:34px;align-items:center}
+.store{position:relative;display:flex;align-items:center;gap:10px;height:54px;padding:0 18px 0 14px;border-radius:14px;background:var(--ink);color:#fff;text-decoration:none;opacity:.92}
+.store svg{width:26px;height:26px}
+.store small{display:block;font-size:11px;opacity:.75;line-height:1.1}
+.store b{display:block;font-size:17px;font-weight:600;line-height:1.15}
+.store .soon{position:absolute;top:-9px;right:-8px;background:var(--orange);color:var(--ink);font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;letter-spacing:.02em}
+.web-link{font-size:15px;font-weight:600;color:var(--g);text-decoration:none;border-bottom:1.5px solid rgba(47,118,88,.3);padding-bottom:1px}
+
+/* Scène isométrique */
+.stage-box{position:relative;width:100%;aspect-ratio:620/720}
+.stage{position:absolute;left:0;top:0;width:620px;height:720px;transform-origin:0 0}
+.stage svg.world{position:absolute;inset:0;overflow:visible}
+.float-a{animation:floaty 6s ease-in-out infinite}
+@keyframes floaty{50%{transform:translateY(-8px)}}
+
+.phone{position:absolute;width:212px;height:420px;transform-origin:0 0;z-index:5;filter:drop-shadow(0 30px 40px rgba(23,74,54,.22))}
+.phone-back{position:absolute;inset:0;border-radius:34px;background:var(--g-deep)}
+.phone-body{position:absolute;inset:0;border-radius:34px;background:linear-gradient(160deg,#2C6E52,#1F5F45);padding:9px}
+.screen{position:relative;width:100%;height:100%;border-radius:26px;background:#fff;overflow:hidden;font-family:var(--sans)}
+.notch{position:absolute;top:8px;left:50%;width:64px;height:18px;margin-left:-32px;border-radius:12px;background:#12261D;z-index:3}
+.s-head{display:flex;align-items:center;gap:7px;padding:34px 12px 8px}
+.s-ava{width:26px;height:26px;border-radius:50%;background:var(--g);display:grid;place-items:center;color:#fff;--logo-bg:var(--g)}
+.s-ava svg{width:17px;height:17px}
+.s-name{font-size:11px;font-weight:700;line-height:1.1}
+.s-name small{display:block;font-weight:500;color:var(--ink-2);font-size:9px}
+.s-dots{margin-left:auto;color:var(--ink-2);font-weight:700;letter-spacing:1px;font-size:12px}
+.frame{position:relative;margin:0;height:150px;background:#F2F5F3;overflow:hidden}
+.frame-empty{position:absolute;inset:10px;border:2px dashed #C6D3CB;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:#9AA79F;font-size:11px;font-weight:600;transition:opacity .5s}
+.frame-empty svg{width:30px;height:30px}
+.frame-photo{position:absolute;inset:0;opacity:0;transform:scale(1.08);transition:opacity .6s ease, transform 1.2s cubic-bezier(.2,.8,.2,1)}
+.frame-photo svg{width:100%;height:100%}
+.frame-glow{position:absolute;inset:0;box-shadow:inset 0 0 0 3px var(--orange);opacity:0;transition:opacity .4s}
+.s-actions{display:flex;align-items:center;gap:10px;padding:9px 12px 3px;color:var(--ink)}
+.s-actions svg{width:18px;height:18px}
+.s-actions .save{margin-left:auto}
+.s-actions .heart{transition:color .3s, fill .3s, transform .3s}
+.likes{padding:0 12px;font-size:10.5px;font-weight:700;height:16px}
+.caption{padding:2px 12px 0;font-size:9.6px;line-height:1.45;color:var(--ink);min-height:58px;position:relative}
+.caption b{font-weight:700}
+.cap-line{display:block;white-space:nowrap;overflow:hidden;width:0;transition:width .7s steps(26,end)}
+.writing{position:absolute;left:12px;top:4px;display:flex;align-items:center;gap:6px;font-size:10px;font-weight:600;color:var(--g);opacity:0;transition:opacity .3s}
+.writing i{width:5px;height:5px;border-radius:50%;background:var(--g);animation:dot 1s infinite}
+.writing i:nth-child(2){animation-delay:.15s}.writing i:nth-child(3){animation-delay:.3s}
+@keyframes dot{50%{opacity:.25}}
+.skel{display:block;height:7px;border-radius:4px;background:#EDF1EE;margin:6px 0}
+.tags{display:flex;flex-wrap:nowrap;gap:3px;padding:6px 12px 0}
+.tag{font-size:8.4px;font-weight:600;color:var(--g-dark);background:var(--g-light);padding:2px 6px;white-space:nowrap;border-radius:999px;opacity:0;transform:translateY(6px) scale(.85);transition:all .35s cubic-bezier(.3,1.6,.5,1)}
+.s-bottom{position:absolute;left:10px;right:10px;bottom:10px}
+.publish{width:100%;height:36px;border-radius:999px;border:0;background:var(--g);color:#fff;font:700 11.5px var(--sans);display:flex;align-items:center;justify-content:center;gap:6px;transition:transform .2s, background .3s}
+.publish svg{width:14px;height:14px}
+.published{position:absolute;left:10px;right:10px;bottom:10px;height:36px;border-radius:999px;background:var(--g-light);color:var(--g-dark);font:700 9.4px var(--sans);white-space:nowrap;display:flex;align-items:center;justify-content:center;gap:6px;opacity:0;transform:translateY(10px);transition:all .45s cubic-bezier(.2,.8,.2,1)}
+.published svg{width:14px;height:14px}
+
+.photo-card{position:absolute;left:0;top:0;width:150px;height:150px;border-radius:14px;background:#fff;padding:7px;box-shadow:0 22px 40px rgba(23,74,54,.25);transform-origin:0 0;transition:transform .7s cubic-bezier(.3,1.2,.4,1), opacity .4s ease;z-index:20;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
+.photo-card:focus-visible{outline:3px solid var(--orange);outline-offset:4px}
+.photo-card.dragging{cursor:grabbing;transition:opacity .3s;box-shadow:0 34px 60px rgba(23,74,54,.32)}
+.photo-card.idle{animation:wiggle 2.8s ease-in-out infinite}
+@keyframes wiggle{0%,100%{margin-top:0}50%{margin-top:-8px}}
+.photo-card.swap svg{animation:swap .5s ease}
+@keyframes swap{0%{opacity:1;transform:none}45%{opacity:0;transform:scale(.92)}55%{opacity:0;transform:scale(.92)}100%{opacity:1;transform:none}}
+.pc-tag{position:absolute;left:50%;bottom:-14px;transform:translateX(-50%);background:var(--orange);color:var(--ink);font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap;box-shadow:0 4px 10px rgba(0,0,0,.08)}
+.photo-card.dragging .pc-tag,.photo-card.flying .pc-tag{opacity:0}
+.drag-hint{position:absolute;display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600;color:var(--g-dark);background:rgba(255,255,255,.8);border:1px solid rgba(47,118,88,.2);padding:9px 14px;border-radius:999px;z-index:19;transition:opacity .3s;white-space:nowrap}
+.drag-hint svg{width:18px;height:18px}
+.replay{position:absolute;display:flex;align-items:center;gap:8px;font:600 15px var(--sans);color:#fff;background:var(--g);border:0;padding:11px 18px;border-radius:999px;z-index:19;cursor:pointer;opacity:0;pointer-events:none;transform:translateY(8px);transition:all .4s;box-shadow:0 10px 22px rgba(47,118,88,.3)}
+.replay svg{width:18px;height:18px}
+.stage.ended .replay{opacity:1;pointer-events:auto;transform:none}
+.stage:not(.ready) .drag-hint{opacity:0}
+.ground-shadow{position:absolute;border-radius:50%;background:radial-gradient(closest-side,rgba(23,74,54,.28),rgba(23,74,54,0));z-index:1}
+.frame.target .frame-empty{border-color:var(--orange);color:var(--orange-deep);background:rgba(242,182,109,.12)}
+.photo-card svg{width:100%;height:100%;border-radius:6px}
+.hand{position:absolute;width:48px;height:48px;left:0;top:0;z-index:21;opacity:0;pointer-events:none}
+.stage.ready .hand{animation:handgo 3.2s ease-in-out infinite}
+@keyframes handgo{0%{opacity:0;transform:translate(var(--hx0),var(--hy0)) scale(1)}12%{opacity:1;transform:translate(var(--hx0),var(--hy0)) scale(.85)}62%{opacity:1;transform:translate(var(--hx1),var(--hy1)) scale(.85)}75%,100%{opacity:0;transform:translate(var(--hx1),var(--hy1)) scale(1)}}
+
+.chip{position:absolute;z-index:22;display:flex;align-items:center;gap:9px;padding:10px 14px;border-radius:16px;font-size:14px;font-weight:600;color:var(--ink);opacity:0;transform:translateY(14px) scale(.9);transition:all .55s cubic-bezier(.2,1.3,.4,1);z-index:8;white-space:nowrap}
+.chip .ci{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;flex:none}
+.chip .ci svg{width:18px;height:18px}
+.chip b{font-size:18px;font-variant-numeric:tabular-nums}
+.chip small{display:block;font-size:11.5px;font-weight:500;color:var(--ink-2);line-height:1.1}
+.chip.like .ci{background:#FCE9D2;color:var(--orange-deep)}
+.chip.view .ci{background:var(--g-light);color:var(--g)}
+.chip.comment{max-width:250px;white-space:normal;align-items:flex-start;font-weight:500;font-size:13.5px;line-height:1.35}
+.chip.comment .ci{background:#E9EEF9;color:#5C6FA8}
+.chip.net{font-size:13px}
+.chip.net .ci{background:var(--g);color:#fff}
+.ex{position:absolute;left:6px;bottom:4px;font-size:12px;color:var(--ink-2);font-weight:500;opacity:0;transition:opacity .5s}
+.hearts{position:absolute;inset:0;pointer-events:none;z-index:23;overflow:visible}
+.fheart{position:absolute;width:22px;height:22px;color:var(--orange);animation:rise 2.4s cubic-bezier(.2,.6,.3,1) forwards}
+@keyframes rise{0%{opacity:0;transform:translate(0,0) scale(.4)}15%{opacity:1;transform:translate(var(--dx1),-30px) scale(1)}100%{opacity:0;transform:translate(var(--dx2),-190px) scale(.8) rotate(var(--rot))}}
+
+/* États de l'animation */
+.stage.lit .frame-empty{opacity:0}
+.stage.lit .frame-photo{opacity:1;transform:none}
+.stage.lit .frame-glow{opacity:1}
+.stage.glowoff .frame-glow{opacity:0}
+.stage.writing-on .writing{opacity:1}
+.stage.writing-on .skel{opacity:1}
+.stage.l1 .cap-line.c1,.stage.l2 .cap-line.c2,.stage.l3 .cap-line.c3,.stage.l4 .cap-line.c4{width:100%}
+.stage.l1 .skel{display:none}
+.stage.tags-on .tag{opacity:1;transform:none}
+.stage.tags-on .tag:nth-child(2){transition-delay:.12s}.stage.tags-on .tag:nth-child(3){transition-delay:.24s}
+.stage.press .publish{transform:scale(.94);background:var(--g-dark)}
+.stage.done .publish{opacity:0}
+.stage.done .published{opacity:1;transform:none}
+.stage.done .chip.net{opacity:1;transform:none}
+.stage.social .chip.like,.stage.social .chip.view{opacity:1;transform:none}
+.stage.social .chip.view{transition-delay:.25s}
+.stage.social2 .chip.comment{opacity:1;transform:none}
+.stage.social .ex{opacity:1}
+.stage.social .s-actions .heart{color:var(--red);fill:var(--red);transform:scale(1.15)}
+
+/* Bande de confiance */
+.trust{margin-top:30px;display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.trust div{display:flex;align-items:center;gap:12px;padding:18px 20px;font-size:16px;font-weight:600;line-height:1.3}
+.trust svg{width:26px;height:26px;color:var(--g);flex:none}
+
+/* Problème */
+.problem{display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center}
+.problem h2{font-size:clamp(34px,4.2vw,50px)}
+.problem h2 span{color:var(--g)}
+.pains{display:grid;gap:14px}
+.pain{display:flex;gap:18px;padding:22px 24px;align-items:flex-start}
+.pain .n{flex:none;width:44px;height:44px;border-radius:14px;background:#FCE9D2;color:#A8641F;display:grid;place-items:center}
+.pain .n svg{width:22px;height:22px}
+.pain h3{font:600 19px/1.3 var(--sans)}
+.pain p{color:var(--ink-2);font-size:16.5px;margin-top:4px}
+
+/* Étapes */
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;counter-reset:s}
+.step{padding:26px 26px 30px;position:relative;overflow:hidden}
+.step .art{height:210px;margin:-6px -6px 18px;border-radius:16px;background:linear-gradient(180deg,#F3F9F5,#E6F2EB);position:relative;overflow:hidden}
+.step .art svg{position:absolute;inset:0;width:100%;height:100%}
+.step .num{display:inline-grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--g);color:#fff;font:700 16px var(--sans);margin-bottom:12px}
+.step h3{font-size:26px}
+.step p{color:var(--ink-2);margin-top:8px;font-size:17px}
+.steps-line{display:none}
+
+/* Fonctions */
+.features{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
+.feat{padding:26px 24px;transition:transform .3s ease, box-shadow .3s}
+.feat:hover{transform:translateY(-4px);box-shadow:var(--shadow-lg)}
+.feat .fi{width:52px;height:52px;border-radius:16px;background:var(--g-light);color:var(--g);display:grid;place-items:center;margin-bottom:18px}
+.feat .fi.o{background:#FCE9D2;color:#B56E22}
+.feat .fi svg{width:26px;height:26px}
+.feat h3{font:600 19px/1.3 var(--sans)}
+.feat p{color:var(--ink-2);font-size:16px;margin-top:8px;line-height:1.5}
+.feat.big{grid-column:span 2;display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:center}
+
+/* Partout */
+.everywhere{background:linear-gradient(180deg,var(--g-dark),var(--g-deep));color:#fff;border-radius:40px;margin:0 24px;padding:110px 0;overflow:hidden;position:relative}
+.everywhere .eyebrow{color:#BFE3CF}
+.everywhere .section-head p{color:#C9DDD2}
+.ew-grid{display:grid;grid-template-columns:1fr 1.15fr;gap:50px;align-items:center}
+.ew-list{display:grid;gap:16px;margin-top:10px}
+.ew-list div{display:flex;gap:14px;align-items:center;font-size:18px}
+.ew-list svg{width:24px;height:24px;color:var(--orange);flex:none}
+.ew-art{position:relative;height:460px}
+.ew-art svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.flow{stroke-dasharray:6 10;animation:flow 1.6s linear infinite}
+@keyframes flow{to{stroke-dashoffset:-32}}
+.pin{animation:pin 3s ease-in-out infinite}
+@keyframes pin{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.pulse{transform-box:fill-box;transform-origin:center;animation:pulse 2.4s ease-out infinite}
+@keyframes pulse{0%{transform:scale(.6);opacity:.8}100%{transform:scale(2.4);opacity:0}}
+
+/* Vous gardez la main */
+.control{display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center}
+.ctrl-list{display:grid;gap:14px}
+.ctrl{display:flex;gap:16px;padding:20px 22px;align-items:center}
+.ctrl .ck{width:40px;height:40px;border-radius:50%;background:var(--g);color:#fff;display:grid;place-items:center;flex:none}
+.ctrl .ck svg{width:20px;height:20px}
+.ctrl h3{font:600 18.5px/1.3 var(--sans)}
+.ctrl p{font-size:16px;color:var(--ink-2);margin-top:2px}
+.validate{padding:26px;max-width:420px;margin:0 auto}
+.v-top{display:flex;align-items:center;gap:10px;font-weight:600;font-size:16px}
+.v-top .s-ava{width:34px;height:34px}.v-top .s-ava svg{width:22px;height:22px}
+.v-text{margin-top:16px;padding:16px 18px;border-radius:16px;background:#fff;border:1px solid var(--line);font-size:16px;line-height:1.55}
+.v-text mark{background:#FDF0DC;color:inherit;border-radius:4px;padding:0 3px}
+.v-btns{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
+.v-btns .btn{min-height:52px;font-size:16px;padding:0 14px}
+.v-note{margin-top:12px;font-size:14px;color:var(--ink-2);display:flex;gap:8px;align-items:center}
+.v-note svg{width:16px;height:16px;color:var(--g)}
+
+/* Prix */
+.trial{display:inline-flex;align-items:center;gap:12px;padding:12px 22px;border-radius:999px;background:#fff;border:1px solid rgba(242,182,109,.6);font-weight:600;font-size:17px;margin-bottom:34px;box-shadow:var(--shadow)}
+.trial .dot{width:30px;height:30px;border-radius:50%;background:var(--orange);display:grid;place-items:center}
+.trial .dot svg{width:16px;height:16px;color:var(--ink)}
+.prices{display:grid;grid-template-columns:1fr 1fr;gap:22px;max-width:880px;margin:0 auto}
+.price{padding:36px 34px;position:relative}
+.price.best{border-radius:var(--r);background:linear-gradient(180deg,rgba(255,255,255,.9),rgba(255,255,255,.75));border:2px solid var(--g);box-shadow:var(--shadow-lg)}
+.badge-best{position:absolute;top:-15px;left:34px;background:var(--g);color:#fff;font-size:13px;font-weight:700;padding:6px 14px;border-radius:999px}
+.price h3{font:600 22px var(--sans)}
+.price .amount{display:flex;align-items:baseline;gap:8px;margin-top:14px}
+.price .amount b{font:600 66px/1 var(--serif);letter-spacing:-.02em}
+.price .amount span{font-size:18px;color:var(--ink-2);font-weight:500}
+.price .cond{margin-top:8px;font-size:16.5px;font-weight:600;color:var(--g-dark)}
+.price ul{list-style:none;padding:0;margin:24px 0 28px;display:grid;gap:11px}
+.price li{display:flex;gap:10px;align-items:flex-start;font-size:16.5px}
+.price li svg{width:20px;height:20px;color:var(--g);flex:none;margin-top:3px}
+.price .btn{width:100%}
+.price-legal{max-width:880px;margin:26px auto 0;text-align:center;font-size:15px;color:var(--ink-2);line-height:1.6}
+.price-legal svg{width:16px;height:16px;display:inline;vertical-align:-3px;margin-right:4px;color:var(--g)}
+
+/* Métiers */
+.trades{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;max-width:900px;margin:0 auto}
+.trades span{padding:12px 20px;border-radius:999px;font-size:17px;font-weight:500;background:rgba(255,255,255,.75);border:1px solid var(--glass-border);box-shadow:0 1px 2px rgba(23,74,54,.05)}
+.trades span:nth-child(3n+1){border-color:rgba(47,118,88,.25)}
+
+/* FAQ */
+.faq{max-width:860px;margin:0 auto;display:grid;gap:12px}
+.faq details{padding:0 26px;border-radius:20px}
+.faq summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:20px;padding:22px 0;font-weight:600;font-size:19px}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary .pm{width:34px;height:34px;border-radius:50%;background:var(--g-light);color:var(--g);display:grid;place-items:center;flex:none;transition:transform .3s}
+.faq summary .pm svg{width:18px;height:18px}
+.faq details[open] .pm{transform:rotate(45deg)}
+.faq details p{padding:0 0 24px;color:#4C5A52;font-size:17.5px;max-width:720px}
+
+/* Appel final */
+.final{padding:110px 40px;text-align:center;border-radius:40px;position:relative;overflow:hidden}
+.final h2{font-size:clamp(36px,5vw,60px);max-width:800px;margin:0 auto}
+.final p{font-size:20px;color:var(--ink-2);margin:20px auto 0;max-width:640px}
+.final .hero-ctas{justify-content:center}
+.contact-line{margin-top:30px;display:flex;justify-content:center;gap:12px;flex-wrap:wrap}
+.contact-line a{display:inline-flex;align-items:center;gap:8px;text-decoration:none;font-weight:600;color:var(--g-dark);padding:10px 18px;border-radius:999px;background:var(--g-mist)}
+.contact-line svg{width:18px;height:18px}
+
+/* Pied de page */
+footer{padding:70px 0 50px;margin-top:80px;border-top:1px solid var(--line)}
+.foot{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:40px}
+.foot p{color:var(--ink-2);font-size:16px;margin-top:12px;max-width:340px}
+.foot h4{font:600 15px var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2);margin:0 0 14px}
+.foot ul{list-style:none;padding:0;margin:0;display:grid;gap:9px}
+.foot a{text-decoration:none;font-size:16px}
+.foot a:hover{color:var(--g)}
+.foot-bottom{margin-top:44px;padding-top:24px;border-top:1px solid var(--line);display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;font-size:14px;color:var(--ink-2)}
+
+/* Apparitions */
+.rv{opacity:0;transform:translateY(22px);transition:opacity .8s ease, transform .8s cubic-bezier(.2,.8,.2,1)}
+.rv.in{opacity:1;transform:none}
+.rv.d1{transition-delay:.1s}.rv.d2{transition-delay:.2s}.rv.d3{transition-delay:.3s}
+
+@media (max-width:1020px){
+  .hero-grid,.problem,.ew-grid,.control{grid-template-columns:1fr}
+  .features{grid-template-columns:1fr 1fr}
+  .trust{grid-template-columns:1fr 1fr}
+  .nav-links{display:none}
+}
+@media (max-width:700px){
+  body{font-size:17px}
+  .wrap{padding:0 16px}
+  .section{padding:80px 0}
+  .hero{padding-top:36px}
+  .steps,.features,.prices,.foot{grid-template-columns:1fr}
+  .feat.big{grid-column:auto;grid-template-columns:1fr}
+  .trust{grid-template-columns:1fr}
+  .everywhere{margin:0 8px;border-radius:28px;padding:80px 0}
+  .final{padding:70px 20px;border-radius:28px}
+  .nav .btn{display:none}
+  .ew-art{height:360px}
+  .hero-ctas .btn{width:100%}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+  .rv{opacity:1;transform:none}
+}
+</style>
+</head>
+<body>
+<div class="blobs" aria-hidden="true"><span class="b1"></span><span class="b2"></span><span class="b3"></span></div>
+
+<!-- Symboles réutilisés -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="logo" viewBox="0 0 120 120"><rect x="10" y="34" width="84" height="7" rx="2.5" fill="currentColor"/><path d="M10 40 H94 V46 Q83.5 58.6 73 46 Q62.5 58.6 52 46 Q41.5 58.6 31 46 Q20.5 58.6 10 46 Z" fill="currentColor"/><rect x="16" y="66" width="48" height="38" rx="5" stroke="currentColor" stroke-width="6" fill="none"/><path d="M26 94 L40 76 M38 96 L46 86" stroke="#F2B66D" stroke-width="5" stroke-linecap="round"/><path d="M72 106 V68 H88 V106" stroke="currentColor" stroke-width="6" stroke-linejoin="round" fill="none"/><path d="M8 106 H96" stroke="currentColor" stroke-width="6" stroke-linecap="round"/><circle cx="96" cy="26" r="18" fill="#F2B66D" stroke="var(--logo-bg)" stroke-width="5"/><path transform="translate(96 27) scale(0.947)" d="M0 6 C-8 0 -10 -4 -10 -7 A5 5 0 0 1 0 -9 A5 5 0 0 1 10 -7 C10 -4 8 0 0 6 Z" fill="var(--logo-bg)"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path class="ico" d="M5 12.5l4.2 4.2L19 7"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7.5-4.6-9.2-9.3C1.7 7.6 3.7 4.5 7 4.5c2 0 3.4 1.1 5 3 1.6-1.9 3-3 5-3 3.3 0 5.3 3.1 4.2 6.2C19.5 15.4 12 20 12 20z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+    <symbol id="i-heart-f" viewBox="0 0 24 24"><path d="M12 20s-7.5-4.6-9.2-9.3C1.7 7.6 3.7 4.5 7 4.5c2 0 3.4 1.1 5 3 1.6-1.9 3-3 5-3 3.3 0 5.3 3.1 4.2 6.2C19.5 15.4 12 20 12 20z" fill="currentColor"/></symbol>
+    <symbol id="i-comment" viewBox="0 0 24 24"><path class="ico" d="M20.5 11.5a8.5 8.5 0 0 1-12.4 7.6L3.5 20.5l1.4-4.4A8.5 8.5 0 1 1 20.5 11.5z"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path class="ico" d="M21 3.5L10.5 13.5M21 3.5l-6.5 17-4-7-7-4z"/></symbol>
+    <symbol id="i-save" viewBox="0 0 24 24"><path class="ico" d="M6 3.5h12v17l-6-4.5-6 4.5z"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path class="ico" d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle class="ico" cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24"><path class="ico" d="M3 8.5A2 2 0 0 1 5 6.5h2.3l1.5-2h6.4l1.5 2H19a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle class="ico" cx="12" cy="13" r="3.8"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect class="ico" x="3" y="4" width="18" height="16" rx="3"/><circle class="ico" cx="9" cy="10" r="1.8"/><path class="ico" d="M4 18l5-5 3.5 3.5L15 14l5 4.5"/></symbol>
+    <symbol id="i-pen" viewBox="0 0 24 24"><path class="ico" d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path class="ico" d="M13.5 6.5l4 4"/></symbol>
+    <symbol id="i-share" viewBox="0 0 24 24"><circle class="ico" cx="6" cy="12" r="2.5"/><circle class="ico" cx="18" cy="6" r="2.5"/><circle class="ico" cx="18" cy="18" r="2.5"/><path class="ico" d="M8.3 10.8l7.4-3.6M8.3 13.2l7.4 3.6"/></symbol>
+    <symbol id="i-story" viewBox="0 0 24 24"><rect class="ico" x="6" y="2.5" width="12" height="19" rx="3"/><path class="ico" d="M10.5 9.5l4 2.5-4 2.5z"/></symbol>
+    <symbol id="i-cal" viewBox="0 0 24 24"><rect class="ico" x="3.5" y="5" width="17" height="15.5" rx="3"/><path class="ico" d="M3.5 10h17M8 3v4M16 3v4"/><path class="ico" d="M8 14h2M14 14h2M8 17h2"/></symbol>
+    <symbol id="i-bulb" viewBox="0 0 24 24"><path class="ico" d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.4 1.1 2.2h5c0-.8.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"/></symbol>
+    <symbol id="i-gift" viewBox="0 0 24 24"><rect class="ico" x="3.5" y="9" width="17" height="11.5" rx="2"/><path class="ico" d="M2.5 9h19M12 9v11.5M12 9S10.5 4 7.8 4.6C5.6 5 6.5 9 12 9zm0 0s1.5-5 4.2-4.4C18.4 5 17.5 9 12 9z"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path class="ico" d="M4 20V4M4 20h16"/><path class="ico" d="M8 16v-4M12 16V8M16 16v-6"/></symbol>
+    <symbol id="i-tag" viewBox="0 0 24 24"><path class="ico" d="M3.5 12.5V4.5a1 1 0 0 1 1-1h8l8 8-9 9z"/><circle class="ico" cx="8.5" cy="8.5" r="1.5"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect class="ico" x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path class="ico" d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle class="ico" cx="12" cy="8" r="4"/><path class="ico" d="M4 20.5c1.2-3.8 4.2-5.5 8-5.5s6.8 1.7 8 5.5"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle class="ico" cx="12" cy="12" r="8.5"/><path class="ico" d="M12 7.5V12l3 2"/></symbol>
+    <symbol id="i-question" viewBox="0 0 24 24"><circle class="ico" cx="12" cy="12" r="8.5"/><path class="ico" d="M9.6 9.5a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.5M12 16.8v.2"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path class="ico" d="M12 3l7.5 3v5.5c0 4.5-3.2 8-7.5 9.5-4.3-1.5-7.5-5-7.5-9.5V6z"/><path class="ico" d="M8.8 12.2l2.3 2.3 4.3-4.5"/></symbol>
+    <symbol id="i-mail" viewBox="0 0 24 24"><rect class="ico" x="3" y="5.5" width="18" height="13" rx="2.5"/><path class="ico" d="M3.5 7l8.5 6 8.5-6"/></symbol>
+    <symbol id="i-store" viewBox="0 0 24 24"><path class="ico" d="M4 9.5V20h16V9.5M3 9.5l1.6-5h14.8l1.6 5zM9.5 20v-5.5h5V20"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path class="ico" d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path class="ico" d="M5 12h14M13 6l6 6-6 6"/></symbol>
+    <symbol id="i-flag" viewBox="0 0 24 24"><path class="ico" d="M5 21V4M5 4.5h11l-2 4 2 4H5"/></symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24"><path class="ico" d="M5 4h3.5l1.5 4-2 1.5a11 11 0 0 0 6.5 6.5l1.5-2 4 1.5V19a1.5 1.5 0 0 1-1.6 1.5C10.5 20 4 13.5 3.5 5.6A1.5 1.5 0 0 1 5 4z"/></symbol>
+    <symbol id="apple" viewBox="0 0 24 24"><path fill="currentColor" d="M16.4 12.6c0-2.4 2-3.5 2-3.6-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9-.7 0-1.8-.8-3-.8-1.5 0-3 .9-3.8 2.3-1.6 2.8-.4 7 1.2 9.3.8 1.1 1.7 2.4 2.9 2.3 1.2 0 1.6-.7 3-.7s1.8.7 3 .7c1.3 0 2.1-1.1 2.8-2.3.9-1.3 1.3-2.6 1.3-2.6s-2.5-1-2.5-3.7zM14.2 5.6c.6-.8 1.1-1.9 1-3-1 0-2.1.7-2.8 1.5-.6.7-1.2 1.8-1 2.9 1.1.1 2.1-.6 2.8-1.4z"/></symbol>
+    <symbol id="play" viewBox="0 0 24 24"><path fill="#4ADE80" d="M4 2.8v18.4c0 .4.2.7.5.9L14 12 4.5 1.9c-.3.2-.5.5-.5.9z"/><path fill="#60A5FA" d="M17.2 8.7L5.6 2c-.4-.2-.8-.2-1.1-.1L14 12z"/><path fill="#F87171" d="M14 12l-9.5 10.1c.3.1.7.1 1.1-.1l11.6-6.7z"/><path fill="#FBBF24" d="M20.5 10.6l-3.3-1.9L14 12l3.2 3.3 3.3-1.9c.9-.6.9-2.2 0-2.8z"/></symbol>
+    <!-- Le bouquet (illustration à plat, pas une photo générée) -->
+    <symbol id="bouquet" viewBox="0 0 200 200">
+      <rect width="200" height="200" fill="#F6E9DA"/>
+      <rect y="140" width="200" height="60" fill="#E9D5BF"/>
+      <circle cx="160" cy="40" r="46" fill="#FBF3EA"/>
+      <path d="M58 118 L100 196 L142 118 Z" fill="#D9B48A"/>
+      <path d="M58 118 L100 196 L88 118 Z" fill="#C99E70"/>
+      <path d="M86 150 Q100 158 114 150" stroke="#2F7658" stroke-width="5" fill="none" stroke-linecap="round"/>
+      <g fill="#5E9C76"><ellipse cx="52" cy="92" rx="22" ry="9" transform="rotate(-35 52 92)"/><ellipse cx="148" cy="88" rx="22" ry="9" transform="rotate(30 148 88)"/><ellipse cx="70" cy="58" rx="18" ry="7" transform="rotate(-60 70 58)"/><ellipse cx="136" cy="56" rx="18" ry="7" transform="rotate(55 136 56)"/></g>
+      <g fill="#8DB89B"><circle cx="44" cy="70" r="5"/><circle cx="38" cy="80" r="4"/><circle cx="160" cy="68" r="5"/><circle cx="166" cy="78" r="4"/><circle cx="150" cy="112" r="4"/></g>
+      <g><circle cx="100" cy="88" r="27" fill="#EFA3A8"/><circle cx="100" cy="88" r="18" fill="#E68A92"/><circle cx="100" cy="88" r="9" fill="#D9707A"/></g>
+      <g><circle cx="68" cy="102" r="21" fill="#F7D4D0"/><circle cx="68" cy="102" r="12" fill="#F0B8B5"/></g>
+      <g><circle cx="132" cy="104" r="21" fill="#F2B66D"/><circle cx="132" cy="104" r="12" fill="#E59A45"/></g>
+      <g><circle cx="80" cy="64" r="16" fill="#FFFFFF"/><circle cx="80" cy="64" r="6" fill="#F2D27A"/></g>
+      <g><circle cx="122" cy="62" r="17" fill="#F7D4D0"/><circle cx="122" cy="62" r="9" fill="#EFA3A8"/></g>
+      <g><circle cx="100" cy="122" r="13" fill="#FFFFFF"/><circle cx="100" cy="122" r="5" fill="#F2D27A"/></g>
+    </symbol>
+    <!-- Boulangerie -->
+    <symbol id="pain" viewBox="0 0 200 200">
+      <rect width="200" height="200" fill="#F4E8D6"/>
+      <rect y="132" width="200" height="68" fill="#E7D3B8"/>
+      <circle cx="160" cy="38" r="44" fill="#FBF4EA"/>
+      <rect x="18" y="118" width="164" height="40" rx="10" fill="#B98C5E"/>
+      <rect x="18" y="118" width="164" height="10" rx="5" fill="#C99E70"/>
+      <g transform="rotate(-14 100 92)"><rect x="22" y="78" width="150" height="26" rx="13" fill="#D9A15C"/><rect x="22" y="78" width="150" height="10" rx="5" fill="#E8B878"/><g stroke="#B97C3A" stroke-width="3.5" stroke-linecap="round"><path d="M48 84 l12 12M78 84 l12 12M108 84 l12 12M138 84 l12 12"/></g></g>
+      <g transform="rotate(-6 100 112)"><rect x="34" y="100" width="140" height="22" rx="11" fill="#C98C48"/><rect x="34" y="100" width="140" height="8" rx="4" fill="#DDA563"/><g stroke="#A86A2C" stroke-width="3" stroke-linecap="round"><path d="M58 105 l10 10M86 105 l10 10M114 105 l10 10M142 105 l10 10"/></g></g>
+      <g transform="translate(64 58)"><path d="M-30 6 Q0 -30 30 6 Q16 0 0 2 Q-16 0 -30 6Z" fill="#E2A65E"/><path d="M-16 -8 Q0 -22 16 -8" stroke="#C5863F" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M-24 0 Q0 -14 24 0" stroke="#C5863F" stroke-width="3" fill="none" stroke-linecap="round"/></g>
+      <g stroke="#C9A15F" stroke-width="2.5" fill="#E6C27A" stroke-linecap="round"><path d="M160 120 L170 60" fill="none"/><ellipse cx="166" cy="70" rx="4" ry="7" transform="rotate(10 166 70)"/><ellipse cx="164" cy="82" rx="4" ry="7" transform="rotate(10 164 82)"/><ellipse cx="172" cy="78" rx="4" ry="7" transform="rotate(30 172 78)"/></g>
+    </symbol>
+    <!-- Caviste -->
+    <symbol id="vin" viewBox="0 0 200 200">
+      <rect width="200" height="200" fill="#EFE6E1"/>
+      <rect y="140" width="200" height="60" fill="#D9C6B8"/>
+      <circle cx="40" cy="40" r="40" fill="#F7F0EB"/>
+      <g><rect x="52" y="34" width="14" height="30" rx="4" fill="#1F4A38"/><path d="M44 64 Q44 56 59 56 Q74 56 74 64 V150 Q74 156 68 156 H50 Q44 156 44 150Z" fill="#245F47"/><rect x="47" y="96" width="24" height="30" rx="3" fill="#F6EBDD"/><rect x="51" y="104" width="16" height="3" rx="1.5" fill="#B5745A"/><rect x="51" y="111" width="12" height="3" rx="1.5" fill="#C9B8A8"/><rect x="52" y="30" width="14" height="8" rx="3" fill="#8E2F3A"/></g>
+      <g><rect x="90" y="24" width="15" height="34" rx="4" fill="#4E1D27"/><path d="M82 58 Q82 50 97.5 50 Q113 50 113 58 V152 Q113 158 107 158 H88 Q82 158 82 152Z" fill="#6B2633"/><rect x="85" y="92" width="25" height="34" rx="3" fill="#F6EBDD"/><rect x="89" y="101" width="17" height="3" rx="1.5" fill="#8E2F3A"/><rect x="89" y="108" width="12" height="3" rx="1.5" fill="#C9B8A8"/><rect x="90" y="20" width="15" height="9" rx="3" fill="#F2B66D"/></g>
+      <g><path d="M134 70 H170 Q170 104 152 106 Q134 104 134 70Z" fill="#fff" opacity=".85"/><path d="M136 84 H168 Q166 102 152 104 Q138 102 136 84Z" fill="#9E2E3E"/><rect x="150" y="105" width="4" height="34" fill="#fff" opacity=".9"/><ellipse cx="152" cy="141" rx="15" ry="4" fill="#fff" opacity=".9"/></g>
+      <g fill="#7A3B5C"><circle cx="130" cy="150" r="7"/><circle cx="142" cy="152" r="7"/><circle cx="136" cy="162" r="7"/><circle cx="124" cy="160" r="6"/></g>
+      <path d="M134 142 q6 -10 14 -6" stroke="#5E9C76" stroke-width="3" fill="none" stroke-linecap="round"/>
+    </symbol>
+    <!-- Boucherie -->
+    <symbol id="viande" viewBox="0 0 200 200">
+      <rect width="200" height="200" fill="#EFE7E0"/>
+      <rect y="136" width="200" height="64" fill="#DCCBBE"/>
+      <circle cx="162" cy="40" r="42" fill="#F8F2EC"/>
+      <ellipse cx="100" cy="128" rx="86" ry="44" fill="#B98C5E"/>
+      <ellipse cx="100" cy="122" rx="86" ry="44" fill="#CFA372"/>
+      <path d="M44 112 Q40 80 74 74 Q110 66 134 82 Q152 96 140 120 Q126 142 92 140 Q54 138 44 112Z" fill="#B8434B"/>
+      <path d="M52 110 Q50 86 76 80 Q108 74 128 88 Q142 100 132 118 Q120 134 92 133 Q60 132 52 110Z" fill="#CC5560"/>
+      <g stroke="#F3D6D3" stroke-width="2.4" fill="none" stroke-linecap="round" opacity=".9"><path d="M66 96 q14 6 28 -2"/><path d="M80 112 q16 8 34 -4"/><path d="M98 90 q10 4 18 0"/><path d="M64 120 q8 4 16 0"/></g>
+      <path d="M44 112 Q40 80 74 74" stroke="#F4E3D0" stroke-width="7" fill="none" stroke-linecap="round"/>
+      <rect x="134" y="66" width="44" height="14" rx="7" fill="#F4ECE1" transform="rotate(-24 156 73)"/>
+      <circle cx="176" cy="58" r="8" fill="#F4ECE1"/><circle cx="182" cy="66" r="7" fill="#F4ECE1"/>
+      <g stroke="#4E8A66" stroke-width="2.6" stroke-linecap="round"><path d="M30 150 L80 136"/><path d="M40 147 l-4 -7M50 144 l-4 -7M60 141 l-4 -7M70 138 l-4 -7M40 147 l3 7M50 144 l3 7M60 141 l3 7M70 138 l3 7"/></g>
+      <g fill="#E8D9B6"><circle cx="150" cy="146" r="4"/><circle cx="158" cy="150" r="3"/><circle cx="146" cy="154" r="3"/></g>
+    </symbol>
+  </defs>
+</svg>
+
+<!-- BARRE DU HAUT -->
+<header class="nav">
+  <div class="nav-in glass">
+    <a class="brand" href="#"><svg><use href="#logo"/></svg>Vitrine</a>
+    <nav class="nav-links" aria-label="Menu">
+      <a href="#comment">Comment ça marche</a>
+      <a href="#fonctions">Ce que fait Vitrine</a>
+      <a href="#prix">Prix</a>
+      <a href="#questions">Questions</a>
+    </nav>
+    <a class="btn btn-primary" href="app/">Essayer 15 jours gratuits</a>
+  </div>
+</header>
+
+<main>
+<!-- HÉROS -->
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="eyebrow rv">Pour les commerces de proximité</span>
+      <h1 class="rv d1" style="margin-top:18px">Vos réseaux sociaux, gérés comme par un pro. <em>Avec une photo.</em></h1>
+      <p class="lead rv d2">Vous prenez la photo. Vitrine écrit le texte dans le ton de votre boutique, ajoute les mots-clés de votre ville et publie sur Instagram et Facebook, après votre accord.</p>
+      <div class="hero-ctas rv d3">
+        <a class="btn btn-primary" href="app/">Essayer 15 jours gratuits <svg><use href="#i-arrow"/></svg></a>
+        <a class="btn btn-ghost" href="#comment">Voir comment ça marche</a>
+      </div>
+      <div class="reassure rv d3">
+        <span><svg><use href="#i-check"/></svg>Sans carte bancaire</span>
+        <span><svg><use href="#i-check"/></svg>Vous validez chaque post</span>
+        <span><svg><use href="#i-check"/></svg>Fait en France</span>
+      </div>
+      <div class="stores rv d3">
+        <a class="store" href="app/" aria-label="Bientôt sur l'App Store. En attendant, ouvrir la version web"><svg><use href="#apple"/></svg><span><small>Bientôt sur l'</small><b>App Store</b></span><span class="soon">Bientôt</span></a>
+        <a class="store" href="app/" aria-label="Bientôt sur Google Play. En attendant, ouvrir la version web"><svg><use href="#play"/></svg><span><small>Bientôt sur</small><b>Google Play</b></span><span class="soon">Bientôt</span></a>
+        <a class="web-link" href="app/">Déjà disponible sur le web</a>
+      </div>
+    </div>
+
+    <div class="stage-box" id="stageBox" aria-label="Animation : une photo glisse dans une publication vide, le texte s'écrit, puis la publication reçoit des j'aime et des vues." role="img">
+      <div class="stage" id="stage" data-step="0">
+        <svg class="world" id="world" viewBox="0 0 620 720"></svg>
+
+        <!-- Le téléphone (posé sur la scène, en perspective isométrique) -->
+        <div class="phone" id="phone">
+          <div class="phone-back" style="transform:translate(5px,5px)"></div>
+          <div class="phone-back" style="transform:translate(2.5px,2.5px)"></div>
+          <div class="phone-body">
+            <div class="screen">
+              <div class="notch"></div>
+              <div class="s-head">
+                <div class="s-ava"><svg><use href="#logo"/></svg></div>
+                <div class="s-name"><span id="sHandle">fleursdemarie</span><small id="sCity">Aix-en-Provence</small></div>
+                <div class="s-dots">···</div>
+              </div>
+              <div class="frame">
+                <div class="frame-empty"><svg><use href="#i-image"/></svg>Votre photo ici</div>
+                <div class="frame-photo"><svg viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice"><use id="framePic" href="#bouquet"/></svg></div>
+                <div class="frame-glow"></div>
+              </div>
+              <div class="s-actions">
+                <svg class="heart" fill="none" style="color:var(--ink)"><use href="#i-heart"/></svg>
+                <svg><use href="#i-comment"/></svg>
+                <svg><use href="#i-send"/></svg>
+                <svg class="save"><use href="#i-save"/></svg>
+              </div>
+              <div class="likes" id="likesTxt">&nbsp;</div>
+              <div class="caption" id="caption">
+                <div class="writing"><i></i><i></i><i></i>Vitrine écrit…</div>
+                <span class="skel" style="width:92%;margin-top:22px"></span><span class="skel" style="width:70%"></span>
+                <span class="cap-line c1"><b>fleursdemarie</b> Le bouquet de</span>
+                <span class="cap-line c2">la semaine est arrivé : pivoines,</span>
+                <span class="cap-line c3">roses anciennes et eucalyptus.</span>
+                <span class="cap-line c4">Il vous attend en boutique.</span>
+              </div>
+              <div class="tags"><span class="tag" id="tag1">#aixenprovence</span><span class="tag" id="tag2">#fleuristeaix</span></div>
+              <div class="s-bottom"><button class="publish" tabindex="-1"><svg><use href="#i-check"/></svg>Je valide et je publie</button></div>
+              <div class="published"><svg><use href="#i-check"/></svg>Publié sur Instagram et Facebook</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="ground-shadow" id="gshadow"></div>
+        <div class="photo-card" id="photoCard" role="button" tabindex="0" aria-label="Faire glisser la photo dans la publication"><svg viewBox="0 0 200 200"><use id="cardPic" href="#bouquet"/></svg><span class="pc-tag" id="pcTag">Fleuriste</span></div>
+        <svg class="hand" id="hand" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="20" fill="rgba(47,118,88,.16)"/><circle cx="24" cy="24" r="11" fill="#fff" stroke="#2F7658" stroke-width="3"/></svg>
+        <div class="drag-hint" id="dragHint"><svg><use href="#i-arrow"/></svg>Glissez la photo dans le post</div>
+        <button class="replay" id="replay" type="button"><svg><use href="#i-camera"/></svg>Recommencer</button>
+        <div class="chip glass net" style="left:10px;top:40px"><span class="ci"><svg><use href="#i-share"/></svg></span><span>Instagram + Facebook<small>en une seule fois</small></span></div>
+        <div class="chip glass like" style="left:40px;top:120px"><span class="ci"><svg><use href="#i-heart-f"/></svg></span><span><b id="cLikes">0</b> j'aime</span></div>
+        <div class="chip glass view" style="left:60px;top:190px"><span class="ci"><svg><use href="#i-eye"/></svg></span><span><b id="cViews">0</b> vues</span></div>
+        <div class="chip glass comment" style="left:10px;top:560px"><span class="ci"><svg><use href="#i-comment"/></svg></span><span><b style="font-size:13px" id="cmName">claire.aix</b><br><span id="cmText">Magnifique ! Je passe demain.</span></span></div>
+        <div class="ex">Chiffres donnés à titre d'exemple</div>
+        <div class="hearts" id="hearts"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="trust">
+      <div class="glass rv"><svg><use href="#i-shield"/></svg>Rien ne part sans votre accord</div>
+      <div class="glass rv d1"><svg><use href="#i-share"/></svg>Instagram et Facebook en une fois</div>
+      <div class="glass rv d2"><svg><use href="#i-lock"/></svg>Connexion officielle Meta, sans mot de passe</div>
+      <div class="glass rv d3"><svg><use href="#i-flag"/></svg>Fait en France, pour les commerces français</div>
+    </div>
+  </div>
+</section>
+
+<!-- LE PROBLÈME -->
+<section class="section">
+  <div class="wrap problem">
+    <div class="rv">
+      <span class="eyebrow">Le constat</span>
+      <h2 style="margin-top:14px">Vous savez faire votre métier. <span>Les réseaux, c'est un autre métier.</span></h2>
+      <p style="font-size:20px;color:var(--ink-2);margin-top:20px;max-width:500px">Vos clients regardent leur téléphone avant de pousser une porte. Vitrine fait pour vous ce que ferait un community manager, sans le prix d'une agence.</p>
+    </div>
+    <div class="pains">
+      <div class="pain glass rv d1"><div class="n"><svg><use href="#i-clock"/></svg></div><div><h3>Pas le temps</h3><p>Entre les clients, les commandes et la caisse, publier passe toujours après.</p></div></div>
+      <div class="pain glass rv d2"><div class="n"><svg><use href="#i-pen"/></svg></div><div><h3>Pas d'idée, pas les mots</h3><p>Quoi écrire ? Quels mots-clés ? Quand publier ? On ne sait pas par où commencer.</p></div></div>
+      <div class="pain glass rv d3"><div class="n"><svg><use href="#i-question"/></svg></div><div><h3>Peur de mal faire</h3><p>Une faute, une erreur de prix, un post qui part trop tôt. Avec Vitrine, vous relisez toujours avant.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- COMMENT ÇA MARCHE -->
+<section class="section" id="comment" style="padding-top:40px">
+  <div class="wrap">
+    <div class="section-head center rv">
+      <span class="eyebrow">Comment ça marche</span>
+      <h2>Trois gestes. Moins d'une minute.</h2>
+      <p>Pas besoin d'être à l'aise avec le téléphone : si vous savez prendre une photo, vous savez utiliser Vitrine.</p>
+    </div>
+    <div class="steps">
+      <article class="step glass rv">
+        <div class="art"><svg viewBox="0 0 320 210" id="art1"></svg></div>
+        <span class="num">1</span>
+        <h3>Prenez une photo</h3>
+        <p>Un bouquet, une vitrine, un nouvel arrivage. Une photo ou une petite vidéo suffit.</p>
+      </article>
+      <article class="step glass rv d1">
+        <div class="art"><svg viewBox="0 0 320 210" id="art2"></svg></div>
+        <span class="num">2</span>
+        <h3>Vitrine écrit le texte</h3>
+        <p>Dans le ton de votre boutique, avec les mots-clés de votre ville et de votre métier.</p>
+      </article>
+      <article class="step glass rv d2">
+        <div class="art"><svg viewBox="0 0 320 210" id="art3"></svg></div>
+        <span class="num">3</span>
+        <h3>Vous validez, c'est publié</h3>
+        <p>Un seul bouton. La publication part sur Instagram et Facebook en même temps.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- FONCTIONS -->
+<section class="section" id="fonctions" style="padding-top:40px">
+  <div class="wrap">
+    <div class="section-head rv">
+      <span class="eyebrow">Ce que fait Vitrine</span>
+      <h2>Votre community manager, dans la poche.</h2>
+      <p>Tout ce qu'une agence ferait pour votre commerce, réuni dans une appli simple, avec de gros boutons et peu de texte.</p>
+    </div>
+    <div class="features">
+      <div class="feat glass rv"><div class="fi"><svg><use href="#i-pen"/></svg></div><h3>Le texte écrit pour vous</h3><p>Chaleureux, chic ou complice : Vitrine écrit comme vous parlez à vos clients.</p></div>
+      <div class="feat glass rv d1"><div class="fi"><svg><use href="#i-tag"/></svg></div><h3>Les mots-clés de votre ville</h3><p>Les bons hashtags locaux, comme #aixenprovence ou #fleuristeaix, pour être vu du quartier.</p></div>
+      <div class="feat glass rv d2"><div class="fi"><svg><use href="#i-share"/></svg></div><h3>Instagram et Facebook</h3><p>Une photo, un bouton, et la publication part sur vos deux comptes à la fois.</p></div>
+      <div class="feat glass rv d3"><div class="fi o"><svg><use href="#i-story"/></svg></div><h3>Les stories aussi</h3><p>En photo ou en vidéo, avec une musique libre de droits choisie pour l'ambiance.</p></div>
+      <div class="feat glass rv"><div class="fi"><svg><use href="#i-cal"/></svg></div><h3>Le planning de la semaine</h3><p>Chaque jour, un conseil : post, story ou repos. Préparez vos posts à l'avance.</p></div>
+      <div class="feat glass rv d1"><div class="fi o"><svg><use href="#i-bulb"/></svg></div><h3>« Je ne sais pas quoi poster »</h3><p>Trois idées adaptées à votre boutique, à la saison et à ce que vous vendez.</p></div>
+      <div class="feat glass rv d2"><div class="fi o"><svg><use href="#i-gift"/></svg></div><h3>Toutes les fêtes de votre métier</h3><p>Saint-Valentin, fête des mères, Noël, jours fériés : rappelés à temps, jamais oubliés.</p></div>
+      <div class="feat glass rv d3"><div class="fi"><svg><use href="#i-chart"/></svg></div><h3>Le bilan du mois</h3><p>Ce qui a été publié, le temps gagné, ce qui a plu. En un coup d'œil.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- PARTOUT -->
+<section class="everywhere">
+  <div class="wrap ew-grid">
+    <div class="rv">
+      <span class="eyebrow">Une photo. Partout.</span>
+      <h2 style="font-size:clamp(34px,4.4vw,52px);margin-top:14px;color:#fff">Votre vitrine s'allume aussi dans les téléphones du quartier.</h2>
+      <p style="font-size:20px;color:#C9DDD2;margin-top:18px;max-width:520px">La même photo devient une publication Instagram, une publication Facebook et une story. Vos clients la voient, l'aiment et la partagent. Vous, vous n'avez rien d'autre à faire.</p>
+      <div class="ew-list">
+        <div><svg><use href="#i-check"/></svg>Un post Instagram, un post Facebook, une story</div>
+        <div><svg><use href="#i-check"/></svg>Les mots-clés de votre ville et de votre métier</div>
+        <div><svg><use href="#i-check"/></svg>Vous validez, Vitrine s'occupe du reste</div>
+      </div>
+    </div>
+    <div class="ew-art rv d1"><svg viewBox="0 0 560 460" id="ewArt"></svg></div>
+  </div>
+</section>
+
+<!-- VOUS GARDEZ LA MAIN -->
+<section class="section">
+  <div class="wrap control">
+    <div class="rv">
+      <div class="validate glass">
+        <div class="v-top"><div class="s-ava"><svg><use href="#logo"/></svg></div>Votre publication est prête</div>
+        <div class="v-text">Le bouquet de la semaine est arrivé : pivoines, roses anciennes et eucalyptus. <mark>29 € le bouquet</mark>, jusqu'à samedi. Il vous attend en boutique.<br><span style="color:var(--g);font-weight:600">#aixenprovence #fleuristeaix</span></div>
+        <div class="v-btns"><span class="btn btn-ghost"><svg><use href="#i-pen"/></svg>Modifier</span><span class="btn btn-primary"><svg><use href="#i-check"/></svg>Publier</span></div>
+        <div class="v-note"><svg><use href="#i-shield"/></svg>Le prix vient de vous : Vitrine le recopie tel quel.</div>
+      </div>
+    </div>
+    <div>
+      <div class="section-head rv" style="margin-bottom:30px">
+        <span class="eyebrow">Vous gardez la main</span>
+        <h2>Rien ne part sans votre accord.</h2>
+      </div>
+      <div class="ctrl-list">
+        <div class="ctrl glass rv"><div class="ck"><svg><use href="#i-check"/></svg></div><div><h3>Vous relisez avant chaque publication</h3><p>Vous pouvez changer chaque mot, ou demander un autre texte.</p></div></div>
+        <div class="ctrl glass rv d1"><div class="ck"><svg><use href="#i-check"/></svg></div><div><h3>Vitrine n'invente jamais rien</h3><p>Prix, promotions, horaires : seulement ce que vous avez écrit.</p></div></div>
+        <div class="ctrl glass rv d2"><div class="ck"><svg><use href="#i-check"/></svg></div><div><h3>Connexion officielle de Meta</h3><p>On ne vous demande jamais votre mot de passe Instagram ou Facebook.</p></div></div>
+        <div class="ctrl glass rv d3"><div class="ck"><svg><use href="#i-check"/></svg></div><div><h3>Vos données vous appartiennent</h3><p>Vous supprimez votre compte quand vous voulez, depuis l'appli.</p></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRIX -->
+<section class="section" id="prix" style="padding-top:40px">
+  <div class="wrap">
+    <div class="section-head center rv">
+      <span class="eyebrow">Prix</span>
+      <h2>Simple et clair.</h2>
+      <p>Les deux offres donnent accès à tout Vitrine. Seule la durée change.</p>
+    </div>
+    <div style="text-align:center" class="rv"><span class="trial"><span class="dot"><svg><use href="#i-gift"/></svg></span>15 jours gratuits, sans carte bancaire</span></div>
+    <div class="prices">
+      <div class="price glass rv">
+        <h3>Mensuel</h3>
+        <div class="amount"><b>39 €</b><span>par mois</span></div>
+        <div class="cond">Sans engagement</div>
+        <ul>
+          <li><svg><use href="#i-check"/></svg>Toutes les fonctions de Vitrine</li>
+          <li><svg><use href="#i-check"/></svg>Instagram, Facebook et stories</li>
+          <li><svg><use href="#i-check"/></svg>Vous arrêtez quand vous voulez</li>
+        </ul>
+        <a class="btn btn-ghost" href="app/">Commencer l'essai gratuit</a>
+      </div>
+      <div class="price best rv d1">
+        <span class="badge-best">Le plus avantageux</span>
+        <h3>Annuel</h3>
+        <div class="amount"><b>29 €</b><span>par mois</span></div>
+        <div class="cond">Engagement 12 mois, payé chaque mois</div>
+        <ul>
+          <li><svg><use href="#i-check"/></svg>Toutes les fonctions de Vitrine</li>
+          <li><svg><use href="#i-check"/></svg>Instagram, Facebook et stories</li>
+          <li><svg><use href="#i-check"/></svg>120 € d'économie sur l'année</li>
+        </ul>
+        <a class="btn btn-primary" href="app/">Commencer l'essai gratuit</a>
+      </div>
+    </div>
+    <p class="price-legal rv">Au bout des 15 jours, vous choisissez une offre pour continuer. Rien n'est prélevé sans votre accord.<br><svg><use href="#i-lock"/></svg>Paiement sécurisé par Stripe. Prix final : TVA non applicable, art. 293 B du CGI.</p>
+  </div>
+</section>
+
+<!-- MÉTIERS -->
+<section class="section" style="padding-top:20px">
+  <div class="wrap">
+    <div class="section-head center rv" style="margin-bottom:36px">
+      <span class="eyebrow">Pour qui</span>
+      <h2>Pensé pour les commerces de quartier.</h2>
+    </div>
+    <div class="trades rv">
+      <span>Fleuriste</span><span>Boulangerie</span><span>Pâtisserie</span><span>Coiffeur</span><span>Caviste</span><span>Boucherie</span><span>Fromagerie</span><span>Épicerie fine</span><span>Opticien</span><span>Prêt-à-porter</span><span>Institut de beauté</span><span>Restaurant</span><span>Librairie</span><span>Chocolatier</span><span>Et bien d'autres</span>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="section" id="questions" style="padding-top:40px">
+  <div class="wrap">
+    <div class="section-head center rv">
+      <span class="eyebrow">Questions</span>
+      <h2>Vos questions, nos réponses.</h2>
+    </div>
+    <div class="faq">
+      <details class="glass rv" open><summary>Je ne suis pas à l'aise avec le téléphone. C'est pour moi ?<span class="pm"><svg><use href="#i-plus"/></svg></span></summary><p>Oui. Vitrine a été pensée pour ça : de gros boutons, peu de texte, et un seul geste à retenir, prendre une photo. Et si vous avez une question, on vous explique tout, en boutique ou au téléphone.</p></details>
+      <details class="glass rv"><summary>Est-ce que Vitrine publie sans me demander ?<span class="pm"><svg><use href="#i-plus"/></svg></span></summary><p>Non. Vous voyez toujours la publication avant qu'elle parte, et vous pouvez la modifier. Rien n'est publié sans votre accord.</p></details>
+      <details class="glass rv"><summary>Faut-il déjà avoir un compte Instagram ou Facebook ?<span class="pm"><svg><use href="#i-plus"/></svg></span></summary><p>Il faut une page Facebook et un compte Instagram professionnel pour votre boutique. Si vous ne les avez pas encore, on vous aide à les créer.</p></details>
+      <details class="glass rv"><summary>Que se passe-t-il après les 15 jours gratuits ?<span class="pm"><svg><use href="#i-plus"/></svg></span></summary><p>Vous choisissez l'offre Mensuel (39 € par mois, sans engagement) ou Annuel (29 € par mois, engagement 12 mois). Tant que vous n'avez rien choisi, rien n'est prélevé.</p></details>
+      <details class="glass rv"><summary>Comment j'arrête mon abonnement ?<span class="pm"><svg><use href="#i-plus"/></svg></span></summary><p>Depuis l'appli, dans « Mon abonnement ». L'offre Mensuel s'arrête quand vous voulez. L'offre Annuel s'arrête au bout des 12 mois.</p></details>
+      <details class="glass rv"><summary>Mes photos sont-elles protégées ?<span class="pm"><svg><use href="#i-plus"/></svg></span></summary><p>Vos photos sont rangées dans un espace privé, lisible seulement par votre compte. Vous pouvez tout supprimer à tout moment. Les détails sont dans notre politique de confidentialité.</p></details>
+      <details class="glass rv"><summary>L'appli est-elle sur l'App Store et Google Play ?<span class="pm"><svg><use href="#i-plus"/></svg></span></summary><p>Bientôt. En attendant, Vitrine s'utilise déjà depuis le navigateur de votre téléphone, et vous pouvez l'ajouter à votre écran d'accueil comme une vraie appli.</p></details>
+      <details class="glass rv"><summary>Qui est derrière Vitrine ?<span class="pm"><svg><use href="#i-plus"/></svg></span></summary><p>Vitrine est une entreprise française, basée à Éguilles, dans les Bouches-du-Rhône. Vous pouvez nous écrire à tout moment à vitrine.appli@outlook.fr.</p></details>
+    </div>
+  </div>
+</section>
+
+<!-- APPEL FINAL -->
+<section class="section" style="padding-top:20px">
+  <div class="wrap">
+    <div class="final glass rv">
+      <svg width="74" height="74" style="margin:0 auto 22px;color:var(--g);--logo-bg:#F6FAF7"><use href="#logo"/></svg>
+      <h2>Votre vitrine, aussi dans les téléphones.</h2>
+      <p>Essayez Vitrine 15 jours gratuitement. Sans carte bancaire, sans engagement.</p>
+      <div class="hero-ctas"><a class="btn btn-primary" href="app/">Essayer 15 jours gratuits <svg><use href="#i-arrow"/></svg></a></div>
+      <p style="font-size:17px;margin-top:30px">Une question ? On vous explique tout, en boutique ou au téléphone.</p>
+      <div class="contact-line"><a href="mailto:vitrine.appli@outlook.fr"><svg><use href="#i-mail"/></svg>vitrine.appli@outlook.fr</a></div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot">
+      <div>
+        <a class="brand" href="#"><svg><use href="#logo"/></svg>Vitrine</a>
+        <p>Une photo, on s'occupe du reste. L'appli qui gère les réseaux sociaux des commerces de proximité.</p>
+      </div>
+      <div>
+        <h4>Vitrine</h4>
+        <ul><li><a href="#comment">Comment ça marche</a></li><li><a href="#fonctions">Ce que fait Vitrine</a></li><li><a href="#prix">Prix</a></li><li><a href="#questions">Questions</a></li><li><a href="mailto:vitrine.appli@outlook.fr">Nous écrire</a></li></ul>
+      </div>
+      <div>
+        <h4>Informations</h4>
+        <ul><li><a href="mentions-legales/">Mentions légales</a></li><li><a href="conditions/">Conditions d'utilisation et de vente</a></li><li><a href="confidentialite/">Confidentialité</a></li><li><a href="suppression/">Suppression des données</a></li></ul>
+      </div>
+    </div>
+    <div class="foot-bottom"><span>Vitrine — Kelian Jouini, entrepreneur individuel, Éguilles (13). SIREN en cours d'attribution.</span><span>Instagram et Facebook sont des marques de Meta Platforms, Inc.</span></div>
+  </div>
+</footer>
+
+<script>
+(() => {
+  const NS = 'http://www.w3.org/2000/svg';
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const params = new URLSearchParams(location.search);
+
+  /* ---------- Outils isométriques ---------- */
+  const mk = (U, ox, oy) => (x, y, z = 0) => [ox + (x - y) * 0.866 * U, oy + (x + y) * 0.5 * U - z * U];
+  const poly = (pts, fill, extra = '') => `<polygon points="${pts.map(p => p.map(n => n.toFixed(1)).join(',')).join(' ')}" fill="${fill}" ${extra}/>`;
+  const box = (P, x, y, z, w, d, h, c) => // c: [top, droite(x), gauche(y)]
+    poly([P(x, y + d, z), P(x + w, y + d, z), P(x + w, y + d, z + h), P(x, y + d, z + h)], c[2]) +
+    poly([P(x + w, y, z), P(x + w, y + d, z), P(x + w, y + d, z + h), P(x + w, y, z + h)], c[1]) +
+    poly([P(x, y, z + h), P(x + w, y, z + h), P(x + w, y + d, z + h), P(x, y + d, z + h)], c[0]);
+
+  /* ---------- Scène du héros ---------- */
+  const U = 25, OX = 290, OY = 360;
+  const P = mk(U, OX, OY);
+  let s = '';
+  s += `<defs><radialGradient id="sh" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#174A36" stop-opacity=".18"/><stop offset="1" stop-color="#174A36" stop-opacity="0"/></radialGradient></defs>`;
+  s += `<ellipse cx="${OX}" cy="${OY + 300}" rx="300" ry="70" fill="url(#sh)"/>`;
+  // dalle
+  s += box(P, 0, 0, -0.55, 14, 11, 0.55, ['#EAF4EE', '#BFDCCB', '#D2E7DA']);
+  // trottoir clair + bord
+  s += poly([P(4.4, 0), P(14, 0), P(14, 11), P(4.4, 11)], '#F4F8F5');
+  s += poly([P(4.4, 0), P(4.7, 0), P(4.7, 11), P(4.4, 11)], '#DCE9E1');
+  // pavés (lignes fines)
+  for (let i = 5; i < 14; i++) s += `<line x1="${P(i,0)[0]}" y1="${P(i,0)[1]}" x2="${P(i,11)[0]}" y2="${P(i,11)[1]}" stroke="#E3EEE7" stroke-width="1"/>`;
+  for (let j = 1; j < 11; j++) s += `<line x1="${P(4.7,j)[0]}" y1="${P(4.7,j)[1]}" x2="${P(14,j)[0]}" y2="${P(14,j)[1]}" stroke="#E3EEE7" stroke-width="1"/>`;
+
+  // la boutique : à gauche, façade tournée vers l'avant-droite
+  const sx = 0.6, sy = 5.0, sw = 3.0, sd = 5.0, shh = 4.2;
+  // arbre au fond
+  s += box(P, 1.3, 1.6, 0, 0.35, 0.35, 1.7, ['#B98C5E', '#A67A4E', '#C99E70']);
+  { const c = P(1.47, 1.77, 2.7); s += `<circle cx="${c[0]}" cy="${c[1]}" r="30" fill="#5E9C76"/><circle cx="${c[0]-10}" cy="${c[1]-8}" r="18" fill="#76B08C"/><circle cx="${c[0]+12}" cy="${c[1]+4}" r="14" fill="#4E8A66"/>`; }
+  s += box(P, sx, sy, 0, sw, sd, shh, ['#E7F1EA', '#FFFFFF', '#DDE9E1']);
+  s += box(P, sx - 0.1, sy - 0.1, shh, sw + 0.2, sd + 0.2, 0.35, ['#2F7658', '#1F5F45', '#2A6B4F']);
+  const fx = sx + sw;
+  const F = (y, z) => P(fx + 0.01, y, z);
+  // enseigne
+  s += poly([F(sy + 0.5, 3.45), F(sy + sd - 0.5, 3.45), F(sy + sd - 0.5, 4.05), F(sy + 0.5, 4.05)], '#2F7658');
+  { const t = F(sy + sd / 2, 3.75); s += `<text x="${t[0]}" y="${t[1]}" text-anchor="middle" dominant-baseline="middle" font-family="Fraunces, Georgia, serif" font-weight="600" font-size="12.5" fill="#fff" id="shopSign" transform="translate(${t[0]} ${t[1]}) matrix(.866,-.5,0,1,0,0) translate(${-t[0]} ${-t[1]})">Fleurs de Marie</text>`; }
+  // vitrine
+  s += poly([F(sy + 0.4, 0.45), F(sy + 3.0, 0.45), F(sy + 3.0, 2.7), F(sy + 0.4, 2.7)], '#CFE7F0');
+  s += poly([F(sy + 0.4, 0.45), F(sy + 3.0, 0.45), F(sy + 3.0, 0.9), F(sy + 0.4, 0.9)], '#BFDCCB');
+  [[sy + 1.0, '#EFA3A8'], [sy + 1.6, '#F2B66D'], [sy + 2.3, '#F7D4D0']].forEach(([yy, c]) => { const q = F(yy, 1.12); s += `<circle cx="${q[0]}" cy="${q[1]}" r="7" fill="${c}"/><rect x="${q[0]-2}" y="${q[1]+5}" width="4" height="6" fill="#5E9C76"/>`; });
+  s += `<line x1="${F(sy+0.8,1.5)[0]}" y1="${F(sy+0.8,1.5)[1]}" x2="${F(sy+1.4,2.5)[0]}" y2="${F(sy+1.4,2.5)[1]}" stroke="#F2B66D" stroke-width="4" stroke-linecap="round"/>`;
+  s += `<line x1="${F(sy+1.35,1.45)[0]}" y1="${F(sy+1.35,1.45)[1]}" x2="${F(sy+1.7,2.05)[0]}" y2="${F(sy+1.7,2.05)[1]}" stroke="#F2B66D" stroke-width="4" stroke-linecap="round"/>`;
+  // porte
+  s += poly([F(sy + 3.5, 0), F(sy + 4.5, 0), F(sy + 4.5, 2.5), F(sy + 3.5, 2.5)], '#2F7658');
+  s += poly([F(sy + 3.65, 1.2), F(sy + 4.35, 1.2), F(sy + 4.35, 2.3), F(sy + 3.65, 2.3)], '#CFE7F0');
+  { const k = F(sy + 3.7, 1.0); s += `<circle cx="${k[0]}" cy="${k[1]}" r="2.2" fill="#F2B66D"/>`; }
+  // store rayé
+  const A = (y, z, out) => P(fx + out, y, z);
+  const n = 6, y0 = sy + 0.2, y1 = sy + sd - 0.2;
+  for (let i = 0; i < n; i++) {
+    const ya = y0 + (y1 - y0) * i / n, yb = y0 + (y1 - y0) * (i + 1) / n;
+    s += poly([A(ya, 3.25, 0), A(yb, 3.25, 0), A(yb, 2.75, 1.1), A(ya, 2.75, 1.1)], i % 2 ? '#FFFFFF' : '#2F7658');
+  }
+  for (let i = 0; i < n; i++) {
+    const ya = y0 + (y1 - y0) * i / n, yb = y0 + (y1 - y0) * (i + 1) / n, ym = (ya + yb) / 2;
+    const a = A(ya, 2.75, 1.1), b = A(yb, 2.75, 1.1), m = A(ym, 2.45, 1.1);
+    s += `<path d="M${a[0]},${a[1]} Q${m[0]},${m[1] + 6} ${b[0]},${b[1]} Z" fill="${i % 2 ? '#F2F5F3' : '#1F5F45'}"/>`;
+  }
+  // pot de fleurs devant la porte
+  s += box(P, fx + 0.4, sy + 0.1, 0, 0.6, 0.6, 0.55, ['#D9B48A', '#C99E70', '#B98C5E']);
+  { const c = P(fx + 0.7, sy + 0.4, 0.95); s += `<circle cx="${c[0]}" cy="${c[1]}" r="10" fill="#5E9C76"/><circle cx="${c[0]-4}" cy="${c[1]-3}" r="4" fill="#EFA3A8"/><circle cx="${c[0]+5}" cy="${c[1]-1}" r="3.5" fill="#F2B66D"/>`; }
+  // lampadaire devant
+  s += box(P, 12.6, 9.8, 0, 0.18, 0.18, 3.6, ['#2F7658', '#1F5F45', '#2A6B4F']);
+  { const c = P(12.69, 9.89, 3.8); s += `<circle cx="${c[0]}" cy="${c[1]}" r="9" fill="#F2B66D"/><circle cx="${c[0]}" cy="${c[1]}" r="18" fill="#F2B66D" opacity=".18"/>`; }
+  s += `<g class="float-a">${box(P, 6.0, 8.6, 1.8, 0.8, 0.8, 0.8, ['#F8D9AE', '#E59A45', '#F2B66D'])}</g>`;
+  s += `<g class="float-a" style="animation-delay:-2s">${box(P, 3.2, 0.6, 5.6, 0.6, 0.6, 0.6, ['#DCEFE3', '#8DB89B', '#B9DAC6'])}</g>`;
+  document.getElementById('world').innerHTML = s;
+
+  /* ---------- Le téléphone, de face et en grand ---------- */
+  const K = 1.62, PX = 268, PY = 14;
+  const phone = document.getElementById('phone');
+  phone.style.left = PX + 'px'; phone.style.top = PY + 'px';
+  phone.style.transform = `scale(${K})`;
+  const ph = (u, v) => [PX + u * K, PY + v * K];
+  const gs = document.getElementById('gshadow');
+  Object.assign(gs.style, { left: (PX - 20) + 'px', top: (PY + 420 * K - 30) + 'px', width: (212 * K + 40) + 'px', height: '70px' });
+
+  /* ---------- Mise à l'échelle ---------- */
+  const box0 = document.getElementById('stageBox'), stage = document.getElementById('stage');
+  let sc = 1;
+  const fit = () => { sc = box0.clientWidth / 620; stage.style.transform = `scale(${sc})`; };
+  fit(); addEventListener('resize', fit);
+
+  /* ---------- La photo à faire glisser ---------- */
+  const card = document.getElementById('photoCard'), hand = document.getElementById('hand');
+  const hint = document.getElementById('dragHint'), replay = document.getElementById('replay');
+  const frameEl = phone.querySelector('.frame');
+  const CW = 150;
+  const home = [30, 250];
+  const homeT = `translate(${home[0]}px, ${home[1]}px) rotate(-7deg)`;
+  const fr0 = ph(9, 9 + 68), frW = 194 * K, frH = 150 * K;
+  const endT = `translate(${fr0[0]}px, ${fr0[1]}px) scale(${frW / CW}, ${frH / CW})`;
+  Object.assign(hint.style, { left: '40px', top: (home[1] + CW + 34) + 'px' });
+  Object.assign(replay.style, { left: '40px', top: (home[1] + CW + 30) + 'px' });
+  stage.style.setProperty('--hx0', (home[0] + CW / 2 - 24) + 'px');
+  stage.style.setProperty('--hy0', (home[1] + CW / 2 - 24) + 'px');
+  stage.style.setProperty('--hx1', (fr0[0] + frW / 2 - 24) + 'px');
+  stage.style.setProperty('--hy1', (fr0[1] + frH / 2 - 24) + 'px');
+
+  /* ---------- Les commerces qui tournent ---------- */
+  const SHOPS = [
+    { pic: 'bouquet', trade: 'Fleuriste', sign: 'Fleurs de Marie', handle: 'fleursdemarie', city: 'Aix-en-Provence',
+      lines: ['Le bouquet de', 'la semaine est arrivé : pivoines,', 'roses anciennes et eucalyptus.', 'Il vous attend en boutique.'],
+      tags: ['#aixenprovence', '#fleuristeaix'], who: 'claire.aix', said: 'Magnifique ! Je passe demain.', likes: 128, views: 1240 },
+    { pic: 'pain', trade: 'Boulangerie', sign: 'Le Fournil', handle: 'lefournil.toulouse', city: 'Toulouse',
+      lines: ['Les baguettes', 'tradition sortent du four chaque', 'heure, croustillantes et tièdes.', 'Elles vous attendent au comptoir.'],
+      tags: ['#toulouse', '#boulangerietoulouse'], who: 'julien.tlse', said: 'La meilleure baguette du quartier.', likes: 214, views: 1870 },
+    { pic: 'vin', trade: 'Caviste', sign: 'La Cave de Paul', handle: 'lacavedepaul', city: 'Marseille',
+      lines: ['Nouvel arrivage :', 'un rouge du Luberon, souple et', 'fruité, parfait pour l’hiver. On', 'vous le fait goûter en boutique.'],
+      tags: ['#marseille', '#cavistemarseille'], who: 'sophie.mrs', said: 'Je note pour samedi soir !', likes: 96, views: 980 },
+    { pic: 'viande', trade: 'Boucherie', sign: 'Maison Martin', handle: 'boucheriemartin', city: 'Lyon',
+      lines: ['La côte de bœuf', 'persillée est prête pour le', 'week-end. Tendre, à griller.', 'Réservez la vôtre en boutique.'],
+      tags: ['#lyon', '#boucherielyon'], who: 'marc.lyon', said: 'On la prend dimanche !', likes: 167, views: 1530 },
+  ];
+  let cur = 0, rotTimer = null;
+  const $ = id => document.getElementById(id);
+  const applyShop = i => {
+    const d = SHOPS[i];
+    $('cardPic').setAttribute('href', '#' + d.pic); $('framePic').setAttribute('href', '#' + d.pic);
+    $('pcTag').textContent = d.trade; $('sHandle').textContent = d.handle; $('sCity').textContent = d.city;
+    const sign = $('shopSign'); if (sign) sign.textContent = d.sign;
+    const ls = document.querySelectorAll('#caption .cap-line');
+    ls[0].innerHTML = `<b>${d.handle}</b> ${d.lines[0]}`; for (let k = 1; k < 4; k++) ls[k].textContent = d.lines[k];
+    $('tag1').textContent = d.tags[0]; $('tag2').textContent = d.tags[1];
+    $('cmName').textContent = d.who; $('cmText').textContent = d.said;
+  };
+  const nextShop = () => {
+    cur = (cur + 1) % SHOPS.length;
+    card.classList.remove('swap'); void card.offsetWidth; card.classList.add('swap');
+    setTimeout(() => applyShop(cur), 240);
+  };
+  const startRotation = () => { stopRotation(); if (!reduce) rotTimer = setInterval(nextShop, 3600); };
+  const stopRotation = () => { clearInterval(rotTimer); rotTimer = null; };
+
+  /* ---------- Ce qui se passe une fois la photo posée ---------- */
+  const likesTxt = document.getElementById('likesTxt'), cL = document.getElementById('cLikes'), cV = document.getElementById('cViews');
+  const hearts = document.getElementById('hearts');
+  let timers = [], counting;
+  const at = (ms, fn) => timers.push(setTimeout(fn, ms));
+  const add = c => stage.classList.add(c);
+  const count = (to1, to2, dur) => {
+    const t0 = performance.now();
+    cancelAnimationFrame(counting);
+    const tick = now => {
+      const p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+      cL.textContent = Math.round(to1 * e); cV.textContent = Math.round(to2 * e).toLocaleString('fr-FR');
+      likesTxt.textContent = Math.round(to1 * e) + ' j’aime';
+      if (p < 1) counting = requestAnimationFrame(tick);
+    };
+    counting = requestAnimationFrame(tick);
+  };
+  const burst = () => {
+    const origin = ph(20, 9 + 68 + 150 + 12);
+    for (let i = 0; i < 10; i++) {
+      const h = document.createElementNS(NS, 'svg');
+      h.setAttribute('viewBox', '0 0 24 24'); h.classList.add('fheart');
+      h.innerHTML = '<use href="#i-heart-f"/>';
+      h.style.left = (origin[0] + (Math.random() * 30 - 15)) + 'px';
+      h.style.top = (origin[1] + (Math.random() * 16)) + 'px';
+      h.style.setProperty('--dx1', (Math.random() * 30 - 15) + 'px');
+      h.style.setProperty('--dx2', (Math.random() * 140 - 50) + 'px');
+      h.style.setProperty('--rot', (Math.random() * 40 - 20) + 'deg');
+      h.style.animationDelay = (i * 0.15) + 's';
+      if (i % 3 === 1) h.style.color = '#D96B61';
+      hearts.appendChild(h);
+      setTimeout(() => h.remove(), 4400 + i * 150);
+    }
+  };
+  const reset = () => {
+    timers.forEach(clearTimeout); timers = [];
+    stage.className = 'stage ready';
+    card.className = 'photo-card idle';
+    card.style.transition = 'none'; card.style.opacity = 1; card.style.transform = homeT;
+    startRotation();
+    cL.textContent = 0; cV.textContent = 0; likesTxt.innerHTML = '&nbsp;';
+    const quick = document.querySelectorAll('.cap-line, .tag, .published, .publish, .chip, .frame-photo, .frame-empty');
+    quick.forEach(e => e.style.transition = 'none');
+    void card.offsetWidth; card.style.transition = '';
+    quick.forEach(e => e.style.transition = '');
+  };
+  const final = () => {
+    stage.classList.remove('ready'); card.style.opacity = 0;
+    ['lit','glowoff','l1','l2','l3','l4','tags-on','done','social','social2','ended'].forEach(add);
+    const D = SHOPS[cur]; cL.textContent = D.likes; cV.textContent = D.views.toLocaleString('fr-FR'); likesTxt.textContent = D.likes + ' j’aime';
+  };
+  let busy = false;
+  const play = () => {
+    busy = true; stopRotation();
+    const D = SHOPS[cur];
+    stage.classList.remove('ready');
+    card.classList.remove('idle', 'dragging'); card.classList.add('flying');
+    card.style.transform = endT;
+    at(650, () => { add('lit'); card.style.opacity = 0; });
+    at(1200, () => add('writing-on'));
+    at(2100, () => { stage.classList.remove('writing-on'); add('l1'); add('glowoff'); });
+    at(2600, () => add('l2'));
+    at(3100, () => add('l3'));
+    at(3600, () => add('l4'));
+    at(4100, () => add('tags-on'));
+    at(5000, () => add('press'));
+    at(5300, () => { stage.classList.remove('press'); add('done'); });
+    at(5900, () => { add('social'); count(D.likes, D.views, 2600); burst(); });
+    at(7200, () => { add('social2'); burst(); });
+    at(8600, () => { add('ended'); busy = false; });
+    at(13500, () => { if (stage.classList.contains('ended') && !busy) { cur = (cur + 1) % SHOPS.length; applyShop(cur); reset(); } });
+  };
+  replay.addEventListener('click', () => { if (!busy) { timers.forEach(clearTimeout); cur = (cur + 1) % SHOPS.length; applyShop(cur); reset(); } });
+
+  // glisser-déposer (souris et doigt)
+  let drag = null;
+  const overFrame = (x, y) => {
+    const cx = x + CW / 2, cy = y + CW / 2, m = 40;
+    return cx > fr0[0] - m && cx < fr0[0] + frW + m && cy > fr0[1] - m && cy < fr0[1] + frH + m;
+  };
+  card.addEventListener('pointerdown', ev => {
+    if (busy || stage.classList.contains('ended')) return;
+    ev.preventDefault();
+    card.setPointerCapture(ev.pointerId); stopRotation(); card.classList.remove('swap');
+    drag = { sx: ev.clientX, sy: ev.clientY, x: home[0], y: home[1], moved: false };
+    card.classList.remove('idle'); card.classList.add('dragging');
+    stage.classList.remove('ready');
+  });
+  card.addEventListener('pointermove', ev => {
+    if (!drag) return;
+    const dx = (ev.clientX - drag.sx) / sc, dy = (ev.clientY - drag.sy) / sc;
+    if (Math.abs(dx) + Math.abs(dy) > 6) drag.moved = true;
+    drag.x = home[0] + dx; drag.y = home[1] + dy;
+    card.style.transform = `translate(${drag.x}px, ${drag.y}px) rotate(${Math.max(-10, Math.min(10, dx / 30))}deg) scale(1.04)`;
+    frameEl.classList.toggle('target', overFrame(drag.x, drag.y));
+  });
+  const drop = () => {
+    if (!drag) return;
+    const d = drag; drag = null;
+    frameEl.classList.remove('target');
+    card.classList.remove('dragging');
+    if (!d.moved || overFrame(d.x, d.y)) play();   // un simple toucher marche aussi
+    else { card.style.transform = homeT; card.classList.add('idle'); stage.classList.add('ready'); startRotation(); }
+  };
+  card.addEventListener('pointerup', drop);
+  card.addEventListener('pointercancel', drop);
+  card.addEventListener('keydown', ev => { if ((ev.key === 'Enter' || ev.key === ' ') && !busy && !stage.classList.contains('ended')) { ev.preventDefault(); play(); } });
+
+  const etape = params.get('etape');
+  if (params.has('commerce')) { cur = +params.get('commerce') % SHOPS.length; applyShop(cur); }
+  reset();
+  if (params.has('commerce') || etape !== null) stopRotation();
+  if (etape !== null) {
+    // pour les captures : figer un moment précis
+    const e = +etape;
+    if (e === 1) { stage.classList.remove('ready'); card.classList.remove('idle'); card.classList.add('dragging'); card.style.transition = 'none';
+      card.style.transform = `translate(${fr0[0] - 60}px, ${fr0[1] + 10}px) rotate(4deg) scale(1.04)`; frameEl.classList.add('target'); }
+    if (e === 2) { stage.classList.remove('ready'); card.style.opacity = 0; ['lit','l1','l2','glowoff'].forEach(add); }
+    if (e === 3) { stage.classList.remove('ready'); card.style.opacity = 0; ['lit','glowoff','l1','l2','l3','l4','tags-on'].forEach(add); }
+    if (e >= 4) { final(); burst(); }
+    if (e === 9) { stage.classList.add('ready'); stage.style.setProperty('--hx0', stage.style.getPropertyValue('--hx1')); }
+  } else if (reduce) { /* sans animation : la photo reste à glisser, le résultat s'affiche d'un coup */ }
+  /* ---------- Illustrations des 3 étapes ---------- */
+  const Q = mk(16, 160, 40);
+  // 1 : un téléphone isométrique posé, qui prend la photo
+  let a1 = box(Q, 0, 0, 0, 9, 9, 0.25, ['#FFFFFF', '#DCEFE3', '#E9F2EC']);
+  a1 += box(Q, 2.2, 1.6, 0.25, 4.6, 7, 0.35, ['#24332B', '#1A2620', '#1F2D26']);
+  a1 += poly([Q(2.5, 1.9, 0.61), Q(6.5, 1.9, 0.61), Q(6.5, 8.3, 0.61), Q(2.5, 8.3, 0.61)], '#F6E9DA');
+  { const c = Q(4.5, 4.4, 0.62); a1 += `<circle cx="${c[0]}" cy="${c[1]}" r="17" fill="#EFA3A8"/><circle cx="${c[0]-14}" cy="${c[1]+8}" r="11" fill="#F7D4D0"/><circle cx="${c[0]+14}" cy="${c[1]+8}" r="11" fill="#F2B66D"/><circle cx="${c[0]}" cy="${c[1]}" r="8" fill="#D9707A"/>`; }
+  { const c = Q(4.5, 7.4, 0.62); a1 += `<ellipse cx="${c[0]}" cy="${c[1]}" rx="15" ry="9" fill="#fff" stroke="#2F7658" stroke-width="3"/>`; }
+  a1 += `<g class="float-a">${box(Q, 7.3, 0.6, 2.2, 1.1, 1.1, 1.1, ['#F8D9AE', '#E59A45', '#F2B66D'])}</g>`;
+  document.getElementById('art1').innerHTML = a1;
+  // 2 : une carte de texte qui s'écrit
+  const R = mk(16, 160, 30);
+  let a2 = box(R, 0, 0, 0, 9, 9, 0.25, ['#FFFFFF', '#DCEFE3', '#E9F2EC']);
+  a2 += box(R, 1.4, 1.4, 0.25, 6.2, 6.2, 0.25, ['#FFFFFF', '#E6EEE9', '#F0F5F2']);
+  [[2.2, 5.0, '#2F7658'], [3.1, 4.0, '#B9C6BE'], [4.0, 4.6, '#B9C6BE'], [4.9, 3.2, '#B9C6BE']].forEach(([y, len, c], i) => {
+    a2 += `<line class="wline" style="animation-delay:${i * .5}s" x1="${R(2.1, y, .52)[0]}" y1="${R(2.1, y, .52)[1]}" x2="${R(2.1 + len, y, .52)[0]}" y2="${R(2.1 + len, y, .52)[1]}" stroke="${c}" stroke-width="6" stroke-linecap="round" pathLength="1"/>`;
+  });
+  [[2.1, 6.0, '#DCEFE3'], [4.4, 6.0, '#FCE9D2']].forEach(([x, y, c]) => { a2 += poly([R(x, y, .52), R(x + 2, y, .52), R(x + 2, y + .8, .52), R(x, y + .8, .52)], c); });
+  a2 += `<g class="float-a">${box(R, 6.6, 0.3, 2.4, 0.9, 0.9, 0.9, ['#DCEFE3', '#8DB89B', '#B9DAC6'])}</g>`;
+  { const c = R(7.2, 7.0, 1.6); a2 += `<g class="float-a" style="animation-delay:-1.5s"><circle cx="${c[0]}" cy="${c[1]}" r="16" fill="#2F7658"/><path d="M${c[0]-7} ${c[1]} l5 5 l9 -10" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>`; }
+  document.getElementById('art2').innerHTML = a2;
+  // 3 : deux publications qui s'envolent avec des cœurs
+  const S = mk(16, 160, 34);
+  let a3 = box(S, 0, 0, 0, 9, 9, 0.25, ['#FFFFFF', '#DCEFE3', '#E9F2EC']);
+  a3 += `<g class="float-a">${box(S, 1.0, 1.0, 1.2, 3.4, 3.4, 0.2, ['#F6E9DA', '#E6D2BA', '#EEDDC8'])}</g>`;
+  a3 += `<g class="float-a" style="animation-delay:-3s">${box(S, 4.8, 4.6, 1.2, 3.4, 3.4, 0.2, ['#F6E9DA', '#E6D2BA', '#EEDDC8'])}</g>`;
+  [[2.7, 2.7, 1.4], [6.5, 6.3, 1.4]].forEach(([x, y, z], i) => { const c = S(x, y, z); a3 += `<g class="float-a" style="animation-delay:${i ? -3 : 0}s"><circle cx="${c[0]}" cy="${c[1]}" r="12" fill="#EFA3A8"/><circle cx="${c[0]-9}" cy="${c[1]+5}" r="7" fill="#F2B66D"/><circle cx="${c[0]+9}" cy="${c[1]+5}" r="7" fill="#F7D4D0"/></g>`; });
+  [[250, 50, 1], [272, 86, .7], [70, 70, .8]].forEach(([x, y, sc], i) => { a3 += `<g class="pin" style="animation-delay:${i * .6}s"><g transform="translate(${x} ${y}) scale(${sc})"><circle r="17" fill="#F2B66D"/><path transform="translate(0 1) scale(.95)" d="M0 6 C-8 0 -10 -4 -10 -7 A5 5 0 0 1 0 -9 A5 5 0 0 1 10 -7 C10 -4 8 0 0 6 Z" fill="#fff"/></g></g>`; });
+  document.getElementById('art3').innerHTML = a3;
+
+  /* ---------- Une photo, partout ---------- */
+  const W = mk(22, 280, 150);
+  let e = '';
+  e += box(W, 0, 0, -0.4, 12, 12, 0.4, ['#2A6B4F', '#174A36', '#1F5F45']);
+  // rues
+  e += poly([W(0, 5.4), W(12, 5.4), W(12, 6.6), W(0, 6.6)], '#2F7658');
+  e += poly([W(5.4, 0), W(6.6, 0), W(6.6, 12), W(5.4, 12)], '#2F7658');
+  // pâtés de maisons
+  [[0.6, 0.6, 1.4], [2.8, 0.8, 0.9], [0.8, 2.9, 1.1], [7.2, 0.6, 1.6], [9.6, 1.0, 0.8], [7.4, 3.0, 1.0], [0.6, 7.3, 0.9], [2.9, 7.6, 1.3], [7.3, 7.4, 1.2], [9.6, 9.4, 0.9], [1.0, 9.8, 0.7], [9.8, 7.0, 1.0]].forEach(([x, y, h]) => e += box(W, x, y, 0, 1.8, 1.8, h, ['#3F8A69', '#245F47', '#2F7658']));
+  // la boutique au centre (orange)
+  e += box(W, 5.55, 5.55, 0, 0.9, 0.9, 1.0, ['#F8D9AE', '#E59A45', '#F2B66D']);
+  { const c = W(6, 6, 1.0); e += `<circle class="pulse" cx="${c[0]}" cy="${c[1]}" r="16" fill="#F2B66D"/>`; }
+  // repères qui s'allument dans le quartier
+  [[1.5, 1.5, 1.4], [3.7, 1.7, 0.9], [8.1, 1.5, 1.6], [8.3, 3.9, 1.0], [3.8, 8.5, 1.3], [8.2, 8.3, 1.2], [10.5, 10.3, 0.9], [1.5, 8.2, 0.9]].forEach(([x, y, h], i) => {
+    const c = W(x, y, h + 0.9);
+    e += `<g class="pin" style="animation-delay:${(i * .37).toFixed(2)}s"><path d="M${c[0]} ${c[1] + 16} C${c[0] - 10} ${c[1] + 4} ${c[0] - 11} ${c[1] - 2} ${c[0] - 11} ${c[1] - 6} A11 11 0 0 1 ${c[0] + 11} ${c[1] - 6} C${c[0] + 11} ${c[1] - 2} ${c[0] + 10} ${c[1] + 4} ${c[0]} ${c[1] + 16} Z" fill="#fff"/><path transform="translate(${c[0]} ${c[1] - 6}) scale(.62)" d="M0 6 C-8 0 -10 -4 -10 -7 A5 5 0 0 1 0 -9 A5 5 0 0 1 10 -7 C10 -4 8 0 0 6 Z" fill="#E59A45"/></g>`;
+  });
+  // cartes flottantes : post Instagram, post Facebook, story
+  const card3 = (x, y, w, h, label) => `<g class="float-a" style="animation-delay:${(-x / 100).toFixed(2)}s"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="12" fill="#fff"/><svg x="${x + 8}" y="${y + 24}" width="${w - 16}" height="${h - 50}" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice"><use href="#bouquet"/></svg><circle cx="${x + 14}" cy="${y + 12}" r="5" fill="#2F7658"/><rect x="${x + 23}" y="${y + 9}" width="${w * .4}" height="6" rx="3" fill="#DCE3DF"/><text x="${x + w / 2}" y="${y + h - 10}" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" font-weight="700" fill="#24332B">${label}</text></g>`;
+  const src = W(6, 6, 1.4);
+  [[30, 10], [400, 20], [430, 250]].forEach(([x, y]) => { e += `<path class="flow" d="M${src[0]},${src[1]} Q${(src[0] + x + 50) / 2},${Math.min(src[1], y) - 30} ${x + 55},${y + 60}" stroke="#F2B66D" stroke-width="2.5" fill="none" stroke-linecap="round"/>`; });
+  e += card3(30, 10, 110, 140, 'Instagram');
+  e += card3(400, 20, 120, 140, 'Facebook');
+  e += card3(430, 250, 86, 150, 'Story');
+  e += `<text x="280" y="452" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" fill="#A9C7B6">Illustration : les repères montrent des clients du quartier (exemple)</text>`;
+  document.getElementById('ewArt').innerHTML = e;
+
+  /* ---------- Apparitions au défilement ---------- */
+  const io = new IntersectionObserver(es => es.forEach(x => { if (x.isIntersecting) { x.target.classList.add('in'); io.unobserve(x.target); } }), { threshold: .12 });
+  document.querySelectorAll('.rv').forEach(el => io.observe(el));
+  if (params.has('tout')) document.querySelectorAll('.rv').forEach(el => el.classList.add('in'));
+})();
+</script>
+<style>
+.wline{stroke-dasharray:1;stroke-dashoffset:1;animation:write 3.2s ease-in-out infinite}
+@keyframes write{0%{stroke-dashoffset:1}35%,80%{stroke-dashoffset:0}100%{stroke-dashoffset:0;opacity:0}}
+</style>
+</body>
+</html>
