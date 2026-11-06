@@ -24,9 +24,10 @@ export function Settings() {
     <ScrollView contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 48 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         <BackButton onPress={back} />
-        <Title size={26}>Ma boutique</Title>
+        <Title size={26}>Réglages</Title>
       </View>
 
+      <Label>Ma boutique</Label>
       <Card style={{ gap: 4 }}>
         <Body style={{ fontWeight: '700' }} size={18}>{b.businessName}</Body>
         <Body soft>{tradeLabel(b)} · {b.city} ({b.postalCode})</Body>
