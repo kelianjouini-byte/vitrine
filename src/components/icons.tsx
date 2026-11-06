@@ -44,7 +44,7 @@ export const SparkIcon = ({ size, color = '#000' }: P) => (<S size={size}><Path 
 export const RefreshIcon = ({ size, color = '#000' }: P) => (<S size={size}><Path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6" {...st(color)} /></S>);
 export const PencilIcon = ({ size, color = '#000' }: P) => (<S size={size}><Path d="M4 20h4L19 9l-4-4L4 16v4Z" {...st(color)} /></S>);
 export const GearIcon = ({ size, color = '#000' }: P) => (
-  <S size={size}><Circle cx={12} cy={12} r={3} {...st(color)} /><Path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1" {...st(color)} /></S>
+  <S size={size}><Circle cx={12} cy={12} r={3} {...st(color)} /><Path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" {...st(color)} /></S>
 );
 export const InstagramIcon = ({ size, color = '#000' }: P) => (
   <S size={size}><Rect x={3.5} y={3.5} width={17} height={17} rx={5} {...st(color)} /><Circle cx={12} cy={12} r={4} {...st(color)} /><Circle cx={17} cy={7} r={0.8} fill={color} /></S>

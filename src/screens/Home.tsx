@@ -3,13 +3,12 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Body, Card, Chevron, DateTile, IconTile, Label, Notice, Title } from '../components/ui';
 import { takePhoto } from '../lib/photo';
 import { accountState, FriendlyError } from '../lib/api';
-import { BulbIcon, CameraIcon, ChartUpIcon, CheckIcon, LinkIcon, StoreIcon, StoryIcon } from '../components/icons';
+import { BulbIcon, CameraIcon, ChartUpIcon, CheckIcon, GearIcon, LinkIcon, StoreIcon, StoryIcon } from '../components/icons';
 import { daysLeft, isLiveStatus, TRIAL_REPORT_DAYS_BEFORE } from '../lib/billing';
 import { colors, fonts, glassSurface, greenGradient } from '../lib/theme';
 import { useApp } from '../lib/store';
 import { daysUntil, inDaysLabel, upcomingEvents, upcomingHolidays } from '../lib/events';
 import { announceDate, dayKey, holidayAnswer } from '../lib/planning';
-import { initials } from '../lib/business';
 import { MonthReportCard } from '../components/MonthReportCard';
 
 export function Home() {
@@ -56,9 +55,12 @@ export function Home() {
           <Body size={17} style={{ color: colors.greenDark, fontWeight: '600' }}>Bonjour {b.ownerFirstName}</Body>
           <Title size={30}>{b.businessName}</Title>
         </View>
-        <Pressable onPress={() => go({ name: 'settings' })} accessibilityLabel="Mon compte et réglages"
-          style={{ ...glassSurface, width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ color: colors.green, fontWeight: '700', fontSize: 18, fontFamily: fonts.body }}>{initials(b.businessName)}</Text>
+        <Pressable onPress={() => go({ name: 'settings' })} accessibilityRole="button" accessibilityLabel="Réglages"
+          style={({ pressed }) => ({ alignItems: 'center', gap: 4, transform: [{ scale: pressed ? 0.95 : 1 }] })}>
+          <View style={{ ...glassSurface, width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' }}>
+            <GearIcon size={28} color={colors.green} />
+          </View>
+          <Text style={{ color: colors.greenDark, fontWeight: '600', fontSize: 14, fontFamily: fonts.body }}>Réglages</Text>
         </Pressable>
       </View>
 
