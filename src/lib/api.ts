@@ -64,8 +64,14 @@ export type AccountState = { kind: 'none' } | { kind: 'guest' } | { kind: 'email
 export async function accountState(): Promise<AccountState> {
   if (!supabase) return { kind: 'none' };
   const { data } = await supabase.auth.getSession();
-  const u = data.session?.user;
+  let u = data.session?.user;
   if (!u) return { kind: 'none' };
+  // Le téléphone garde le compte en mémoire : s'il se croit encore invité, on redemande au serveur
+  // (l'e-mail a pu être validé entre-temps, par exemple sur un autre appareil).
+  if (u.is_anonymous || !u.email) {
+    const fresh = await supabase.auth.refreshSession().catch(() => null);
+    if (fresh?.data.session?.user) u = fresh.data.session.user;
+  }
   return u.is_anonymous || !u.email ? { kind: 'guest' } : { kind: 'email', email: u.email };
 }
 
