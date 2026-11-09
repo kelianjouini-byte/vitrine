@@ -91,7 +91,7 @@ export function Referral() {
         <BackButton onPress={back} />
         <Title size={26} style={{ flex: 1 }}>Parlez-en autour de vous</Title>
       </View>
-      <Body soft>Vous connaissez d'autres commerçants dans votre village ou votre quartier ? Si Vitrine vous rend service, dites-le-leur. Pour vous remercier, vous payez 10 € de moins chaque mois pour chacun d'eux qui s'abonne, tant qu'il reste.</Body>
+      <Body soft>Vous connaissez d'autres commerçants dans votre village ou votre quartier ? Si Vitrine vous rend service, dites-le-leur.</Body>
 
       {notReady ? (
         <Notice tone="orange" title="Cette page arrive bientôt" text="Il sera disponible dès que le paiement en ligne sera activé." />
@@ -112,6 +112,28 @@ export function Referral() {
             <Button title="Envoyer à un collègue" icon={<MessageIcon size={20} color={colors.white} />} onPress={send} />
             <Button title="Imprimer mes cartes" kind="secondary" icon={<PrintIcon size={20} color={colors.green} />} onPress={print} />
             {note && <Notice tone={note.tone} title={note.title} text={note.text} />}
+          </Card>
+
+          <Card style={{ gap: 10 }}>
+            <Title size={19}>Pour vous remercier</Title>
+            <Body size={15}>
+              <Text style={{ fontWeight: '700' }}>Chaque commerçant que vous recommandez vous fait gagner 10 € par mois, à vie. Avec {steps}, Vitrine ne vous coûte plus rien.</Text>
+            </Body>
+            <Body soft size={13}>« À vie » : tant que ces commerçants restent abonnés à Vitrine.</Body>
+            <View style={{ gap: 6 }}>
+              {Array.from({ length: steps }, (_, i) => i + 1).map((n) => {
+                const price = Math.max(0, info.priceCents - n * REFERRER_CREDIT_CENTS);
+                const reached = info.paying >= n;
+                return (
+                  <View key={n} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, paddingHorizontal: 12, borderRadius: radius.sm, backgroundColor: reached ? colors.greenSoft : 'rgba(36,51,43,0.04)' }}>
+                    <Body size={15} style={{ fontWeight: reached ? '700' : '500' }}>{n} commerçant{n > 1 ? 's' : ''}</Body>
+                    <Text style={{ fontFamily: fonts.title, fontSize: 18, fontWeight: '700', color: price === 0 ? colors.orangeText : colors.green }}>
+                      {price === 0 ? 'Vitrine gratuite' : `${euros(price)} par mois`}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
           </Card>
 
           <Card style={{ gap: 8 }}>
@@ -161,7 +183,7 @@ export function Referral() {
               'Vous parlez de Vitrine à un commerçant que vous connaissez, et vous lui donnez votre code (message ou carte).',
               "Il essaie Vitrine 15 jours gratuitement.",
               "S'il s'abonne, il tape votre code au moment de payer : 10 € de moins pour lui pendant 3 mois.",
-              'Pour vous remercier, dès son premier paiement, vous payez 10 € de moins chaque mois.',
+              'Pour vous remercier, dès son premier paiement, vous payez 10 € de moins chaque mois, pour toujours.',
             ].map((t, i) => (
               <View key={i} style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
                 <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.green, alignItems: 'center', justifyContent: 'center' }}>

@@ -5,6 +5,9 @@ import { PeopleIcon } from './icons';
 import { colors, radius } from '../lib/theme';
 import { load, save } from '../lib/storage';
 import { isBackendConfigured } from '../lib/config';
+import { useApp } from '../lib/store';
+import { offersFrom } from '../lib/billing';
+import { referralsUntilFree } from '../lib/referral';
 
 /**
  * Après un bon bilan du mois (mois terminé, au moins un post) : on propose UNE fois par mois
@@ -12,6 +15,10 @@ import { isBackendConfigured } from '../lib/config';
  */
 export function ReferralAsk({ monthKey, eligible, onSend }: { monthKey: string; eligible: boolean; onSend: () => void }) {
   const [open, setOpen] = useState(false);
+  // Nombre de commerçants pour ne plus rien payer : 3 avec l'offre Annuel (29 €), 4 avec le Mensuel (39 €).
+  const { billing } = useApp();
+  const plan = billing?.subscription?.plan === 'monthly' ? 'monthly' : 'annual';
+  const freeAt = referralsUntilFree(offersFrom(billing).find((o) => o.id === plan)!.priceCents, 0);
   useEffect(() => {
     if (!eligible || !isBackendConfigured) return;
     let alive = true;
@@ -33,7 +40,8 @@ export function ReferralAsk({ monthKey, eligible, onSend }: { monthKey: string; 
           </View>
           <Title size={25} style={{ textAlign: 'center' }}>Un bon mois !</Title>
           <Body soft center>Vous connaissez un commerçant à qui Vitrine rendrait service ? Parlez-lui-en.</Body>
-          <Body soft center size={14}>Pour vous remercier : 10 € de moins par mois pour vous, et 10 € de moins pendant 3 mois pour lui.</Body>
+          <Body center size={15} style={{ fontWeight: '700' }}>Chaque commerçant que vous recommandez vous fait gagner 10 € par mois, à vie. Avec {freeAt}, Vitrine ne vous coûte plus rien.</Body>
+          <Body soft center size={13}>« À vie » : tant que ces commerçants restent abonnés à Vitrine.</Body>
           <Button title="En parler à un commerçant" onPress={() => { setOpen(false); onSend(); }} />
           <Button title="Plus tard" kind="ghost" onPress={() => setOpen(false)} />
         </Pressable>
