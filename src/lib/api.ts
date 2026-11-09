@@ -83,7 +83,7 @@ function tooManyEmails(error: { message: string; status?: number }) {
 }
 
 /** Longueur minimale d'un mot de passe Vitrine (vérifiée aussi à l'écran). */
-export const MIN_PASSWORD = 8;
+export const MIN_PASSWORD = 6;
 
 function weakPassword(error: { message: string }) {
   if (/password/i.test(error.message) && /least|short|weak|characters/i.test(error.message)) {
