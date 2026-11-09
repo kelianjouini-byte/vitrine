@@ -12,6 +12,7 @@ import { tradeLabel } from './business';
 import type { CommercialEvent } from './events';
 import type { RemotePost } from './sync';
 import type { BillingStatus, PlanId } from './billing';
+import type { ReferralInfo } from './referral';
 
 export class NotConfiguredError extends Error {
   constructor(public what: 'serveur' | 'ia' | 'meta' | 'compte' | 'paiement') {
@@ -511,8 +512,8 @@ export async function billingStatus(): Promise<BillingStatus> {
 }
 
 /** Lien vers la page de paiement Stripe (la carte est enregistrée, 1er prélèvement à la fin de l'essai gratuit). */
-export async function checkoutUrl(plan: PlanId, returnUrl: string): Promise<string> {
-  const { url } = await callFunction<{ url: string }>('billing', { action: 'checkout', plan, returnUrl });
+export async function checkoutUrl(plan: PlanId, returnUrl: string, referralCode?: string): Promise<string> {
+  const { url } = await callFunction<{ url: string }>('billing', { action: 'checkout', plan, returnUrl, referralCode });
   return url;
 }
 
@@ -520,4 +521,19 @@ export async function checkoutUrl(plan: PlanId, returnUrl: string): Promise<stri
 export async function billingPortalUrl(returnUrl: string): Promise<string> {
   const { url } = await callFunction<{ url: string }>('billing', { action: 'portal', returnUrl });
   return url;
+}
+
+// ---------------------------------------------------------------- Parrainage
+
+/** Mon code de parrainage, mes filleuls et mon prix avec la réduction. */
+export async function referralInfo(): Promise<ReferralInfo> {
+  if (!(await ensureSession())) throw new NotConfiguredError('compte');
+  return callFunction<ReferralInfo>('referral', { action: 'mine' });
+}
+
+/** Vérifie un code de parrainage avant le paiement. Renvoie le nom de la boutique qui parraine. */
+export async function checkReferralCode(code: string): Promise<string> {
+  if (!(await ensureSession())) throw new NotConfiguredError('compte');
+  const { referrerName } = await callFunction<{ referrerName: string }>('referral', { action: 'check', code });
+  return referrerName;
 }

@@ -1,11 +1,12 @@
 // Webhook Stripe : Stripe prévient Vitrine quand un abonnement est créé, payé, en retard ou résilié.
 // Appelé par Stripe (pas par l'app) : pas de jeton utilisateur, on vérifie la signature Stripe-Signature.
 // Événements à cocher dans Stripe : checkout.session.completed, customer.subscription.created,
-// customer.subscription.updated, customer.subscription.deleted, invoice.payment_failed.
+// customer.subscription.updated, customer.subscription.deleted, invoice.payment_failed, invoice.paid (parrainage).
 import { handler, json, HttpError, env } from '../_shared/http.ts';
 import { admin } from '../_shared/db.ts';
 import { subscriptionRow, verifyStripeSignature, type StripeSubscription } from '../_shared/billing.ts';
 import { stripe } from '../_shared/stripe.ts';
+import { endReferral, recordReferral, rewardReferrer } from '../_shared/referralServer.ts';
 
 Deno.serve(handler(async (req) => {
   const secret = env('STRIPE_WEBHOOK_SECRET');
@@ -26,7 +27,7 @@ Deno.serve(handler(async (req) => {
     const obj = event.data.object;
     if (event.type === 'checkout.session.completed') subscriptionId = obj.subscription as string | undefined;
     else if (event.type.startsWith('customer.subscription.')) subscriptionId = obj.id as string;
-    else if (event.type === 'invoice.payment_failed') {
+    else if (event.type === 'invoice.payment_failed' || event.type === 'invoice.paid') {
       // Selon la version de l'API, l'abonnement est à la racine ou dans parent.subscription_details.
       const parent = obj.parent as { subscription_details?: { subscription?: string } } | undefined;
       subscriptionId = (obj.subscription as string | undefined) ?? parent?.subscription_details?.subscription;
@@ -40,6 +41,15 @@ Deno.serve(handler(async (req) => {
         const { error } = await db.from('subscriptions').upsert({ business_id: businessId, ...subscriptionRow(sub) }, { onConflict: 'business_id' });
         if (error) throw new Error(error.message);
         console.log('[vitrine] abonnement', businessId, sub.status, event.type);
+
+        // Parrainage : le code tapé au paiement est rangé dans l'abonnement (metadata).
+        const referrerId = sub.metadata?.referrer_business_id;
+        if (referrerId) await recordReferral(db, businessId, referrerId, sub.metadata?.referral_code ?? '', sub.id);
+        if (sub.status === 'canceled' || sub.status === 'incomplete_expired') await endReferral(db, businessId);
+        // Le filleul a vraiment payé (pas la facture à 0 € du début de l'essai) : le parrain gagne 10 €.
+        if (event.type === 'invoice.paid' && Number(obj.amount_paid ?? 0) > 0 && typeof obj.id === 'string') {
+          await rewardReferrer(db, businessId, obj.id);
+        }
       }
     }
     return json({ received: true });

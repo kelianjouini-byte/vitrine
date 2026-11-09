@@ -1,12 +1,13 @@
 // Abonnement du commerçant. POST {action}
 //  - 'status'   : offres, fin de l'essai gratuit (15 jours), accès (essai, payé, terminé), abonnement en cours, paiement activé ou non
-//  - 'checkout' : {plan, returnUrl} -> lien vers la page de paiement Stripe (carte enregistrée, 1er prélèvement à la fin de l'essai gratuit)
+//  - 'checkout' : {plan, returnUrl, referralCode?} -> lien vers la page de paiement Stripe (carte enregistrée, 1er prélèvement à la fin de l'essai gratuit)
 //  - 'portal'   : {returnUrl} -> lien vers l'espace Stripe (carte, factures, résiliation selon l'offre)
 // Les changements d'état arrivent ensuite par le webhook Stripe (fonction stripe-webhook).
 import { handler, json, HttpError, env } from '../_shared/http.ts';
 import { requireMerchant } from '../_shared/db.ts';
 import { accessState, isLive, isPlanId, PLAN_IDS, stripeTrialEnd, trialEndsAt } from '../_shared/billing.ts';
 import { portalConfiguration, priceFor, stripe, stripeConfigured } from '../_shared/stripe.ts';
+import { findReferrer, refereeCoupon } from '../_shared/referralServer.ts';
 
 /** On ne renvoie le commerçant que vers l'appli Vitrine (jamais vers une adresse donnée par un tiers). */
 function safeReturn(url: unknown): string {
@@ -45,6 +46,9 @@ Deno.serve(handler(async (req) => {
     const { data: plan } = await db.from('plans').select('monthly_price_cents').eq('id', body.plan).single();
     if (!plan) throw new HttpError(400, 'bad_plan', 'Offre inconnue.');
     const price = await priceFor(body.plan, plan.monthly_price_cents);
+    // Code de parrainage (facultatif) : vérifié ici, jamais cru sur parole depuis l'appli.
+    const referral = body.referralCode ? await findReferrer(db, business, body.referralCode) : null;
+    const referralMeta = referral ? { referrer_business_id: referral.referrerId, referral_code: referral.code } : {};
 
     // Un seul client Stripe par boutique.
     let customer = sub?.stripe_customer_id as string | undefined;
@@ -67,10 +71,11 @@ Deno.serve(handler(async (req) => {
       line_items: [{ price, quantity: 1 }],
       client_reference_id: business.id,
       subscription_data: {
-        metadata: { business_id: business.id, plan: body.plan },
+        metadata: { business_id: business.id, plan: body.plan, ...referralMeta },
         ...(trialEnd ? { trial_end: trialEnd } : {}),
       },
-      metadata: { business_id: business.id, plan: body.plan },
+      metadata: { business_id: business.id, plan: body.plan, ...referralMeta },
+      ...(referral ? { discounts: [{ coupon: await refereeCoupon() }] } : {}),
       payment_method_collection: 'always',
       // Facture entre professionnels : le nom et l'adresse de la boutique doivent y figurer.
       billing_address_collection: 'required',

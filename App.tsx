@@ -21,6 +21,7 @@ import { Ideas } from './src/screens/Ideas';
 import { Report } from './src/screens/Report';
 import { Planning } from './src/screens/Planning';
 import { PlanDay } from './src/screens/PlanDay';
+import { Referral } from './src/screens/Referral';
 
 // L'écran d'ouverture natif reste affiché jusqu'à ce que l'app soit prête.
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -77,6 +78,7 @@ function Root() {
         {route.name === 'story' && <Story />}
         {route.name === 'published' && <Published postId={route.postId} />}
         {route.name === 'offers' && <Offers payment={route.payment} />}
+        {route.name === 'referral' && <Referral />}
       </View>
       {isTab && <TabBar />}
     </View>
