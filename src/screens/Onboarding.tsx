@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Body, Button, Card, Chip, Field, Title } from '../components/ui';
-import { EmailCodeForm } from '../components/AccountForms';
+import { Body, Button, Chip, Field, Title } from '../components/ui';
+import { EmailPasswordForm } from '../components/AccountForms';
 import { NetworkCards } from '../components/NetworkCards';
 import { LogoMark } from '../components/icons';
 import { GlassBackground } from '../components/GlassBackground';
@@ -13,7 +13,7 @@ import { matchTrade } from '../lib/trades';
 import { occasionCatalog } from '../lib/events';
 import { colors, fonts } from '../lib/theme';
 import { useApp } from '../lib/store';
-import { detectBusiness, saveBusinessRemote, sendLoginCode, suggestOccasionKeys, verifyLoginCode, FriendlyError } from '../lib/api';
+import { accountState, createAccount, detectBusiness, saveBusinessRemote, signInWithPassword, suggestOccasionKeys, FriendlyError } from '../lib/api';
 import { isBackendConfigured } from '../lib/config';
 import type { Business, Tone } from '../lib/types';
 
@@ -21,9 +21,24 @@ const STEPS = 4;
 
 export function Onboarding() {
   const { saveBusiness, restoreFromServer } = useApp();
-  const [restoring, setRestoring] = useState(false);
+  // Étape 0 : le compte (e-mail + mot de passe), avant la boutique. Sans serveur, on passe directement à la boutique.
+  const [hasAccount, setHasAccount] = useState(false);
+  const [noShopYet, setNoShopYet] = useState(false);
   const insets = useSafeAreaInsets();
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(isBackendConfigured ? 0 : 1);
+  // Compte déjà créé sur ce téléphone (appli fermée pendant l'inscription) : on reprend à la boutique.
+  useEffect(() => {
+    if (!isBackendConfigured) return;
+    accountState().then((a) => { if (a.kind === 'email') setStep((s) => (s === 0 ? 1 : s)); }).catch(() => {});
+  }, []);
+
+  // Connexion réussie : on recharge la boutique enregistrée, sinon on la crée avec le formulaire.
+  async function afterLogin() {
+    if (!(await restoreFromServer())) {
+      setNoShopYet(true);
+      setStep(1);
+    }
+  }
   const [form, setForm] = useState<Partial<Business>>({ tone: DEFAULT_TONE });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -118,13 +133,46 @@ export function Onboarding() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg, paddingTop: insets.top + 12 }}>
       <GlassBackground />
-      <View style={{ flexDirection: 'row', gap: 6, paddingHorizontal: 20, marginBottom: 8 }}>
+      {step > 0 && <View style={{ flexDirection: 'row', gap: 6, paddingHorizontal: 20, marginBottom: 8 }}>
         {Array.from({ length: STEPS }).map((_, i) => (
           <View key={i} style={{ flex: 1, height: 5, borderRadius: 3, backgroundColor: i < step ? colors.green : 'rgba(36,51,43,0.10)' }} />
         ))}
-      </View>
+      </View>}
       <ScrollView contentContainerStyle={{ padding: 20, gap: 18, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
-        <Body soft size={15}>Étape {step} sur {STEPS}</Body>
+        {step > 0 && <Body soft size={15}>Étape {step} sur {STEPS}</Body>}
+
+        {step === 0 && (
+          <>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <LogoMark size={44} />
+              <Title size={26} style={{ color: colors.green }}>Vitrine</Title>
+            </View>
+            <Title size={30}>{hasAccount ? 'Me connecter' : 'Créer mon compte'}</Title>
+            {hasAccount ? (
+              <EmailPasswordForm
+                key="login"
+                intro="Écrivez l'e-mail et le mot de passe de votre compte Vitrine. Vous retrouverez votre boutique et vos posts."
+                submitLabel="Me connecter"
+                onSubmit={async (email, password) => { await signInWithPassword(email, password); await afterLogin(); }}
+                showForgot
+                onForgotDone={afterLogin}
+              />
+            ) : (
+              <EmailPasswordForm
+                key="signup"
+                intro="Votre e-mail et un mot de passe, une seule fois. Ensuite, Vitrine reste ouvert sur ce téléphone."
+                submitLabel="Créer mon compte"
+                isNew
+                onSubmit={async (email, password) => { await createAccount(email, password); setStep(1); }}
+              />
+            )}
+            <Pressable onPress={() => setHasAccount((h) => !h)} accessibilityRole="button" hitSlop={10} style={{ minHeight: 44, justifyContent: 'center' }}>
+              <Text style={{ color: colors.green, fontWeight: '700', fontSize: 16, fontFamily: fonts.body }}>
+                {hasAccount ? 'Pas encore de compte : créer mon compte ›' : "J'ai déjà un compte : me connecter ›"}
+              </Text>
+            </Pressable>
+          </>
+        )}
 
         {step === 1 && (
           <>
@@ -134,25 +182,7 @@ export function Onboarding() {
             </View>
             <Title size={30}>Votre boutique</Title>
             <Body soft>Quelques informations pour écrire des posts qui vous ressemblent.</Body>
-            {isBackendConfigured && (!restoring ? (
-              <Pressable onPress={() => setRestoring(true)} accessibilityRole="button" hitSlop={10} style={{ minHeight: 44, justifyContent: 'center' }}>
-                <Text style={{ color: colors.green, fontWeight: '700', fontSize: 16, fontFamily: fonts.body }}>J'ai déjà un compte : retrouver ma boutique ›</Text>
-              </Pressable>
-            ) : (
-              <Card style={{ gap: 12 }}>
-                <Body style={{ fontWeight: '700' }} size={18}>Retrouver ma boutique</Body>
-                <EmailCodeForm
-                  intro="Écrivez l'e-mail qui protège votre compte. Vous recevrez un code pour retrouver votre boutique et vos posts."
-                  sendLabel="Recevoir mon code"
-                  onSend={sendLoginCode}
-                  onVerify={async (email, code) => {
-                    await verifyLoginCode(email, code);
-                    if (!(await restoreFromServer())) throw new FriendlyError("Aucune boutique n'est enregistrée avec ce compte. Créez-la avec le formulaire ci-dessous.");
-                  }}
-                />
-                <Button title="Annuler" kind="ghost" onPress={() => setRestoring(false)} />
-              </Card>
-            ))}
+            {noShopYet ? <Body size={15}>Vous êtes connecté. Aucune boutique n'est encore enregistrée sur ce compte : créez-la ci-dessous.</Body> : null}
             <Field label="Votre prénom" value={form.ownerFirstName} onChangeText={(v) => set('ownerFirstName', v)} placeholder="Ex. : Marie" error={errors.ownerFirstName} autoComplete="given-name" />
             <Field label="Nom de la boutique" value={form.businessName} onChangeText={(v) => set('businessName', v)} placeholder="Ex. : Fleurs de Marie" error={errors.businessName} />
             <View style={{ flexDirection: 'row', gap: 12 }}>

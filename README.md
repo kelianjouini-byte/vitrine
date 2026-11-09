@@ -46,7 +46,7 @@ npx expo start --web        # ou l'ouvrir dans le navigateur
 1. Créer un projet sur https://supabase.com (région Europe, ex. Paris / Francfort).
 2. Installer la CLI : `npm i -g supabase`, puis `supabase login` et `supabase link --project-ref <ref>`.
 3. Appliquer le schéma : `supabase db push` (tables, RLS, bucket privé `post-images`, offres).
-4. Auth → Providers → Email : activer, et dans le modèle d'e-mail « Magic Link » afficher `{{ .Token }}` (code à 6 chiffres).
+4. Auth → Providers → Email : activer, **désactiver « Confirm email »** (connexion par e-mail + mot de passe, sans e-mail à l'inscription), longueur minimale du mot de passe : 6. Dans le modèle d'e-mail « Reset Password », afficher `{{ .Token }}` (code à 6 chiffres pour « Mot de passe oublié »).
 5. Déployer les fonctions : `supabase functions deploy` (la config `verify_jwt=false` de `meta-oauth` et `meta-data-deletion` est dans `supabase/config.toml`).
 6. Définir les secrets : `supabase secrets set OPENAI_API_KEY=… META_APP_ID=… META_APP_SECRET=… TOKEN_ENCRYPTION_KEY=…`
 7. Copier l'URL et la clé `anon` dans `.env`.
