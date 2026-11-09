@@ -22,6 +22,10 @@ import { Report } from './src/screens/Report';
 import { Planning } from './src/screens/Planning';
 import { PlanDay } from './src/screens/PlanDay';
 import { Referral } from './src/screens/Referral';
+import { Review } from './src/screens/Review';
+import { Team, TeamAdd, TeamMemberScreen } from './src/screens/Team';
+import { ShopAdd } from './src/screens/ShopAdd';
+import { EmployeePaused } from './src/screens/EmployeePaused';
 
 // L'écran d'ouverture natif reste affiché jusqu'à ce que l'app soit prête.
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -38,7 +42,7 @@ export default function App() {
 }
 
 function Root() {
-  const { ready, business, route, billing } = useApp();
+  const { ready, business, route, billing, isPatron } = useApp();
   const insets = useSafeAreaInsets();
   // Écran d'ouverture court : le temps de charger, avec un minimum pour ne pas « clignoter ».
   const [minDone, setMinDone] = useState(false);
@@ -51,6 +55,8 @@ function Root() {
   if (!business) return <Onboarding />;
   // Essai gratuit terminé sans abonnement : seul l'écran des offres reste (avec « Supprimer mon compte »).
   if (isBlocked(billing)) {
+    // Un employé ne voit ni les prix ni le paiement : on lui dit simplement de prévenir son patron.
+    if (!isPatron) return <EmployeePaused />;
     return (
       <View style={{ flex: 1, backgroundColor: colors.bg }}>
         <GlassBackground />
@@ -79,6 +85,11 @@ function Root() {
         {route.name === 'published' && <Published postId={route.postId} />}
         {route.name === 'offers' && <Offers payment={route.payment} />}
         {route.name === 'referral' && <Referral />}
+        {route.name === 'review' && <Review />}
+        {route.name === 'team' && <Team />}
+        {route.name === 'teamAdd' && <TeamAdd initialRole={route.role} />}
+        {route.name === 'teamMember' && <TeamMemberScreen key={route.id} id={route.id} code={route.code} />}
+        {route.name === 'shopAdd' && <ShopAdd />}
       </View>
       {isTab && <TabBar />}
     </View>

@@ -37,8 +37,13 @@ export function Posts() {
             <View style={{ flex: 1, gap: 4 }}>
               <Body size={15} style={{ fontWeight: '600' }}>{p.caption.split('\n')[0].slice(0, 60)}</Body>
               <Body soft size={15}>{new Date(p.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })} · {p.platforms.map((x) => (x === 'instagram' ? 'Instagram' : 'Facebook')).join(' + ')}</Body>
+              {p.reviewState === 'rejected' && p.reviewNote ? <Body size={15} style={{ color: colors.orangeText }}>« {p.reviewNote} »</Body> : null}
             </View>
-            <Badge text={STATUS[p.status].label} tone={STATUS[p.status].tone} />
+            {p.reviewState === 'pending'
+              ? <Badge text="Chez le patron" tone="orange" />
+              : p.reviewState === 'rejected'
+                ? <Badge text="Refusé" tone="red" />
+                : <Badge text={STATUS[p.status].label} tone={STATUS[p.status].tone} />}
           </Card>
         ))
       )}

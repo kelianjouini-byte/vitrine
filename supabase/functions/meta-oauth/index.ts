@@ -7,7 +7,7 @@
 //  POST {action:'choose_page', page_id} -> { ok, instagram }
 //  POST {action:'disconnect', platform}
 import { handler, json, HttpError, env } from '../_shared/http.ts';
-import { admin, requireMerchant } from '../_shared/db.ts';
+import { admin, requireMerchant, requirePatron } from '../_shared/db.ts';
 import { decrypt, encrypt, hmac } from '../_shared/crypto.ts';
 import { graph, metaConfig, metaReady, META_SCOPES, GRAPH_VERSION } from '../_shared/meta.ts';
 
@@ -27,7 +27,9 @@ Deno.serve(handler(async (req) => {
   const body = await req.json().catch(() => ({}));
   if (body.action === 'status') return json({ configured: metaReady() });
   const { appId, appSecret } = metaConfig();
-  const { db, business } = await requireMerchant(req);
+  const { db, business, member } = await requireMerchant(req);
+  // Connecter ou déconnecter Instagram / Facebook : seulement un patron (chaque boutique a ses propres comptes).
+  requirePatron(member);
 
   if (body.action === 'start') {
     const redirect = String(body.redirect_uri ?? '');

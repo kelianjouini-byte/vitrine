@@ -35,6 +35,10 @@ App ──publish-post──► verrou status=publishing ──► pour chaque r
                                                     (plusieurs photos : /photos published=false → /{page}/feed attached_media)
                        photos : posts.image_urls (ordre du carrousel, 10 max) ; posts.image_url = 1re photo
                        ──► post_events (journal) ──► posts.status = published | partially_published | failed
+App ──team──► login (code employé → session) · context (rôle, boutiques, posts à valider)
+              submit (employé : post → review_state pending) · approve (patron : publish via _shared/publishCore.ts)
+              reject · members/add/update/new_code/remove · add_shop/remove_shop (ligne Stripe « Boutique en plus »)
+              RLS : my_company_id(), can_access_business(), is_patron_of() (security definer)
 ```
 
 ## Contraintes Meta identifiées

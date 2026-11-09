@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Linking, Pressable, ScrollView, Switch, View } from 'react-native';
 import { Body, Button, Card, Chevron, Chip, Field, IconTile, Label, Notice, Title, BackButton } from '../components/ui';
-import { BackIcon, PeopleIcon } from '../components/icons';
+import { BackIcon, PeopleIcon, PersonIcon, PlusIcon, StoreIcon } from '../components/icons';
 import { NetworkCards } from '../components/NetworkCards';
 import { IdentityFields, type Identity } from '../components/IdentityFields';
 import { colors } from '../lib/theme';
@@ -9,7 +9,7 @@ import { useApp } from '../lib/store';
 import { toneLabel, tradeLabel } from '../lib/business';
 import { isBackendConfigured } from '../lib/config';
 import { notificationsSupported } from '../lib/notifications';
-import { accountState, FriendlyError, protectAccount, saveBusinessRemote, signOut, type AccountState } from '../lib/api';
+import { accountState, FriendlyError, protectAccount, removeShop, saveBusinessRemote, signOut, type AccountState } from '../lib/api';
 import { EmailPasswordForm } from '../components/AccountForms';
 import { DeleteAccount } from '../components/DeleteAccount';
 
@@ -17,8 +17,9 @@ import { DeleteAccount } from '../components/DeleteAccount';
 const LEGAL_SITE = 'https://kelianjouini-byte.github.io/vitrine';
 
 export function Settings() {
-  const { business, prefs, setPrefs, back, go, saveBusiness, refreshConnections } = useApp();
+  const { business, prefs, setPrefs, back, go, saveBusiness, refreshConnections, isPatron, team } = useApp();
   const b = business!;
+  const people = team?.teamSize ?? 0;
 
   return (
     <ScrollView contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 48 }}>
@@ -34,9 +35,31 @@ export function Settings() {
         <Body soft size={15}>Ton : {toneLabel(b.tone)}</Body>
       </Card>
 
+      {isPatron && isBackendConfigured && (
+        <>
+          <Label>Mon équipe</Label>
+          <Card onPress={() => go({ name: 'team' })} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <IconTile size={44}><PersonIcon size={24} color={colors.green} /></IconTile>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Body style={{ fontWeight: '700' }}>{people ? `${people + 1} personnes dans l'équipe` : 'Ajouter un employé'}</Body>
+              <Body soft size={15}>Vos employés préparent les posts, vous les validez. Gratuit.</Body>
+            </View>
+            <Chevron />
+          </Card>
+
+          <Label>Mes boutiques</Label>
+          <Shops />
+        </>
+      )}
+
       <Label>Mon compte</Label>
       <Account />
 
+      {!isPatron && (
+        <Body soft size={15}>L'abonnement, les réseaux et la carte d'identité de la boutique sont gérés par votre patron.</Body>
+      )}
+
+      {isPatron && <>
       <Label>Mon abonnement</Label>
       <Card onPress={() => go({ name: 'offers' })} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         <View style={{ flex: 1, gap: 2 }}>
@@ -61,6 +84,7 @@ export function Settings() {
 
       <Label>Carte d'identité de la boutique</Label>
       <IdentityCard />
+      </>}
 
       <Label>Rappels avant les fêtes</Label>
       <Card style={{ gap: 14 }}>
@@ -192,6 +216,61 @@ function Account() {
         isNew
         onSubmit={async (email, password) => { await protectAccount(email, password); setState(await accountState()); }}
       />
+    </Card>
+  );
+}
+
+/** Les boutiques de l'entreprise : la principale, celles ajoutées (qu'on peut retirer), et « Ajouter une boutique ». */
+function Shops() {
+  const { team, go, refreshTeam, refreshBilling, business, switchShop } = useApp();
+  const shops = team?.shops ?? (business ? [business] : []);
+  const [confirm, setConfirm] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function remove(id: string) {
+    setBusy(true);
+    setError(null);
+    try {
+      if (business?.id === id && team?.companyId) await switchShop(team.companyId);
+      await removeShop(id);
+      await refreshTeam();
+      await refreshBilling();
+      setConfirm(null);
+    } catch (e) {
+      setError(e instanceof FriendlyError ? e.message : 'Réessayez dans un instant.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card style={{ gap: 4, paddingVertical: 8 }}>
+      {shops.map((s, i) => (
+        <View key={s.id ?? i} style={{ gap: 8, paddingVertical: 8, borderTopWidth: i ? 1 : 0, borderTopColor: 'rgba(36,51,43,0.08)' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <IconTile size={40}><StoreIcon size={20} color={colors.green} /></IconTile>
+            <View style={{ flex: 1 }}>
+              <Body style={{ fontWeight: '700' }}>{s.businessName}</Body>
+              <Body soft size={14}>{s.city}{!s.mainBusinessId && shops.length > 1 ? ' · boutique principale' : ''}</Body>
+            </View>
+            {s.mainBusinessId && confirm !== s.id && <Button title="Retirer" kind="ghost" onPress={() => setConfirm(s.id!)} />}
+          </View>
+          {confirm === s.id && (
+            <View style={{ gap: 8 }}>
+              <Body size={15}>Retirer {s.businessName} ({s.city}) ? Ses posts et ses réglages seront effacés, et elle ne sera plus facturée.</Body>
+              <Button title="Oui, retirer cette boutique" kind="danger" loading={busy} onPress={() => remove(s.id!)} />
+              <Button title="Annuler" kind="ghost" onPress={() => setConfirm(null)} />
+            </View>
+          )}
+        </View>
+      ))}
+      {error && <Notice tone="red" title={error} />}
+      <Pressable onPress={() => go({ name: 'shopAdd' })} accessibilityRole="button" style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderTopWidth: 1, borderTopColor: 'rgba(36,51,43,0.08)' }}>
+        <IconTile size={40}><PlusIcon size={20} color={colors.green} /></IconTile>
+        <Body style={{ flex: 1, fontWeight: '700', color: colors.green }}>Ajouter une boutique</Body>
+        <Chevron />
+      </Pressable>
     </Card>
   );
 }

@@ -26,3 +26,8 @@ verify_jwt = false
 # Appelée par Stripe (pas par l'app) : vérifie elle-même la signature Stripe-Signature.
 [functions.stripe-webhook]
 verify_jwt = false
+
+# Équipe : l'action « login » (connexion d'un employé avec son code) se fait sans être connecté.
+# La fonction vérifie elle-même le jeton pour toutes les autres actions.
+[functions.team]
+verify_jwt = false

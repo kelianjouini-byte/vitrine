@@ -4,9 +4,10 @@
 //  - 'portal'   : {returnUrl} -> lien vers l'espace Stripe (carte, factures, résiliation selon l'offre)
 // Les changements d'état arrivent ensuite par le webhook Stripe (fonction stripe-webhook).
 import { handler, json, HttpError, env } from '../_shared/http.ts';
-import { requireMerchant } from '../_shared/db.ts';
+import { requireMerchant, requirePatron } from '../_shared/db.ts';
 import { accessState, isLive, isPlanId, PLAN_IDS, stripeTrialEnd, trialEndsAt } from '../_shared/billing.ts';
-import { portalConfiguration, priceFor, stripe, stripeConfigured } from '../_shared/stripe.ts';
+import { extraShopPriceFor, portalConfiguration, priceFor, stripe, stripeConfigured } from '../_shared/stripe.ts';
+import { companyMonthlyCents, isPatron } from '../_shared/team.ts';
 import { findReferrer, refereeCoupon } from '../_shared/referralServer.ts';
 
 /** On ne renvoie le commerçant que vers l'appli Vitrine (jamais vers une adresse donnée par un tiers). */
@@ -18,18 +19,31 @@ function safeReturn(url: unknown): string {
 }
 
 Deno.serve(handler(async (req) => {
-  const { db, user, business } = await requireMerchant(req);
+  // L'abonnement est celui de l'entreprise (boutique principale), quelle que soit la boutique ouverte.
+  const { db, user, company: business, member } = await requireMerchant(req);
   const body = await req.json().catch(() => ({}));
   const { data: sub } = await db.from('subscriptions').select('*').eq('business_id', business.id).maybeSingle();
+  // Boutiques de l'entreprise (la principale en premier) : la 1re au prix de l'offre, les autres au prix « boutique en plus ».
+  const { data: extraShops } = await db.from('businesses').select('id, business_name, city').eq('main_business_id', business.id).order('created_at');
+  const extraCount = extraShops?.length ?? 0;
 
   if (body.action === 'status') {
-    const { data: plans } = await db.from('plans').select('id, name, monthly_price_cents, commitment_months').in('id', PLAN_IDS);
+    const access = accessState(business.created_at, sub);
+    // Un employé n'a besoin que de savoir si l'appli est ouverte (il ne voit ni les prix ni le paiement).
+    if (!isPatron(member.role)) {
+      return json({ configured: stripeConfigured(), access, role: member.role, trialStartedAt: business.created_at, trialEndsAt: trialEndsAt(business.created_at).toISOString(), plans: [], subscription: null, shops: [] });
+    }
+    const { data: plans } = await db.from('plans').select('id, name, monthly_price_cents, commitment_months, extra_shop_price_cents').in('id', PLAN_IDS);
+    const current = (plans ?? []).find((p) => p.id === sub?.plan);
     return json({
       configured: stripeConfigured(),
-      access: accessState(business.created_at, sub),
+      access,
+      role: member.role,
       trialStartedAt: business.created_at,
       trialEndsAt: trialEndsAt(business.created_at).toISOString(),
       plans: plans ?? [],
+      shops: [{ id: business.id, name: `${business.business_name} · ${business.city}` }, ...(extraShops ?? []).map((s) => ({ id: s.id, name: `${s.business_name} · ${s.city}` }))],
+      monthlyTotalCents: current ? companyMonthlyCents(current.monthly_price_cents, current.extra_shop_price_cents, 1 + extraCount) : null,
       subscription: sub && sub.stripe_subscription_id
         ? {
           plan: sub.plan, status: sub.status, currentPeriodEnd: sub.current_period_end,
@@ -39,13 +53,17 @@ Deno.serve(handler(async (req) => {
     });
   }
 
+  requirePatron(member);
+
   if (body.action === 'checkout') {
     if (!isPlanId(body.plan)) throw new HttpError(400, 'bad_plan', 'Offre inconnue.');
     if (!user.email || user.is_anonymous) throw new HttpError(400, 'account_not_protected', "Ajoutez d'abord votre e-mail pour protéger votre compte.");
     if (sub && isLive(sub.status) && sub.stripe_subscription_id) throw new HttpError(409, 'already_subscribed', 'Vous avez déjà un abonnement.');
-    const { data: plan } = await db.from('plans').select('monthly_price_cents').eq('id', body.plan).single();
+    const { data: plan } = await db.from('plans').select('monthly_price_cents, extra_shop_price_cents').eq('id', body.plan).single();
     if (!plan) throw new HttpError(400, 'bad_plan', 'Offre inconnue.');
     const price = await priceFor(body.plan, plan.monthly_price_cents);
+    // Boutiques déjà ajoutées (ex. abonnement repris après une résiliation) : une ligne « Boutique en plus » × leur nombre.
+    const extraLine = extraCount ? [{ price: await extraShopPriceFor(body.plan, plan.extra_shop_price_cents), quantity: extraCount }] : [];
     // Code de parrainage (facultatif) : vérifié ici, jamais cru sur parole depuis l'appli.
     const referral = body.referralCode ? await findReferrer(db, business, body.referralCode) : null;
     const referralMeta = referral ? { referrer_business_id: referral.referrerId, referral_code: referral.code } : {};
@@ -68,7 +86,7 @@ Deno.serve(handler(async (req) => {
       mode: 'subscription',
       customer,
       locale: 'fr',
-      line_items: [{ price, quantity: 1 }],
+      line_items: [{ price, quantity: 1 }, ...extraLine],
       client_reference_id: business.id,
       subscription_data: {
         metadata: { business_id: business.id, plan: body.plan, ...referralMeta },

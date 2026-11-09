@@ -49,6 +49,26 @@ export async function priceFor(plan: PlanId, amountCents: number): Promise<strin
   return price.id;
 }
 
+const EXTRA_LOOKUP: Record<PlanId, string> = { monthly: 'vitrine_boutique_mensuel', annual: 'vitrine_boutique_annuel' };
+const EXTRA_NICKNAME: Record<PlanId, string> = { monthly: 'Boutique en plus (Mensuel)', annual: 'Boutique en plus (Annuel)' };
+
+/** Prix Stripe d'une boutique en plus (19 € en mensuel, 15 € en annuel). Créé automatiquement la 1re fois. */
+export async function extraShopPriceFor(plan: PlanId, amountCents: number): Promise<string> {
+  const found = await stripe<{ data: { id: string; unit_amount: number }[] }>('GET', 'prices', { lookup_keys: [EXTRA_LOOKUP[plan]], active: 'true' });
+  const same = found.data.find((p) => p.unit_amount === amountCents);
+  if (same) return same.id;
+  try {
+    await stripe('POST', 'products', { id: 'vitrine_boutique', name: 'Vitrine : boutique en plus', description: 'Une boutique de plus dans votre compte Vitrine.' });
+  } catch (e) {
+    if (!(e instanceof HttpError && e.code === 'exists')) throw e;
+  }
+  const price = await stripe<{ id: string }>('POST', 'prices', {
+    product: 'vitrine_boutique', currency: 'eur', unit_amount: amountCents, recurring: { interval: 'month' },
+    lookup_key: EXTRA_LOOKUP[plan], transfer_lookup_key: 'true', nickname: EXTRA_NICKNAME[plan],
+  });
+  return price.id;
+}
+
 /**
  * Réglages du portail client. « locked » : pendant l'engagement d'un an, le commerçant peut changer sa carte
  * et voir ses factures, mais pas résilier en un clic. « free » : il peut aussi résilier (fin à la date du prochain paiement).

@@ -11,8 +11,8 @@ import { findAdWords, toTone } from '../_shared/prompts.ts';
 const AI_MAX_IMAGES = 3;
 
 Deno.serve(handler(async (req) => {
-  const { db, userId, business } = await requireMerchant(req);
-  await requireAccess(db, business);
+  const { db, userId, business, company } = await requireMerchant(req);
+  await requireAccess(db, company);
   const body = await req.json().catch(() => ({}));
   // Photos du carrousel, dans l'ordre (une seule pour un post classique).
   const imagePaths = readImagePaths(body, userId);
@@ -40,7 +40,7 @@ Deno.serve(handler(async (req) => {
   let postId: string | undefined = body.post_id;
   const { data: existing } = postId ? await db.from('posts').select('id').eq('id', postId).eq('business_id', business.id).maybeSingle() : { data: null };
   if (!existing) {
-    const { data: created, error } = await db.from('posts').insert({ ...(postId && /^[0-9a-f-]{36}$/.test(postId) ? { id: postId } : {}), business_id: business.id, image_url: imagePath, image_urls: imagePaths, status: 'generating', occasion: body.occasion?.name ?? null }).select('id').single();
+    const { data: created, error } = await db.from('posts').insert({ ...(postId && /^[0-9a-f-]{36}$/.test(postId) ? { id: postId } : {}), business_id: business.id, created_by: userId, image_url: imagePath, image_urls: imagePaths, status: 'generating', occasion: body.occasion?.name ?? null }).select('id').single();
     if (error) throw new HttpError(500, 'db', 'Impossible de préparer la publication.');
     postId = created.id;
   } else {

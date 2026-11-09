@@ -156,6 +156,7 @@ export function Offers({ payment, blocked }: { payment?: 'ok' | 'annule'; blocke
           {sub.plan === 'annual' && sub.commitmentEndsAt && new Date(sub.commitmentEndsAt) > new Date() && (
             <Body soft size={15}>Engagement d'un an jusqu'au {frenchDate(sub.commitmentEndsAt)}. Ensuite, l'abonnement continue au même prix, mois par mois.</Body>
           )}
+          {status?.shops && status.shops.length > 1 && <ShopLines billing={status} offers={offers} plan={sub.plan} />}
           <Button title="Gérer mon paiement" kind="secondary" loading={busy} onPress={() => run(() => billingPortalUrl(returnUrl()))} />
           <Body soft size={15}>Changer de carte bancaire, voir vos factures{sub.plan === 'monthly' ? ' ou arrêter votre abonnement' : ''}.</Body>
           {error && <Notice tone="red" title={error} />}
@@ -257,7 +258,29 @@ function OfferCard({ offer, selected, saving, onPress }: { offer: Offer; selecte
         <Body soft size={15}>
           {offer.commitmentMonths ? `Engagement ${offer.commitmentMonths === 12 ? "d'un an" : `de ${offer.commitmentMonths} mois`}, payé chaque mois.` : 'Sans engagement. Vous arrêtez quand vous voulez.'}
         </Body>
+        {offer.extraShopCents > 0 && <Body soft size={15}>Plusieurs boutiques : {euros(offer.extraShopCents)} par mois pour chaque boutique en plus.</Body>}
       </Card>
     </Pressable>
+  );
+}
+
+/** Le détail du prix quand l'entreprise a plusieurs boutiques : une ligne par boutique, puis le total. */
+function ShopLines({ billing, offers, plan }: { billing: BillingStatus; offers: Offer[]; plan: string }) {
+  const offer = offers.find((o) => o.id === plan);
+  if (!offer || !billing.shops) return null;
+  const total = billing.monthlyTotalCents ?? offer.priceCents + offer.extraShopCents * (billing.shops.length - 1);
+  return (
+    <View style={{ gap: 6 }}>
+      {billing.shops.map((s, i) => (
+        <View key={s.id} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12 }}>
+          <Body soft size={15} style={{ flex: 1 }}>{s.name}</Body>
+          <Body size={15}>{euros(i ? offer.extraShopCents : offer.priceCents)}</Body>
+        </View>
+      ))}
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: 'rgba(36,51,43,0.1)', paddingTop: 6 }}>
+        <Body style={{ fontWeight: '700' }}>Total par mois</Body>
+        <Body style={{ fontWeight: '700' }}>{euros(total)}</Body>
+      </View>
+    </View>
   );
 }

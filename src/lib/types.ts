@@ -12,6 +12,8 @@ export type Platform = 'instagram' | 'facebook';
 
 export interface Business {
   id?: string;
+  /** Boutique ajoutée à un compte (offre plusieurs boutiques) : id de la boutique principale. Vide pour la principale. */
+  mainBusinessId?: string | null;
   ownerFirstName: string;
   businessName: string;
   businessType: BusinessType;
@@ -99,6 +101,9 @@ export interface Post {
   /** Clé anti-doublon de la publication (un post préparé n'est publié qu'une fois). */
   idempotencyKey?: string;
   publications: PublicationResult[];
+  /** Post d'un employé envoyé à son patron : en attente, validé ou refusé (avec un petit mot). */
+  reviewState?: 'pending' | 'approved' | 'rejected' | null;
+  reviewNote?: string | null;
 }
 
 export interface NotificationPrefs {
