@@ -9,8 +9,8 @@ additional_redirect_urls = ["vitrine://**", "exp://**"]
 enable_signup = true
 # Connexion par e-mail + mot de passe, sans e-mail de confirmation à l'inscription.
 enable_confirmations = false
-# Le code à 6 chiffres ne sert plus que pour « Mot de passe oublié » (modèle « Reset Password » avec {{ .Token }}).
-otp_length = 6
+# Le code (8 chiffres) ne sert plus que pour « Mot de passe oublié » (modèle « Reset Password » avec {{ .Token }}).
+otp_length = 8
 
 [auth.password]
 min_length = 6

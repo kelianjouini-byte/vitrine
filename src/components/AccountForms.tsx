@@ -82,7 +82,7 @@ export function EmailPasswordForm({ intro, submitLabel, onSubmit, isNew, showFor
   );
 }
 
-/** Mot de passe oublié : un code à 6 chiffres arrive par e-mail, puis on choisit un nouveau mot de passe. */
+/** Mot de passe oublié : un code arrive par e-mail, puis on choisit un nouveau mot de passe. */
 function ForgotPasswordForm({ initialEmail, onCancel, onDone }: { initialEmail: string; onCancel: () => void; onDone: () => Promise<void> }) {
   const [email, setEmail] = useState(initialEmail);
   const [code, setCode] = useState('');
@@ -109,8 +109,8 @@ function ForgotPasswordForm({ initialEmail, onCancel, onDone }: { initialEmail: 
         </>
       ) : (
         <>
-          <Body size={15}>Nous avons envoyé un code à 6 chiffres à {email.trim()}. Regardez aussi dans les courriers indésirables.</Body>
-          <Field label="Code reçu" value={code} onChangeText={(v) => setCode(v.replace(/\D/g, '').slice(0, 6))} keyboardType="number-pad" autoComplete="one-time-code" placeholder="Ex. : 123456" />
+          <Body size={15}>Nous avons envoyé un code à {email.trim()}. Regardez aussi dans les courriers indésirables.</Body>
+          <Field label="Code reçu" value={code} onChangeText={(v) => setCode(v.replace(/\D/g, '').slice(0, 8))} keyboardType="number-pad" autoComplete="one-time-code" placeholder="Ex. : 12345678" />
           <PasswordField label="Nouveau mot de passe" value={password} onChangeText={setPassword} isNew />
           <Button
             title="Enregistrer le mot de passe"

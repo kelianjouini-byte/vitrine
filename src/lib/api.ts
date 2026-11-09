@@ -131,7 +131,7 @@ export async function signInWithPassword(email: string, password: string): Promi
 }
 
 /**
- * Mot de passe oublié : Supabase envoie un code à 6 chiffres
+ * Mot de passe oublié : Supabase envoie un code (8 chiffres)
  * (modèle d'e-mail « Reset Password » avec {{ .Token }}).
  */
 export async function sendPasswordResetCode(email: string): Promise<void> {
