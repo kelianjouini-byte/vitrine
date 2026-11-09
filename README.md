@@ -81,9 +81,19 @@ Offres : **15 jours offerts** (sans carte bancaire), puis **Mensuel 39 €/mois*
 - Suppression du compte : l'abonnement Stripe est arrêté immédiatement.
 - Parrainage (fonction `referral`, tables `referral_codes`, `referrals`, `referral_rewards`, lues seulement par le serveur) : chaque boutique a un code (`FLEURS-7K4Q9`). Le filleul le tape au paiement : coupon Stripe `vitrine_parrainage_filleul` (-10 € pendant 3 mois, créé automatiquement). À chaque facture payée du filleul (`invoice.paid`), le parrain reçoit 10 € de crédit sur son solde Stripe, sans jamais dépasser le prix d'un mois. Même carte, même adresse ou même nom de facturation : parrainage bloqué. Lien de partage : `…/app/?parrain=CODE`.
 
+- Plusieurs boutiques : chaque boutique en plus coûte **19 €/mois** (Mensuel) ou **15 €/mois** (Annuel, engagement aligné sur la 1re). Colonne `plans.extra_shop_price_cents`. Une ligne d'abonnement Stripe « Boutique en plus » (`lookup_key` `vitrine_boutique_mensuel` / `vitrine_boutique_annuel`, créée automatiquement) suit le nombre de boutiques, au prorata. Parrainage : la réduction du parrain reste plafonnée au prix de sa 1re boutique ; ses propres boutiques ne comptent jamais comme filleuls.
+
 Réglages à faire une fois :
 1. Secret `STRIPE_SECRET_KEY` dans Supabase (Edge Functions → Secrets).
 2. Dans Stripe → Webhooks : adresse `https://<projet>.supabase.co/functions/v1/stripe-webhook`, événements `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`, `invoice.paid` (parrainage). Copier la clé de signature dans le secret `STRIPE_WEBHOOK_SECRET`.
+
+## 6 bis. Équipe et plusieurs boutiques
+
+Fonction `team` (déployée avec `verify_jwt = false`, le jeton est vérifié dans la fonction sauf pour `login`) et migration `20261109160000_team_shops.sql`.
+- Rôles : **patron** (le créateur du compte, ou un patron ajouté : mêmes droits, un seul paie) et **employé** (gratuit). Table `team_members`, lue seulement par le serveur.
+- Le patron ajoute un employé avec son prénom et son e-mail : Vitrine crée son compte et un **code à 6 caractères** (ex. `4K7Q2M`) qui sert de mot de passe. Le code est chiffré en base (clé `TOKEN_ENCRYPTION_KEY`, ou à défaut une clé dérivée de la clé serveur) et reste visible par le patron sur la fiche de l'employé (« Faire un nouveau code »). Connexion par code seulement via la fonction `team` : 5 erreurs = 15 minutes de blocage.
+- Un employé prépare les posts et les stories, puis « Envoyer au patron » (`review_state = pending`). Le patron publie, modifie le texte ou refuse avec un petit mot (écran « Posts à valider »). Interrupteur « Publie seul » dans la liste « Mon équipe », éteint par défaut.
+- La boutique ouverte dans l'appli est envoyée dans l'en-tête `x-vitrine-shop`, toujours vérifiée côté serveur.
 
 ## 7. Déploiement
 

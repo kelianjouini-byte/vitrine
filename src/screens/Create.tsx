@@ -2,12 +2,12 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Platform as RNPlatform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import * as Crypto from 'expo-crypto';
 import { Body, Button, Chip, Field, Notice, PlatformPicker, Title, BackButton } from '../components/ui';
-import { CameraIcon, CheckIcon, ImageIcon, PencilIcon, RefreshIcon, SparkIcon, TrashIcon } from '../components/icons';
+import { CameraIcon, CheckIcon, ImageIcon, PencilIcon, RefreshIcon, SparkIcon, TrashIcon, SendIcon } from '../components/icons';
 import { colors, fonts, glassSurface, radius } from '../lib/theme';
 import { useApp } from '../lib/store';
 import { upcomingEvents } from '../lib/events';
 import { isBackendConfigured } from '../lib/config';
-import { ensureSession, exampleCaption, FriendlyError, generatePost, NotConfiguredError, publishPost, saveBusinessRemote, uploadPhoto } from '../lib/api';
+import { ensureSession, exampleCaption, FriendlyError, generatePost, NotConfiguredError, publishPost, saveBusinessRemote, submitPost, uploadPhoto } from '../lib/api';
 import { autoCrop, formatRatio, MAX_PHOTOS, takePhotos, type PhotoFormat, type PickedPhoto, type RawPhoto } from '../lib/photo';
 import { PhotoCarousel } from '../components/PhotoCarousel';
 import { tradeById } from '../lib/trades';
@@ -24,7 +24,7 @@ type Slide = { key: string; photo: PickedPhoto; path: string | null };
 const FORMAT: PhotoFormat = 'portrait';
 
 export function Create({ occasionId, initialPhoto, idea, plannedFor, note }: { occasionId?: string; initialPhoto?: RawPhoto; idea?: PostIdea; plannedFor?: string; note?: string }) {
-  const { business, back, go, upsertPost, connections, saveBusiness, prefs } = useApp();
+  const { business, back, go, upsertPost, connections, saveBusiness, prefs, canPublish, refreshTeam } = useApp();
   // Post préparé à l'avance depuis le planning : « Vendredi 6 novembre ».
   const plannedLabel = plannedFor ? dayLabel(parseDayKey(plannedFor)) : null;
   const b = business!;
@@ -201,6 +201,7 @@ export function Create({ occasionId, initialPhoto, idea, plannedFor, note }: { o
       setError('Le texte est vide. Écrivez quelques mots ou demandez un nouveau texte.');
       return;
     }
+    if (!canPublish) return sendToPatron(tags);
     setPhase('publishing');
     setPublishStep(0);
     setError(null);
@@ -225,6 +226,24 @@ export function Create({ occasionId, initialPhoto, idea, plannedFor, note }: { o
     const post = buildPost(tags, { status, publications, publishedAt: done ? new Date().toISOString() : null });
     upsertPost(post);
     go({ name: 'published', postId: post.id });
+  }
+
+  /** Employé : le post part chez le patron, qui le publie (ou le refuse avec un petit mot). Rien n'est publié ici. */
+  async function sendToPatron(tags: string[]) {
+    setBusy(true);
+    setError(null);
+    try {
+      if (!isBackendConfigured) throw new NotConfiguredError('serveur');
+      const imagePaths = await ensureUploaded();
+      await submitPost({ postId, caption: caption.trim(), hashtags: tags, platforms, imagePaths, idempotencyKey: idempotencyKey.current });
+      upsertPost(buildPost(tags, { status: 'awaiting_approval', publications: [], reviewState: 'pending', reviewNote: null }));
+      refreshTeam();
+      go({ name: 'published', postId });
+    } catch (e) {
+      setError(e instanceof NotConfiguredError ? "L'envoi au patron n'est pas encore activé sur le serveur." : e instanceof FriendlyError ? e.message : "Le post n'a pas pu être envoyé. Réessayez.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   /** Le post tel qu'il est gardé sur le téléphone (Mes posts, planning, bilan). */
@@ -449,10 +468,15 @@ export function Create({ occasionId, initialPhoto, idea, plannedFor, note }: { o
       {plannedLabel ? (
         <>
           <Button title={`Prévoir pour ${DAY_NAMES[weekday(parseDayKey(plannedFor!))].toLowerCase()}`} icon={<CheckIcon size={20} />} loading={busy} onPress={keepForLater} style={{ minHeight: 64 }} />
-          <Button title="Publier maintenant" kind="secondary" disabled={busy} onPress={publish} />
+          <Button title={canPublish ? 'Publier maintenant' : 'Envoyer au patron maintenant'} kind="secondary" disabled={busy} onPress={publish} />
         </>
-      ) : (
+      ) : canPublish ? (
         <Button title="Publier maintenant" onPress={publish} style={{ minHeight: 64 }} />
+      ) : (
+        <>
+          <Button title="Envoyer au patron" icon={<SendIcon size={22} color={colors.white} />} loading={busy} onPress={publish} style={{ minHeight: 64 }} />
+          <Body soft size={14} center>Le patron le valide avant qu'il parte sur Instagram et Facebook.</Body>
+        </>
       )}
       <View style={{ flexDirection: 'row', gap: 10 }}>
         <Button title="Modifier" kind="secondary" icon={<PencilIcon size={18} color={colors.green} />} onPress={() => setEditing(true)} style={{ flex: 1 }} />

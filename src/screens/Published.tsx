@@ -1,16 +1,30 @@
 import React from 'react';
 import { Linking, ScrollView, View } from 'react-native';
-import { Badge, Body, Button, Card, Notice, Title } from '../components/ui';
-import { AlertIcon, CheckIcon, FacebookIcon, InstagramIcon } from '../components/icons';
+import { Badge, Body, Button, Card, Notice, PostThumb, Title } from '../components/ui';
+import { AlertIcon, CheckIcon, FacebookIcon, InstagramIcon, SendIcon } from '../components/icons';
 import { colors } from '../lib/theme';
 import { useApp } from '../lib/store';
 import type { PublicationResult } from '../lib/types';
 
 /** Écran 3 : résultat RÉEL de la publication, réseau par réseau. Jamais de faux succès. */
 export function Published({ postId }: { postId: string }) {
-  const { posts, go } = useApp();
+  const { posts, go, team } = useApp();
   const post = posts.find((p) => p.id === postId);
   if (!post) return null;
+  if (post.reviewState === 'pending') return <SentToPatron postId={postId} patron={team?.ownerFirstName} />;
+  if (post.reviewState === 'rejected') {
+    return (
+      <ScrollView contentContainerStyle={{ padding: 24, gap: 18, paddingTop: 56 }}>
+        <View style={{ alignItems: 'center', gap: 14 }}>
+          <PostThumb post={post} width={120} height={150} />
+          <Title size={28} style={{ textAlign: 'center' }}>Le patron a refusé ce post</Title>
+        </View>
+        {post.reviewNote ? <Notice tone="orange" title="Son message" text={post.reviewNote} /> : <Body soft center>Il n'a pas laissé de message.</Body>}
+        <Button title={post.kind === 'story' ? 'Faire une autre story' : 'Refaire un post'} onPress={() => go(post.kind === 'story' ? { name: 'story' } : { name: 'create' })} />
+        <Button title="Retour à l'accueil" kind="ghost" onPress={() => go({ name: 'home' })} />
+      </ScrollView>
+    );
+  }
   const pubs = post.publications;
   const allOk = pubs.every((p) => p.status === 'published');
   const someOk = pubs.some((p) => p.status === 'published');
@@ -68,5 +82,31 @@ function PublicationRow({ p }: { p: PublicationResult }) {
       </View>
       {p.url ? <Button title="Voir la publication" kind="ghost" onPress={() => Linking.openURL(p.url!)} /> : null}
     </Card>
+  );
+}
+
+/** Employé : le post est parti chez le patron. Il sera prévenu de la réponse (dans l'accueil et « Mes posts »). */
+function SentToPatron({ postId, patron }: { postId: string; patron?: string }) {
+  const { posts, go } = useApp();
+  const post = posts.find((p) => p.id === postId)!;
+  const story = post.kind === 'story';
+  return (
+    <ScrollView contentContainerStyle={{ padding: 24, gap: 18, alignItems: 'stretch', paddingTop: 64 }}>
+      <View style={{ alignItems: 'center', gap: 16 }}>
+        <View style={{ width: 120, height: 120, borderRadius: 60, backgroundColor: colors.greenSoft, alignItems: 'center', justifyContent: 'center' }}>
+          <SendIcon size={52} color={colors.green} />
+        </View>
+        <Title size={32} style={{ textAlign: 'center' }}>{patron ? `Envoyé à ${patron}` : 'Envoyé au patron'}</Title>
+        <Body soft center>Vous verrez sa réponse sur l'accueil et dans « Mes posts ».</Body>
+      </View>
+      <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <PostThumb post={post} width={64} height={64} />
+        <View style={{ flex: 1 }}>
+          <Body style={{ fontWeight: '700' }} size={15}>{story ? 'Votre story' : post.caption.length > 60 ? `${post.caption.slice(0, 60)}…` : post.caption}</Body>
+        </View>
+        <Badge text="En attente" tone="orange" />
+      </Card>
+      <Button title="Retour à l'accueil" kind="secondary" onPress={() => go({ name: 'home' })} />
+    </ScrollView>
   );
 }

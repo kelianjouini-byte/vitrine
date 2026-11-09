@@ -15,11 +15,13 @@ export interface Offer {
   name: string;
   priceCents: number;
   commitmentMonths: number;
+  /** Prix d'une boutique en plus (19 € en mensuel, 15 € en annuel). */
+  extraShopCents: number;
 }
 
 export const OFFERS: Offer[] = [
-  { id: 'monthly', name: 'Mensuel', priceCents: 3900, commitmentMonths: 0 },
-  { id: 'annual', name: 'Annuel', priceCents: 2900, commitmentMonths: 12 },
+  { id: 'monthly', name: 'Mensuel', priceCents: 3900, commitmentMonths: 0, extraShopCents: 1900 },
+  { id: 'annual', name: 'Annuel', priceCents: 2900, commitmentMonths: 12, extraShopCents: 1500 },
 ];
 
 export interface BillingStatus {
@@ -29,7 +31,12 @@ export interface BillingStatus {
   access: Access;
   trialStartedAt: string;
   trialEndsAt: string;
-  plans: { id: PlanId; name: string; monthly_price_cents: number; commitment_months: number }[];
+  plans: { id: PlanId; name: string; monthly_price_cents: number; commitment_months: number; extra_shop_price_cents?: number }[];
+  /** Boutiques de l'entreprise (la principale en premier). Vide pour un employé. */
+  shops?: { id: string; name: string }[];
+  /** Total par mois de l'abonnement en cours (1re boutique + boutiques en plus). */
+  monthlyTotalCents?: number | null;
+  role?: 'owner' | 'patron' | 'employe';
   subscription: null | {
     plan: PlanId | string;
     status: string;
@@ -45,7 +52,7 @@ export function offersFrom(status: BillingStatus | null): Offer[] {
   if (!status?.plans.length) return OFFERS;
   return OFFERS.map((o) => {
     const p = status.plans.find((x) => x.id === o.id);
-    return p ? { ...o, name: p.name, priceCents: p.monthly_price_cents, commitmentMonths: p.commitment_months } : o;
+    return p ? { ...o, name: p.name, priceCents: p.monthly_price_cents, commitmentMonths: p.commitment_months, extraShopCents: p.extra_shop_price_cents || o.extraShopCents } : o;
   });
 }
 

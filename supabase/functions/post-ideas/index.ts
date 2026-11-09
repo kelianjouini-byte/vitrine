@@ -7,8 +7,8 @@ import { suggestIdeas } from '../_shared/openai.ts';
 import { IDEAS_PROMPT_VERSION } from '../_shared/ideas.ts';
 
 Deno.serve(handler(async (req) => {
-  const { db, business } = await requireMerchant(req);
-  await requireAccess(db, business);
+  const { db, business, company } = await requireMerchant(req);
+  await requireAccess(db, company);
   const body = await req.json().catch(() => ({}));
 
   // Limitation des coûts : 12 demandes d'idées par heure et par boutique.

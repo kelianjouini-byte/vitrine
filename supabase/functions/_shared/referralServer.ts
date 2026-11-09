@@ -117,6 +117,8 @@ export async function rewardReferrer(db: SupabaseClient, refereeId: string, invo
   const { data: plan } = await db.from('plans').select('monthly_price_cents').eq('id', parent.plan).maybeSingle();
   const customer = await stripe<{ balance?: number }>('GET', `customers/${parent.stripe_customer_id}`);
   // Chez Stripe, un solde négatif = du crédit en réserve.
+  // Plusieurs boutiques : le plafond reste le prix de la 1re boutique (plan), jamais celui des boutiques en plus.
+  // Les boutiques ajoutées par le parrain lui-même ne passent jamais par ici (elles n'ont pas de code de parrainage).
   const amount = referrerCredit(-(customer.balance ?? 0), plan?.monthly_price_cents ?? 2900);
 
   // Une facture ne rapporte qu'une fois, même si Stripe renvoie l'événement.

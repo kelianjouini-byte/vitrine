@@ -3,13 +3,15 @@
 //  - 'check' : {code} -> le code est-il bon ? (nom de la boutique qui parraine)
 // La réduction elle-même est donnée par Stripe (fonctions billing et stripe-webhook), jamais par l'appli.
 import { handler, json, HttpError } from '../_shared/http.ts';
-import { requireMerchant } from '../_shared/db.ts';
+import { requireMerchant, requirePatron } from '../_shared/db.ts';
 import { isLive } from '../_shared/billing.ts';
 import { findReferrer, myCode } from '../_shared/referralServer.ts';
 import { priceWithReferrals, referralsUntilFree } from '../_shared/referral.ts';
 
 Deno.serve(handler(async (req) => {
-  const { db, business } = await requireMerchant(req);
+  const { db, company: business, member } = await requireMerchant(req);
+  // Le parrainage compte par entreprise (pas par boutique) : c'est la boutique principale qui parraine et qui paie.
+  requirePatron(member);
   const body = await req.json().catch(() => ({}));
 
   if (body.action === 'mine') {

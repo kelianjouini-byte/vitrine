@@ -8,7 +8,7 @@ import { useApp } from '../lib/store';
 import { upcomingEvents, upcomingHolidays } from '../lib/events';
 import { HolidayCard } from '../components/HolidayCard';
 import { isBackendConfigured } from '../lib/config';
-import { FriendlyError, NotConfiguredError, publishPost } from '../lib/api';
+import { FriendlyError, NotConfiguredError, publishPost, submitPost } from '../lib/api';
 import { notificationsSupported } from '../lib/notifications';
 import { announceDate, buildWeek, dayKey, dayLabel, DAY_NAMES, holidayAnswer, holidayNote, parseDayKey, postsOfDay, statusAfterPublish, weekday, weekStart, type DayKind } from '../lib/planning';
 import { KIND_BADGE } from './Planning';
@@ -16,7 +16,7 @@ import type { Post, PublicationResult } from '../lib/types';
 
 /** Un jour du planning : le conseil de Vitrine, ou le post préparé à l'avance. */
 export function PlanDay({ day: key }: { day: string }) {
-  const { business, posts, prefs, planChoices, setDayChoice, go, back, upsertPost, saveBusiness } = useApp();
+  const { business, posts, prefs, planChoices, setDayChoice, go, back, upsertPost, saveBusiness, canPublish, refreshTeam } = useApp();
   const b = business!;
   const date = parseDayKey(key);
   const day = useMemo(() => buildWeek(b, weekStart(date), planChoices, upcomingEvents(b, weekStart(date), 2, b.postalCode), upcomingHolidays(weekStart(date), 2, b.postalCode)).find((d) => d.key === key)!, [b, key, planChoices]);
@@ -34,7 +34,27 @@ export function PlanDay({ day: key }: { day: string }) {
   const otherIdea = () => setDayChoice(key, { ...choice, shift: (choice.shift ?? 0) + 1 });
   const when = `${DAY_NAMES[weekday(date)]} à ${prefs.hour} h`;
 
+  /** Employé : le post préparé part chez le patron, qui le publie. */
+  async function sendReady(p: Post) {
+    setPublishing(true);
+    setError(null);
+    try {
+      if (!isBackendConfigured) throw new NotConfiguredError('serveur');
+      if (!p.imagePaths?.length) throw new FriendlyError("Les photos de ce post ne sont plus disponibles. Préparez-le à nouveau.");
+      const idempotencyKey = p.idempotencyKey ?? Crypto.randomUUID();
+      await submitPost({ postId: p.id, caption: p.caption, hashtags: p.hashtags, platforms: p.platforms, imagePaths: p.imagePaths, idempotencyKey });
+      upsertPost({ ...p, idempotencyKey, status: 'awaiting_approval', reviewState: 'pending', reviewNote: null });
+      refreshTeam();
+      go({ name: 'published', postId: p.id });
+    } catch (e) {
+      setError(e instanceof NotConfiguredError ? "L'envoi au patron n'est pas encore activé sur le serveur." : e instanceof FriendlyError ? e.message : "Le post n'a pas pu être envoyé. Réessayez.");
+    } finally {
+      setPublishing(false);
+    }
+  }
+
   async function publishReady(p: Post) {
+    if (!canPublish) return sendReady(p);
     setPublishing(true);
     setError(null);
     let publications: PublicationResult[];
@@ -113,7 +133,7 @@ export function PlanDay({ day: key }: { day: string }) {
         </Card>
         <Card style={{ gap: 10 }}>{honest}</Card>
         {error && <Notice tone="orange" title="Pas encore possible" text={error} />}
-        <Button title="Publier maintenant" onPress={() => publishReady(ready)} loading={publishing} style={{ minHeight: 64 }} />
+        <Button title={canPublish ? 'Publier maintenant' : 'Envoyer au patron'} onPress={() => publishReady(ready)} loading={publishing} style={{ minHeight: 64 }} />
         <Button title="Retirer du planning" kind="ghost" onPress={() => unplan(ready)} disabled={publishing} />
         <Body soft size={15} center>Le post retiré reste dans « Mes posts ».</Body>
         {day.kind === 'both' && !storyDone && (

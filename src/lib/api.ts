@@ -9,10 +9,12 @@ import * as Crypto from 'expo-crypto';
 import { supabase } from './supabase';
 import type { Business, GeneratedPost, Platform, PostIdea, PublicationResult, SocialConnection, Tone } from './types';
 import { tradeLabel } from './business';
+import { looksLikeLoginCode, normalizeLoginCode } from './team';
 import type { CommercialEvent } from './events';
 import type { RemotePost } from './sync';
 import type { BillingStatus, PlanId } from './billing';
 import type { ReferralInfo } from './referral';
+import type { PendingPost, TeamContext, TeamList } from './team';
 
 export class NotConfiguredError extends Error {
   constructor(public what: 'serveur' | 'ia' | 'meta' | 'compte' | 'paiement') {
@@ -33,10 +35,19 @@ function requireBackend() {
   return supabase;
 }
 
+/** Boutique ouverte dans l'appli (bouton de choix de boutique) : envoyée au serveur, qui vérifie qu'on y a accès. */
+let currentShopId: string | null = null;
+export function setCurrentShop(id: string | null | undefined) {
+  currentShopId = id ?? null;
+}
+
+/** Un employé envoie son post au patron au lieu de publier (le serveur refuse la publication directe). */
+export class NeedsApprovalError extends FriendlyError {}
+
 /** Appelle une Edge Function et traduit les erreurs en messages simples. */
 async function callFunction<T>(name: string, body: Record<string, unknown>): Promise<T> {
   const sb = requireBackend();
-  const { data, error } = await sb.functions.invoke(name, { body });
+  const { data, error } = await sb.functions.invoke(name, { body, headers: currentShopId ? { 'x-vitrine-shop': currentShopId } : undefined });
   if (error) {
     // Le serveur renvoie { code, message } — on essaie de le lire.
     let payload: { code?: string; message?: string } | undefined;
@@ -50,6 +61,7 @@ async function callFunction<T>(name: string, body: Record<string, unknown>): Pro
     if (payload?.code === 'stripe_not_configured') throw new NotConfiguredError('paiement');
     if (payload?.code === 'trial_over') throw new TrialOverError(payload.message ?? 'Votre essai gratuit est terminé.');
     if (payload?.code === 'account_not_protected') throw new AccountNotProtectedError(payload.message ?? '');
+    if (payload?.code === 'needs_approval') throw new NeedsApprovalError(payload.message ?? 'Ce post doit être validé par un patron.');
     // Fonction pas encore installée sur le serveur : on le dit honnêtement.
     if ((error as { context?: Response }).context?.status === 404 && !payload?.code) throw new NotConfiguredError('serveur');
     throw new FriendlyError(payload?.message ?? 'Le serveur ne répond pas. Vérifiez votre connexion et réessayez.');
@@ -120,13 +132,20 @@ export async function createAccount(email: string, password: string): Promise<vo
   }
 }
 
-/** Se connecter avec son e-mail et son mot de passe (nouveau téléphone, après une déconnexion…). */
+/**
+ * Se connecter avec son e-mail et son mot de passe (nouveau téléphone, après une déconnexion…).
+ * Un employé tape, à la place du mot de passe, le code de 6 caractères donné par son patron :
+ * le même écran sert à tout le monde.
+ */
 export async function signInWithPassword(email: string, password: string): Promise<void> {
   const sb = requireBackend();
+  const code = normalizeLoginCode(password);
+  // Ça ressemble à un code d'employé : on essaie d'abord la connexion par code.
+  if (looksLikeLoginCode(code) && (await teamLogin(email, code))) return;
   const { error } = await sb.auth.signInWithPassword({ email, password });
   if (!error) return;
   tooManyEmails(error);
-  if (/invalid|credentials/i.test(error.message)) throw new FriendlyError('E-mail ou mot de passe incorrect.');
+  if (/invalid|credentials/i.test(error.message)) throw new FriendlyError('E-mail, mot de passe ou code incorrect.');
   if (/not confirmed/i.test(error.message)) throw new FriendlyError("Cette adresse n'a pas encore été confirmée.");
   throw new FriendlyError('Connexion impossible pour le moment. Vérifiez votre connexion internet et réessayez.');
 }
@@ -181,13 +200,34 @@ export async function protectAccount(email: string, password: string): Promise<v
   }
 }
 
-/** La boutique enregistrée sur le serveur (pour la retrouver sur un nouveau téléphone). */
-export async function fetchBusinessRemote(): Promise<Business | null> {
-  if (!supabase) return null;
-  const { data, error } = await supabase.from('businesses').select('*').maybeSingle();
-  if (error || !data) return null;
+/**
+ * Connexion d'un employé avec son code. true = connecté ; false = ce n'est pas un code d'employé
+ * (on essaie alors le mot de passe normal). Après 5 erreurs, le serveur bloque 15 minutes.
+ */
+async function teamLogin(email: string, code: string): Promise<boolean> {
+  const sb = requireBackend();
+  const { data, error } = await sb.functions.invoke('team', { body: { action: 'login', email: email.trim(), code } });
+  if (error) {
+    let payload: { code?: string; message?: string } | undefined;
+    try { payload = await (error as { context?: Response }).context?.json(); } catch { /* corps illisible */ }
+    if (payload?.code === 'locked') throw new FriendlyError(payload.message ?? 'Trop d\'essais. Réessayez dans 15 minutes.');
+    return false;
+  }
+  const { access_token, refresh_token } = (data ?? {}) as { access_token?: string; refresh_token?: string };
+  if (!access_token || !refresh_token) return false;
+  const { error: e2 } = await sb.auth.setSession({ access_token, refresh_token });
+  if (e2) throw new FriendlyError('Connexion impossible pour le moment. Réessayez.');
+  return true;
+}
+
+// deno-lint-ignore no-explicit-any
+type BusinessRow = Record<string, any>;
+
+/** Ligne de la table businesses -> boutique de l'appli. */
+export function toBusiness(data: BusinessRow): Business {
   return {
     id: data.id,
+    mainBusinessId: data.main_business_id ?? null,
     ownerFirstName: data.owner_first_name,
     businessName: data.business_name,
     businessType: data.business_type,
@@ -203,14 +243,25 @@ export async function fetchBusinessRemote(): Promise<Business | null> {
   };
 }
 
+/** La boutique principale enregistrée sur le serveur (pour la retrouver sur un nouveau téléphone). */
+export async function fetchBusinessRemote(): Promise<Business | null> {
+  if (!supabase) return null;
+  const uid = await currentUserId();
+  if (!uid) return null;
+  const { data, error } = await supabase.from('businesses').select('*').eq('owner_id', uid).maybeSingle();
+  if (error || !data) return null;
+  return toBusiness(data);
+}
+
 /** L'historique enregistré sur le serveur (200 derniers posts), avec un lien temporaire vers la 1re photo. */
-export async function fetchRemotePosts(): Promise<RemotePost[]> {
+export async function fetchRemotePosts(shopId?: string): Promise<RemotePost[]> {
   if (!supabase || !(await currentUserId())) return [];
-  const { data, error } = await supabase
+  let query = supabase
     .from('posts')
-    .select('id, status, instagram_caption, hashtags, image_url, image_urls, created_at, published_at, post_publications(platform, status, platform_post_url, error_message, published_at)')
-    .order('created_at', { ascending: false })
-    .limit(200);
+    .select('id, status, instagram_caption, hashtags, image_url, image_urls, created_at, published_at, review_state, review_note, post_publications(platform, status, platform_post_url, error_message, published_at)');
+  // Plusieurs boutiques : seulement l'historique de la boutique ouverte.
+  if (shopId) query = query.eq('business_id', shopId);
+  const { data, error } = await query.order('created_at', { ascending: false }).limit(200);
   if (error || !data) return [];
   const first = data.map((r) => (r.image_urls?.length ? r.image_urls[0] : r.image_url) as string);
   // 7 jours : la liste est relue à chaque ouverture de l'appli, les liens sont donc renouvelés.
@@ -223,6 +274,8 @@ export async function fetchRemotePosts(): Promise<RemotePost[]> {
     image_urls: r.image_urls,
     created_at: r.created_at,
     published_at: r.published_at,
+    review_state: r.review_state ?? null,
+    review_note: r.review_note ?? null,
     publications: (r.post_publications ?? []) as RemotePost['publications'],
     imageUrl: signed?.[i]?.signedUrl ?? null,
   }));
@@ -257,8 +310,7 @@ export async function saveBusinessRemote(b: Business): Promise<string | undefine
   if (!supabase) return undefined;
   const userId = await ensureSession();
   if (!userId) return undefined;
-  const row = {
-    owner_id: userId,
+  const fields = {
     owner_first_name: b.ownerFirstName,
     business_name: b.businessName,
     business_type: b.businessType,
@@ -272,7 +324,14 @@ export async function saveBusinessRemote(b: Business): Promise<string | undefine
     specialties: b.specialties ?? null,
     strengths: b.strengths?.trim() || null,
   };
-  const { data, error } = await supabase.from('businesses').upsert(row, { onConflict: 'owner_id' }).select('id').single();
+  // Boutique déjà enregistrée (principale ou ajoutée) : on la met à jour par son id.
+  // Un patron ajouté à l'équipe modifie ainsi la boutique de l'entreprise, sans s'en créer une.
+  if (b.id) {
+    const { data, error } = await supabase.from('businesses').update(fields).eq('id', b.id).select('id').maybeSingle();
+    if (!error && data) return data.id as string;
+    if (b.mainBusinessId) throw new FriendlyError("La boutique n'a pas pu être enregistrée. Réessayez.");
+  }
+  const { data, error } = await supabase.from('businesses').upsert({ owner_id: userId, ...fields }, { onConflict: 'owner_id' }).select('id').single();
   if (error) throw new FriendlyError("Votre boutique n'a pas pu être enregistrée. Réessayez.");
   return data.id as string;
 }
@@ -595,4 +654,77 @@ export async function checkReferralCode(code: string): Promise<string> {
   if (!(await ensureSession())) throw new NotConfiguredError('compte');
   const { referrerName } = await callFunction<{ referrerName: string }>('referral', { action: 'check', code });
   return referrerName;
+}
+
+// ---------------------------------------------------------------- Équipe et plusieurs boutiques
+
+/** Qui je suis, mes boutiques et ce qui attend (au démarrage, puis toutes les minutes). */
+export async function teamContext(): Promise<TeamContext> {
+  const res = await callFunction<Omit<TeamContext, 'shops'> & { shops: BusinessRow[] }>('team', { action: 'context' });
+  return { ...res, shops: (res.shops ?? []).map(toBusiness) };
+}
+
+export function teamMembers(): Promise<TeamList> {
+  return callFunction<TeamList>('team', { action: 'members' });
+}
+
+/** Ajoute une personne à l'équipe. Retourne son code de connexion. */
+export function addTeamMember(input: { firstName: string; email: string; role: 'patron' | 'employe'; shopIds: string[] }): Promise<{ id: string; code: string }> {
+  return callFunction('team', { action: 'add', ...input });
+}
+
+export async function updateTeamMember(memberId: string, patch: { shopIds?: string[]; canPublish?: boolean }): Promise<void> {
+  await callFunction('team', { action: 'update', memberId, ...patch });
+}
+
+export async function newTeamCode(memberId: string): Promise<string> {
+  const { code } = await callFunction<{ code: string }>('team', { action: 'new_code', memberId });
+  return code;
+}
+
+export async function removeTeamMember(memberId: string): Promise<void> {
+  await callFunction('team', { action: 'remove', memberId });
+}
+
+export async function pendingPosts(): Promise<PendingPost[]> {
+  const { posts } = await callFunction<{ posts: PendingPost[] }>('team', { action: 'pending' });
+  return Array.isArray(posts) ? posts : [];
+}
+
+/** Le patron valide : le post part sur les réseaux (texte éventuellement modifié). */
+export async function approvePost(postId: string, caption?: string): Promise<PublicationResult[]> {
+  const { publications } = await callFunction<{ publications: PublicationResult[] }>('team', { action: 'approve', post_id: postId, caption });
+  return publications;
+}
+
+export async function rejectPost(postId: string, note: string): Promise<void> {
+  await callFunction('team', { action: 'reject', post_id: postId, note });
+}
+
+/** Un employé envoie son post au patron (rien n'est publié). */
+export async function submitPost(input: Omit<PublishInput, 'postId'> & { postId: string }): Promise<void> {
+  await callFunction('team', {
+    action: 'submit', kind: 'post', post_id: input.postId, caption: input.caption, hashtags: input.hashtags,
+    platforms: input.platforms, image_paths: input.imagePaths, idempotency_key: input.idempotencyKey,
+  });
+}
+
+/** Un employé envoie sa story au patron : le fichier est envoyé dans le stockage, rien n'est publié. */
+export async function submitStory(input: PublishStoryInput): Promise<void> {
+  requireBackend();
+  if (!(await ensureSession())) throw new NotConfiguredError('compte');
+  const path = input.media.kind === 'photo' ? await uploadPhoto(input.media.base64) : await uploadStoryVideo(input.media.uri, input.media.blob);
+  await callFunction('team', {
+    action: 'submit', kind: 'story', story_id: input.storyId, media_path: path, media_type: input.media.kind,
+    platforms: input.platforms, idempotency_key: input.idempotencyKey,
+  });
+}
+
+export async function addShop(input: { businessName: string; businessType: string; trade?: string; city: string; postalCode: string }): Promise<Business> {
+  const { shop } = await callFunction<{ shop: BusinessRow }>('team', { action: 'add_shop', ...input });
+  return toBusiness(shop);
+}
+
+export async function removeShop(shopId: string): Promise<void> {
+  await callFunction('team', { action: 'remove_shop', shopId });
 }

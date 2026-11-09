@@ -14,6 +14,9 @@ export interface RemotePost {
   image_urls: string[] | null;
   created_at: string;
   published_at: string | null;
+  /** Validation par un patron (post d'un employé). */
+  review_state?: 'pending' | 'approved' | 'rejected' | null;
+  review_note?: string | null;
   publications: {
     platform: Platform;
     status: 'pending' | 'publishing' | 'published' | 'failed';
@@ -51,6 +54,11 @@ export function mergePosts(local: Post[], remote: RemotePost[]): Post[] {
   for (const r of remote) {
     const mine = byId.get(r.id);
     if (mine) {
+      // Post envoyé au patron et refusé : on le dit à l'employé, avec le petit mot du patron.
+      if (r.review_state === 'rejected' && mine.reviewState !== 'rejected') {
+        byId.set(r.id, { ...mine, status: 'cancelled', reviewState: 'rejected', reviewNote: r.review_note ?? null });
+        continue;
+      }
       if (!FINAL.includes(r.status)) continue;
       const pubs = toPublications(r);
       byId.set(r.id, {
@@ -58,6 +66,7 @@ export function mergePosts(local: Post[], remote: RemotePost[]): Post[] {
         status: r.status,
         publishedAt: r.published_at ?? mine.publishedAt ?? null,
         publications: pubs.length ? pubs : mine.publications,
+        reviewState: r.review_state ?? mine.reviewState ?? null,
         // Photo gardée sur ce téléphone : on la garde ; sinon, lien du serveur (renouvelé à chaque ouverture).
         imageUri: mine.imageUri && !/^https?:/.test(mine.imageUri) ? mine.imageUri : r.imageUrl ?? mine.imageUri ?? '',
       });

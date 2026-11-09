@@ -8,7 +8,7 @@ import { MusicBar, MusicList } from '../components/MusicPicker';
 import { WebVideoRecorder } from '../components/WebVideoRecorder';
 import { colors, fonts, radius } from '../lib/theme';
 import { useApp } from '../lib/store';
-import { FriendlyError, metaConfigured, NotConfiguredError, publishStory } from '../lib/api';
+import { FriendlyError, metaConfigured, NotConfiguredError, publishStory, submitStory } from '../lib/api';
 import { STORY_MAX_SECONDS, takeStoryMedia, type StoryMedia } from '../lib/photo';
 import { upcomingEvents } from '../lib/events';
 import { suggestTrack } from '../lib/music';
@@ -17,7 +17,7 @@ import type { Platform, Post, PublicationResult } from '../lib/types';
 
 /** Story : une photo ou une vidéo plein écran, visible 24 heures. Pas de texte : Instagram n'affiche pas de légende sur les stories. */
 export function Story() {
-  const { back, go, upsertPost, connections, business } = useApp();
+  const { back, go, upsertPost, connections, business, canPublish, refreshTeam } = useApp();
   const [media, setMedia] = useState<StoryMedia | null>(null);
   const [busy, setBusy] = useState(false);
   // Version web : on filme avec notre propre caméra (celle du navigateur filme en basse qualité sur iPhone).
@@ -55,8 +55,56 @@ export function Story() {
     }
   }
 
+  /** Employé : la story part chez le patron (avec la musique déjà dedans), qui la publie. */
+  async function sendToPatron() {
+    if (!media) return;
+    setPublishing(true);
+    setError(null);
+    try {
+      if (media.kind === 'photo' && !media.photo.base64) throw new FriendlyError("La photo n'a pas pu être lue. Choisissez-en une autre.");
+      let withSound: Blob | undefined;
+      if (media.kind === 'video' && withMusic) {
+        setPublishing(false);
+        setMaking(0);
+        try {
+          withSound = (await makeVideoWithMusic(media.uri, track, setMaking)).blob;
+        } finally {
+          setMaking(null);
+          setPublishing(true);
+        }
+      }
+      await submitStory({
+        storyId: idempotencyKey.current,
+        platforms,
+        media: media.kind === 'photo' ? { kind: 'photo', base64: media.photo.base64! } : { kind: 'video', uri: media.uri, blob: withSound },
+        idempotencyKey: idempotencyKey.current,
+      });
+      const photo = media.kind === 'photo' ? media.photo : null;
+      upsertPost({
+        id: idempotencyKey.current,
+        kind: 'story',
+        mediaType: media.kind,
+        imageUri: photo ? (photo.base64 ? `data:image/jpeg;base64,${photo.base64}` : photo.uri) : '',
+        caption: media.kind === 'video' ? 'Story vidéo' : 'Story photo',
+        hashtags: [],
+        platforms,
+        createdAt: new Date().toISOString(),
+        status: 'awaiting_approval',
+        reviewState: 'pending',
+        publications: [],
+      });
+      refreshTeam();
+      go({ name: 'published', postId: idempotencyKey.current });
+    } catch (e) {
+      setError(e instanceof NotConfiguredError ? "L'envoi au patron n'est pas encore activé sur le serveur." : e instanceof FriendlyError ? e.message : "La story n'a pas pu être envoyée. Réessayez.");
+    } finally {
+      setPublishing(false);
+    }
+  }
+
   async function publish() {
     if (!media) return;
+    if (!canPublish) return sendToPatron();
     setPublishing(true);
     setError(null);
     let publications: PublicationResult[];
@@ -211,7 +259,7 @@ export function Story() {
 
       {error && <Notice tone="red" title="Nous avons besoin de votre attention" text={error} />}
 
-      <Button title="Publier la story" onPress={publish} style={{ minHeight: 64 }} />
+      <Button title={canPublish ? 'Publier la story' : 'Envoyer au patron'} onPress={publish} style={{ minHeight: 64 }} />
       {withMusic && (
         <Button title={saved ? 'Vidéo enregistrée' : 'Enregistrer la vidéo avec la musique'} kind="secondary" icon={<DownloadIcon size={20} color={colors.green} />} onPress={saveWithMusic} />
       )}

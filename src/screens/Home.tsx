@@ -10,10 +10,12 @@ import { useApp } from '../lib/store';
 import { daysUntil, inDaysLabel, upcomingEvents, upcomingHolidays } from '../lib/events';
 import { announceDate, dayKey, holidayAnswer } from '../lib/planning';
 import { MonthReportCard } from '../components/MonthReportCard';
+import { ShopSwitcher } from '../components/ShopSwitcher';
+import { PersonIcon, SendIcon } from '../components/icons';
 
 export function Home() {
-  const { business, posts, connections, go, billing } = useApp();
-  const trialLeft = billing?.access === 'trial' && !isLiveStatus(billing.subscription?.status) ? daysLeft(billing.trialEndsAt) : null;
+  const { business, posts, connections, go, billing, team, isPatron } = useApp();
+  const trialLeft = isPatron && billing?.access === 'trial' && !isLiveStatus(billing.subscription?.status) ? daysLeft(billing.trialEndsAt) : null;
   const b = business!;
   // Prochaine fête ou prochain jour férié, le plus proche des deux.
   const next = useMemo(() => [upcomingEvents(b, new Date(), 12, b.postalCode)[0], upcomingHolidays(new Date(), 12, b.postalCode)[0]]
@@ -35,6 +37,8 @@ export function Home() {
   // Compte sans e-mail : après le 1er post, on propose de le protéger (sinon, perdu en changeant de téléphone).
   const [guest, setGuest] = useState(false);
   useEffect(() => { accountState().then((a) => setGuest(a.kind === 'guest')).catch(() => {}); }, [posts.length]);
+  const pending = isPatron ? team?.pending ?? 0 : 0;
+  const mine = !isPatron ? team?.mine : undefined;
 
   // Post : l'appareil photo s'ouvre tout de suite, la photo est cadrée toute seule.
   async function shoot() {
@@ -50,9 +54,10 @@ export function Home() {
 
   return (
     <ScrollView contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 24 }}>
+      <ShopSwitcher />
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <View style={{ flex: 1 }}>
-          <Body size={17} style={{ color: colors.greenDark, fontWeight: '600' }}>Bonjour {b.ownerFirstName}</Body>
+          <Body size={17} style={{ color: colors.greenDark, fontWeight: '600' }}>Bonjour {team?.firstName ?? b.ownerFirstName}</Body>
           <Title size={30}>{b.businessName}</Title>
         </View>
         <Pressable onPress={() => go({ name: 'settings' })} accessibilityRole="button" accessibilityLabel="Réglages"
@@ -63,6 +68,32 @@ export function Home() {
           <Text style={{ color: colors.greenDark, fontWeight: '600', fontSize: 14, fontFamily: fonts.body }}>Réglages</Text>
         </Pressable>
       </View>
+
+      {/* Patron : les posts préparés par l'équipe attendent son accord. */}
+      {pending > 0 && (
+        <Card onPress={() => go({ name: 'review' })} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: 'rgba(252,239,217,0.85)', borderColor: 'rgba(242,182,109,0.6)' }}>
+          <IconTile size={44} tone="orange"><PersonIcon size={22} color={colors.orangeText} /></IconTile>
+          <View style={{ flex: 1 }}>
+            <Body style={{ fontWeight: '700' }}>{pending > 1 ? `${pending} posts à valider` : '1 post à valider'}</Body>
+            <Body soft size={15}>Préparé{pending > 1 ? 's' : ''} par votre équipe</Body>
+          </View>
+          <Text style={{ color: colors.orangeText, fontWeight: '700', fontSize: 16, fontFamily: fonts.body }}>Voir</Text>
+        </Card>
+      )}
+
+      {/* Employé : la réponse du patron (en attente, ou refusé avec un petit mot). */}
+      {mine && (mine.pending > 0 || mine.rejected > 0) && (
+        <Card onPress={() => go({ name: 'posts' })} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: mine.rejected ? 'rgba(252,239,217,0.85)' : undefined }}>
+          <IconTile size={44} tone={mine.rejected ? 'orange' : 'green'}><SendIcon size={22} color={mine.rejected ? colors.orangeText : colors.green} /></IconTile>
+          <View style={{ flex: 1 }}>
+            <Body style={{ fontWeight: '700' }}>
+              {mine.rejected ? (mine.rejected > 1 ? `${mine.rejected} posts refusés` : '1 post refusé') : mine.pending > 1 ? `${mine.pending} posts envoyés` : '1 post envoyé'}
+            </Body>
+            <Body soft size={15}>{mine.rejected ? 'Voir le message du patron' : 'En attente de la réponse du patron'}</Body>
+          </View>
+          <Chevron />
+        </Card>
+      )}
 
       {/* Le geste principal : un gros bouton rond, au centre, entouré d'un anneau de verre. */}
       <Pressable onPress={() => setChoosing((c) => !c)} accessibilityRole="button" accessibilityLabel="Créer un post ou une story" accessibilityState={{ expanded: choosing }}
@@ -112,7 +143,7 @@ export function Home() {
         </Card>
       )}
 
-      {guest && posts.length > 0 && (
+      {guest && isPatron && posts.length > 0 && (
         <Card onPress={() => go({ name: 'settings' })} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: 'rgba(252,239,217,0.8)' }}>
           <IconTile size={44} tone="orange"><StoreIcon size={22} color={colors.orangeText} /></IconTile>
           <View style={{ flex: 1 }}>
@@ -148,7 +179,7 @@ export function Home() {
         <Label>Ce mois-ci</Label>
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <View style={{ flex: 1 }}><MonthReportCard /></View>
-          <View style={{ flex: 1 }}>
+          {isPatron && <View style={{ flex: 1 }}>
             {/* Pas de « 0/2 » décourageant : tant que tout n'est pas connecté, on propose de le faire. */}
             <Card onPress={() => go({ name: 'settings' })} style={{ gap: 6 }}>
               {connected >= 2 ? (
@@ -164,7 +195,7 @@ export function Home() {
                 </>
               )}
             </Card>
-          </View>
+          </View>}
         </View>
         {scheduled && (
           <Card onPress={() => go({ name: 'planning' })} style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>

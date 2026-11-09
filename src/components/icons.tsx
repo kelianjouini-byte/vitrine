@@ -106,3 +106,18 @@ export const PrintIcon = ({ size, color = '#000' }: P) => (
 export const PeopleIcon = ({ size, color = '#000' }: P) => (
   <S size={size}><Circle cx={9} cy={8} r={3.2} {...st(color)} /><Circle cx={17} cy={9.5} r={2.6} {...st(color)} /><Path d="M3 20c.6-3.4 3-5.5 6-5.5s5.4 2.1 6 5.5M15 15c2.8-.4 5.2 1.4 6 4.5" {...st(color)} /></S>
 );
+/** Une personne : un membre de l'équipe. */
+export const PersonIcon = ({ size, color = '#000' }: P) => (
+  <S size={size}><Circle cx={12} cy={8} r={3.6} {...st(color)} /><Path d="M5 20c.8-3.8 3.6-6 7-6s6.2 2.2 7 6" {...st(color)} /></S>
+);
+export const PlusIcon = ({ size, color = '#000' }: P) => (
+  <S size={size}><Path d="M12 5v14M5 12h14" {...st(color)} /></S>
+);
+/** Avion en papier : « Envoyer au patron ». */
+export const SendIcon = ({ size, color = '#000' }: P) => (
+  <S size={size}><Path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z" {...st(color)} /></S>
+);
+/** Petite flèche vers le bas : le bouton de choix de boutique. */
+export const ChevronDownIcon = ({ size, color = '#000' }: P) => (
+  <S size={size}><Path d="m6 9 6 6 6-6" {...st(color)} /></S>
+);
