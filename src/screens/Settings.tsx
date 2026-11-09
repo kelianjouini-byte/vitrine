@@ -9,8 +9,8 @@ import { useApp } from '../lib/store';
 import { toneLabel, tradeLabel } from '../lib/business';
 import { isBackendConfigured } from '../lib/config';
 import { notificationsSupported } from '../lib/notifications';
-import { accountState, confirmProtectAccount, FriendlyError, protectAccount, saveBusinessRemote, signOut, type AccountState } from '../lib/api';
-import { EmailCodeForm } from '../components/AccountForms';
+import { accountState, FriendlyError, protectAccount, saveBusinessRemote, signOut, type AccountState } from '../lib/api';
+import { EmailPasswordForm } from '../components/AccountForms';
 import { DeleteAccount } from '../components/DeleteAccount';
 
 /** Pages légales publiques (public/confidentialite, public/conditions), servies par GitHub Pages. */
@@ -169,12 +169,12 @@ function Account() {
     return (
       <Card style={{ gap: 10 }}>
         <Body style={{ fontWeight: '700' }}>Votre compte est protégé</Body>
-        <Body soft size={15}>Adresse : {state.email}. Avec elle, vous retrouvez votre boutique sur un autre téléphone.</Body>
+        <Body soft size={15}>Adresse : {state.email}. Avec elle et votre mot de passe, vous retrouvez votre boutique sur un autre téléphone.</Body>
         {!confirmOut ? (
           <Button title="Se déconnecter de ce téléphone" kind="ghost" onPress={() => setConfirmOut(true)} />
         ) : (
           <>
-            <Body size={15}>Vitrine s'effacera de ce téléphone. Votre boutique et vos posts restent en sécurité : vous les retrouverez avec votre e-mail.</Body>
+            <Body size={15}>Vitrine s'effacera de ce téléphone. Votre boutique et vos posts restent en sécurité : vous les retrouverez avec votre e-mail et votre mot de passe.</Body>
             <Button title="Oui, me déconnecter" kind="secondary" onPress={async () => { await signOut(); await resetAll(); }} />
             <Button title="Annuler" kind="ghost" onPress={() => setConfirmOut(false)} />
           </>
@@ -186,11 +186,11 @@ function Account() {
   return (
     <Card style={{ gap: 12, backgroundColor: 'rgba(252,239,217,0.75)' }}>
       <Body style={{ fontWeight: '700' }} size={18}>Protégez votre compte</Body>
-      <EmailCodeForm
-        intro="Ajoutez votre e-mail : si vous changez de téléphone, vous retrouverez votre boutique, vos posts et vos réseaux. Pas de mot de passe, juste un code."
-        sendLabel="Recevoir mon code"
-        onSend={protectAccount}
-        onVerify={async (email, code) => { await confirmProtectAccount(email, code); setState(await accountState()); }}
+      <EmailPasswordForm
+        intro="Ajoutez votre e-mail et un mot de passe : si vous changez de téléphone, vous retrouverez votre boutique, vos posts et vos réseaux."
+        submitLabel="Protéger mon compte"
+        isNew
+        onSubmit={async (email, password) => { await protectAccount(email, password); setState(await accountState()); }}
       />
     </Card>
   );
