@@ -79,10 +79,11 @@ Offres : **15 jours offerts** (sans carte bancaire), puis **Mensuel 39 €/mois*
 - Offre Annuel : pendant les 12 mois d'engagement, le portail permet de changer de carte et de voir les factures, mais pas de résilier en un clic.
 - Webhook `stripe-webhook` (signature vérifiée, idempotent via `stripe_events`) : met à jour `subscriptions`.
 - Suppression du compte : l'abonnement Stripe est arrêté immédiatement.
+- Parrainage (fonction `referral`, tables `referral_codes`, `referrals`, `referral_rewards`, lues seulement par le serveur) : chaque boutique a un code (`FLEURS-7K4Q9`). Le filleul le tape au paiement : coupon Stripe `vitrine_parrainage_filleul` (-10 € pendant 3 mois, créé automatiquement). À chaque facture payée du filleul (`invoice.paid`), le parrain reçoit 10 € de crédit sur son solde Stripe, sans jamais dépasser le prix d'un mois. Même carte, même adresse ou même nom de facturation : parrainage bloqué. Lien de partage : `…/app/?parrain=CODE`.
 
 Réglages à faire une fois :
 1. Secret `STRIPE_SECRET_KEY` dans Supabase (Edge Functions → Secrets).
-2. Dans Stripe → Webhooks : adresse `https://<projet>.supabase.co/functions/v1/stripe-webhook`, événements `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`. Copier la clé de signature dans le secret `STRIPE_WEBHOOK_SECRET`.
+2. Dans Stripe → Webhooks : adresse `https://<projet>.supabase.co/functions/v1/stripe-webhook`, événements `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`, `invoice.paid` (parrainage). Copier la clé de signature dans le secret `STRIPE_WEBHOOK_SECRET`.
 
 ## 7. Déploiement
 

@@ -28,6 +28,7 @@
         "npm:expo-video@~58.0.13",
         "npm:expo-web-browser@~58.0.7",
         "npm:expo@~58.0.22",
+        "npm:qrcode-generator@^2.0.4",
         "npm:react-dom@19.3.0",
         "npm:react-native-safe-area-context@~5.10.1",
         "npm:react-native-screens@~4.30.1",

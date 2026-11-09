@@ -95,3 +95,14 @@ export const LogoMark = ({ size = 64, onGreen = false }: { size?: number; onGree
     </Svg>
   );
 };
+/** Envoyer un message (bulle). */
+export const MessageIcon = ({ size, color = '#fff' }: P) => (
+  <S size={size}><Path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z" {...st(color)} /></S>
+);
+export const PrintIcon = ({ size, color = '#000' }: P) => (
+  <S size={size}><Path d="M6 9V3h12v6M7 14h10v7H7z" {...st(color)} /><Rect x={3} y={9} width={18} height={8} rx={2} {...st(color)} /></S>
+);
+/** Deux personnes : le parrainage entre commerçants. */
+export const PeopleIcon = ({ size, color = '#000' }: P) => (
+  <S size={size}><Circle cx={9} cy={8} r={3.2} {...st(color)} /><Circle cx={17} cy={9.5} r={2.6} {...st(color)} /><Path d="M3 20c.6-3.4 3-5.5 6-5.5s5.4 2.1 6 5.5M15 15c2.8-.4 5.2 1.4 6 4.5" {...st(color)} /></S>
+);

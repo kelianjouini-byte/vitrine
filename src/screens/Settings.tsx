@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Linking, Pressable, ScrollView, Switch, View } from 'react-native';
-import { Body, Button, Card, Chevron, Chip, Field, Label, Notice, Title, BackButton } from '../components/ui';
-import { BackIcon } from '../components/icons';
+import { Body, Button, Card, Chevron, Chip, Field, IconTile, Label, Notice, Title, BackButton } from '../components/ui';
+import { BackIcon, PeopleIcon } from '../components/icons';
 import { NetworkCards } from '../components/NetworkCards';
 import { IdentityFields, type Identity } from '../components/IdentityFields';
 import { colors } from '../lib/theme';
@@ -42,6 +42,16 @@ export function Settings() {
         <View style={{ flex: 1, gap: 2 }}>
           <Body style={{ fontWeight: '700' }}>Voir les offres</Body>
           <Body soft size={15}>15 jours offerts, puis Mensuel 39 € ou Annuel 29 € par mois.</Body>
+        </View>
+        <Chevron />
+      </Card>
+
+      <Label>Parler de Vitrine</Label>
+      <Card onPress={() => go({ name: 'referral' })} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <IconTile size={44}><PeopleIcon size={24} color={colors.green} /></IconTile>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Body style={{ fontWeight: '700' }}>Recommander Vitrine à un commerçant</Body>
+          <Body soft size={15}>À vos collègues commerçants que vous connaissez. Votre code, un message tout prêt et des cartes à donner.</Body>
         </View>
         <Chevron />
       </Card>

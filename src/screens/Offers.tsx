@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Platform as RNPlatform, Pressable, ScrollView, Text, View } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
-import { BackButton, Badge, Body, Button, Card, Label, Notice, Title } from '../components/ui';
+import { BackButton, Badge, Body, Button, Card, Field, Label, Notice, Title } from '../components/ui';
 import { EmailPasswordForm } from '../components/AccountForms';
 import { DeleteAccount } from '../components/DeleteAccount';
 import { TrialReportCard } from '../components/TrialReportCard';
@@ -9,12 +9,13 @@ import { colors, fonts } from '../lib/theme';
 import { useApp } from '../lib/store';
 import { isBackendConfigured } from '../lib/config';
 import {
-  accountState, AccountNotProtectedError, billingPortalUrl, billingStatus, checkoutUrl,
+  accountState, AccountNotProtectedError, billingPortalUrl, billingStatus, checkoutUrl, checkReferralCode,
   FriendlyError, NotConfiguredError, protectAccount, type AccountState,
 } from '../lib/api';
 import {
   daysLeft, euros, frenchDate, isLiveStatus, offersFrom, statusText, TRIAL_DAYS, TRIAL_REPORT_DAYS_BEFORE, yearlySaving, type BillingStatus, type Offer, type PlanId,
 } from '../lib/billing';
+import { loadPendingCode, normalizeCode, REFEREE_DISCOUNT_CENTS, REFEREE_DISCOUNT_MONTHS } from '../lib/referral';
 
 const SITE = 'https://kelianjouini-byte.github.io/vitrine/app';
 
@@ -51,6 +52,33 @@ export function Offers({ payment, blocked }: { payment?: 'ok' | 'annule'; blocke
   const [choice, setChoice] = useState<PlanId>('annual');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Code de parrainage (facultatif), tapé ici ou reçu par un lien « ?parrain=… ».
+  const [code, setCode] = useState('');
+  const [referral, setReferral] = useState<{ code: string; by: string } | null>(null);
+  const [codeError, setCodeError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+  useEffect(() => { loadPendingCode().then((c) => c && setCode(c)); }, []);
+
+  /** Vérifie le code auprès du serveur. Renvoie le code bon, undefined s'il n'y en a pas, ou lève une erreur. */
+  async function verifyCode(): Promise<string | undefined> {
+    const c = normalizeCode(code);
+    if (!c) { setReferral(null); return undefined; }
+    if (referral?.code === c) return c;
+    setChecking(true);
+    setCodeError(null);
+    try {
+      const by = await checkReferralCode(c);
+      setReferral({ code: c, by });
+      setCode(c);
+      return c;
+    } catch (e) {
+      setReferral(null);
+      setCodeError(e instanceof FriendlyError ? e.message : 'Le code n\'a pas pu être vérifié. Réessayez.');
+      throw new FriendlyError('Vérifiez le code de parrainage, ou effacez-le pour continuer sans.');
+    } finally {
+      setChecking(false);
+    }
+  }
 
   const refresh = useCallback(async () => {
     setLoadError(null);
@@ -166,7 +194,36 @@ export function Offers({ payment, blocked }: { payment?: 'ok' | 'annule'; blocke
             </Card>
           ) : (
             <>
-              <Button title={`Choisir l'offre ${chosen.name}`} loading={busy} onPress={() => run(() => checkoutUrl(choice, returnUrl()))} />
+              <Card style={{ gap: 10 }}>
+                <Field
+                  label="Code de parrainage (facultatif)"
+                  value={code}
+                  onChangeText={(t) => { setCode(t); if (normalizeCode(t) !== referral?.code) setReferral(null); setCodeError(null); }}
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                  placeholder="Par exemple FLEURS-7K4Q9"
+                  error={codeError ?? undefined}
+                  hint="Un commerçant vous a donné son code ? Tapez-le ici."
+                />
+                {referral ? (
+                  <>
+                    <Notice tone="green" title={`Code de ${referral.by}`} text={`${euros(REFEREE_DISCOUNT_CENTS)} de moins pendant vos ${REFEREE_DISCOUNT_MONTHS} premiers mois.`} />
+                    <View style={{ gap: 4 }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                        <Body soft size={15}>Les {REFEREE_DISCOUNT_MONTHS} premiers mois</Body>
+                        <Body size={15} style={{ fontWeight: '700' }}>{euros(chosen.priceCents - REFEREE_DISCOUNT_CENTS)} par mois</Body>
+                      </View>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                        <Body soft size={15}>Ensuite</Body>
+                        <Body size={15} style={{ fontWeight: '700' }}>{euros(chosen.priceCents)} par mois</Body>
+                      </View>
+                    </View>
+                  </>
+                ) : normalizeCode(code) ? (
+                  <Button title="Vérifier le code" kind="secondary" loading={checking} onPress={() => { verifyCode().catch(() => {}); }} />
+                ) : null}
+              </Card>
+              <Button title={`Choisir l'offre ${chosen.name}`} loading={busy} onPress={() => run(async () => checkoutUrl(choice, returnUrl(), await verifyCode()))} />
               <Body soft size={15} center>
                 {trialEnd && trialDays ? `Vous ne payez rien avant le ${frenchDate(trialEnd)}. ` : ''}Paiement sécurisé par carte bancaire avec Stripe.
               </Body>

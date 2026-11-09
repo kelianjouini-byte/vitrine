@@ -7,6 +7,7 @@ import { billingStatus, fetchBusinessRemote, fetchRemotePosts, signOut, socialCo
 import { isLiveStatus, type BillingStatus } from './billing';
 import { isBackendConfigured } from './config';
 import { mergePosts } from './sync';
+import { codeFromUrl, savePendingCode } from './referral';
 import { Platform } from 'react-native';
 import type { Business, NotificationPrefs, Post, PostIdea, SocialConnection } from './types';
 import type { RawPhoto } from './photo';
@@ -24,7 +25,8 @@ export type Route =
   | { name: 'create'; occasionId?: string; photo?: RawPhoto; idea?: PostIdea; plannedFor?: string; note?: string }
   | { name: 'story' }
   | { name: 'published'; postId: string }
-  | { name: 'offers'; payment?: 'ok' | 'annule' };
+  | { name: 'offers'; payment?: 'ok' | 'annule' }
+  | { name: 'referral' };
 
 export const TAB_ROUTES = ['home', 'planning', 'fetes', 'posts'] as const;
 
@@ -80,6 +82,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         await clearAll();
         await signOut().catch(() => {});
         window.history.replaceState(null, '', window.location.pathname);
+      }
+      // Lien de parrainage « …/vitrine/app/?parrain=CODE » : on garde le code pour le moment du paiement.
+      if (Platform.OS === 'web') {
+        const code = codeFromUrl();
+        if (code) await savePendingCode(code);
       }
       // Retour de la connexion Instagram / Facebook (version web) : on rouvre Réglages, qui affiche le résultat.
       if (captureMetaReturn()) setStack([{ name: 'home' }, { name: 'settings' }]);
