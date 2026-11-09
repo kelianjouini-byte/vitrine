@@ -13,8 +13,9 @@ export function referralLink(code: string): string {
 
 /** Message déjà écrit, simple et sans formule commerciale. */
 export function shareMessage(code: string): string {
-  return `Bonjour, j'utilise Vitrine pour mes publications Instagram et Facebook : je prends une photo, l'appli écrit le texte et publie. `
-    + `15 jours d'essai gratuits, et avec mon code ${code}, vous avez 10 € de moins pendant 3 mois quand vous vous abonnez : ${referralLink(code)}`;
+  return `Bonjour, je voulais te parler de Vitrine, l'appli que j'utilise pour mes publications Instagram et Facebook. `
+    + `Je prends une photo, elle écrit le texte et publie pour moi. Ça me fait gagner du temps, ça pourrait te rendre service aussi. `
+    + `Tu peux l'essayer 15 jours gratuitement : ${referralLink(code)} . Si tu t'abonnes, mets mon code ${code}, tu auras 10 € de moins pendant 3 mois.`;
 }
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
@@ -38,7 +39,7 @@ export function printableCards(code: string, businessName: string): string {
     <div class="glow"></div>
     <div class="left">
       <div class="logo"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11 12 4l8 7v8a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1v-8Z"/></svg>Vitrine</div>
-      <div class="by">Offert par ${esc(businessName)}</div>
+      <div class="by">Recommandé par ${esc(businessName)}</div>
       <div class="code">${esc(code)}</div>
       <div class="gift">10 € de moins pendant 3 mois</div>
       <ol><li>Scannez le code</li><li>Essayez 15 jours gratuits</li><li>Au paiement, tapez le code</li></ol>

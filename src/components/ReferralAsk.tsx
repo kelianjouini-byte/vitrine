@@ -1,14 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Pressable, Text, View } from 'react-native';
+import { Modal, Pressable, View } from 'react-native';
 import { Body, Button, Title } from './ui';
 import { PeopleIcon } from './icons';
-import { colors, fonts, radius } from '../lib/theme';
+import { colors, radius } from '../lib/theme';
 import { load, save } from '../lib/storage';
 import { isBackendConfigured } from '../lib/config';
 
 /**
  * Après un bon bilan du mois (mois terminé, au moins un post) : on propose UNE fois par mois
- * d'envoyer son code de parrainage. Le commerçant est content, c'est le bon moment pour demander.
+ * d'en parler à un commerçant qu'il connaît. Il est content, c'est le bon moment.
  */
 export function ReferralAsk({ monthKey, eligible, onSend }: { monthKey: string; eligible: boolean; onSend: () => void }) {
   const [open, setOpen] = useState(false);
@@ -32,24 +32,12 @@ export function ReferralAsk({ monthKey, eligible, onSend }: { monthKey: string; 
             <PeopleIcon size={30} color={colors.green} />
           </View>
           <Title size={25} style={{ textAlign: 'center' }}>Un bon mois !</Title>
-          <Body soft center>Un commerçant près de chez vous pourrait en profiter aussi.</Body>
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            <Gift value="-10 €" text="pour vous, chaque mois" />
-            <Gift value="-10 €" text="pour lui, pendant 3 mois" />
-          </View>
-          <Button title="Envoyer mon code" onPress={() => { setOpen(false); onSend(); }} />
+          <Body soft center>Vous connaissez un commerçant à qui Vitrine rendrait service ? Parlez-lui-en.</Body>
+          <Body soft center size={14}>Pour vous remercier : 10 € de moins par mois pour vous, et 10 € de moins pendant 3 mois pour lui.</Body>
+          <Button title="En parler à un commerçant" onPress={() => { setOpen(false); onSend(); }} />
           <Button title="Plus tard" kind="ghost" onPress={() => setOpen(false)} />
         </Pressable>
       </Pressable>
     </Modal>
-  );
-}
-
-function Gift({ value, text }: { value: string; text: string }) {
-  return (
-    <View style={{ flex: 1, alignItems: 'center', padding: 10, borderRadius: radius.md, backgroundColor: 'rgba(220,239,227,0.55)' }}>
-      <Text style={{ fontFamily: fonts.title, fontSize: 22, fontWeight: '700', color: colors.text }}>{value}</Text>
-      <Text style={{ fontSize: 13, color: colors.textSoft, textAlign: 'center', fontFamily: fonts.body }}>{text}</Text>
-    </View>
   );
 }

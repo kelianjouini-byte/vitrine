@@ -46,12 +46,12 @@ export function Settings() {
         <Chevron />
       </Card>
 
-      <Label>Recommander Vitrine</Label>
+      <Label>Parler de Vitrine</Label>
       <Card onPress={() => go({ name: 'referral' })} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         <IconTile size={44}><PeopleIcon size={24} color={colors.green} /></IconTile>
         <View style={{ flex: 1, gap: 2 }}>
-          <Body style={{ fontWeight: '700' }}>Mon code de parrainage</Body>
-          <Body soft size={15}>10 € de moins par mois pour chaque commerçant qui s'abonne avec votre code.</Body>
+          <Body style={{ fontWeight: '700' }}>Recommander Vitrine à un commerçant</Body>
+          <Body soft size={15}>À vos collègues commerçants que vous connaissez. Votre code, un message tout prêt et des cartes à donner.</Body>
         </View>
         <Chevron />
       </Card>

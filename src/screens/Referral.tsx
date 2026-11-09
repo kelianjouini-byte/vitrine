@@ -3,6 +3,16 @@ import { ActivityIndicator, Platform as RNPlatform, ScrollView, Share, Text, Vie
 import { BackButton, Badge, Body, Button, Card, IconTile, Label, Notice, Title } from '../components/ui';
 import { MessageIcon, PrintIcon, StoreIcon } from '../components/icons';
 import { colors, fonts, radius } from '../lib/theme';
+import { Platform } from 'react-native';
+import type { ViewStyle } from 'react-native';
+
+/** Barre de progression : dégradé du vert de Vitrine vers l'orange (couleur unie en secours). */
+const progressGradient: ViewStyle = {
+  backgroundColor: colors.green,
+  ...(Platform.OS === 'web'
+    ? ({ backgroundImage: 'linear-gradient(90deg, #3A8463, #F2B66D)' } as ViewStyle)
+    : ({ experimental_backgroundImage: 'linear-gradient(90deg, #3A8463, #F2B66D)' } as ViewStyle)),
+};
 import { useApp } from '../lib/store';
 import { isBackendConfigured } from '../lib/config';
 import { FriendlyError, NotConfiguredError, referralInfo } from '../lib/api';
@@ -79,12 +89,12 @@ export function Referral() {
     <ScrollView contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 48 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         <BackButton onPress={back} />
-        <Title size={26} style={{ flex: 1 }}>Recommandez Vitrine</Title>
+        <Title size={26} style={{ flex: 1 }}>Parlez-en autour de vous</Title>
       </View>
-      <Body soft>Pour chaque commerçant qui s'abonne avec votre code, vous payez 10 € de moins chaque mois, tant qu'il reste abonné. Lui a 10 € de moins pendant 3 mois.</Body>
+      <Body soft>Vous connaissez d'autres commerçants dans votre village ou votre quartier ? Si Vitrine vous rend service, dites-le-leur. Pour vous remercier, vous payez 10 € de moins chaque mois pour chacun d'eux qui s'abonne, tant qu'il reste.</Body>
 
       {notReady ? (
-        <Notice tone="orange" title="Le parrainage arrive bientôt" text="Il sera disponible dès que le paiement en ligne sera activé." />
+        <Notice tone="orange" title="Cette page arrive bientôt" text="Il sera disponible dès que le paiement en ligne sera activé." />
       ) : loading ? (
         <View style={{ paddingVertical: 40, alignItems: 'center' }}><ActivityIndicator color={colors.green} size="large" /></View>
       ) : error || !info ? (
@@ -99,7 +109,7 @@ export function Referral() {
             <View style={{ borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.green, borderRadius: radius.md, backgroundColor: 'rgba(220,239,227,0.6)', paddingVertical: 14, alignItems: 'center' }}>
               <Text selectable style={{ fontFamily: fonts.title, fontSize: 28, fontWeight: '700', letterSpacing: 2, color: colors.greenDark }}>{info.code}</Text>
             </View>
-            <Button title="Envoyer à un commerçant" icon={<MessageIcon size={20} color={colors.white} />} onPress={send} />
+            <Button title="Envoyer à un collègue" icon={<MessageIcon size={20} color={colors.white} />} onPress={send} />
             <Button title="Imprimer mes cartes" kind="secondary" icon={<PrintIcon size={20} color={colors.green} />} onPress={print} />
             {note && <Notice tone={note.tone} title={note.title} text={note.text} />}
           </Card>
@@ -107,7 +117,7 @@ export function Referral() {
           <Card style={{ gap: 8 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
               <Title size={19}>Votre abonnement</Title>
-              {info.paying > 0 && <Badge tone="green" text={`${info.paying} filleul${info.paying > 1 ? 's' : ''}`} />}
+              {info.paying > 0 && <Badge tone="green" text={`${info.paying} recommandé${info.paying > 1 ? 's' : ''}`} />}
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
               {info.paying > 0 && <Text style={{ fontSize: 17, color: colors.textSoft, textDecorationLine: 'line-through', fontFamily: fonts.body }}>{euros(info.priceCents)}</Text>}
@@ -115,7 +125,7 @@ export function Referral() {
               <Body soft size={15}>par mois</Body>
             </View>
             <View style={{ height: 10, borderRadius: 99, backgroundColor: 'rgba(36,51,43,0.08)', overflow: 'hidden' }}>
-              <View style={{ height: '100%', width: `${Math.min(100, (info.paying / steps) * 100)}%`, borderRadius: 99, backgroundColor: colors.green }} />
+              <View style={{ height: '100%', width: `${Math.min(100, (info.paying / steps) * 100)}%`, borderRadius: 99, ...progressGradient }} />
             </View>
             <Body soft size={15}>
               {info.untilFree === 0
@@ -125,9 +135,9 @@ export function Referral() {
             {!info.subscribed && <Body soft size={15}>Votre réduction démarre dès que vous avez choisi votre offre.</Body>}
           </Card>
 
-          <Label>Vos filleuls</Label>
+          <Label>Vos recommandations</Label>
           {info.referrals.length === 0 ? (
-            <Card><Body soft size={15}>Personne pour l'instant. Pensez aux commerçants de votre rue : le boulanger, le fleuriste, le coiffeur...</Body></Card>
+            <Card><Body soft size={15}>Personne pour l'instant. Pensez aux commerçants que vous connaissez : le boulanger, le fleuriste, le coiffeur de votre village...</Body></Card>
           ) : (
             <Card style={{ gap: 4, paddingVertical: 8 }}>
               {info.referrals.map((r, i) => (
@@ -148,10 +158,10 @@ export function Referral() {
           <Label>Comment ça marche</Label>
           <Card style={{ gap: 10 }}>
             {[
-              'Vous donnez votre code à un commerçant (message ou carte).',
+              'Vous parlez de Vitrine à un commerçant que vous connaissez, et vous lui donnez votre code (message ou carte).',
               "Il essaie Vitrine 15 jours gratuitement.",
-              "Au moment de payer, il tape votre code : 10 € de moins pour lui pendant 3 mois.",
-              'Dès son premier paiement, vous payez 10 € de moins chaque mois.',
+              "S'il s'abonne, il tape votre code au moment de payer : 10 € de moins pour lui pendant 3 mois.",
+              'Pour vous remercier, dès son premier paiement, vous payez 10 € de moins chaque mois.',
             ].map((t, i) => (
               <View key={i} style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
                 <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.green, alignItems: 'center', justifyContent: 'center' }}>
