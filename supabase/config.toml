@@ -7,8 +7,13 @@ additional_redirect_urls = ["vitrine://**", "exp://**"]
 
 [auth.email]
 enable_signup = true
-# Connexion par code à 6 chiffres reçu par e-mail (pas de mot de passe).
+# Connexion par e-mail + mot de passe, sans e-mail de confirmation à l'inscription.
+enable_confirmations = false
+# Le code à 6 chiffres ne sert plus que pour « Mot de passe oublié » (modèle « Reset Password » avec {{ .Token }}).
 otp_length = 6
+
+[auth.password]
+min_length = 8
 
 # Ces deux fonctions sont appelées par Meta (pas par l'app) : pas de jeton utilisateur.
 # Elles vérifient elles-mêmes une signature HMAC.

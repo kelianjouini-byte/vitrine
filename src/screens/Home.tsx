@@ -117,7 +117,7 @@ export function Home() {
           <IconTile size={44} tone="orange"><StoreIcon size={22} color={colors.orangeText} /></IconTile>
           <View style={{ flex: 1 }}>
             <Body style={{ fontWeight: '700' }}>Protégez votre compte</Body>
-            <Body soft size={15}>Ajoutez votre e-mail pour retrouver votre boutique si vous changez de téléphone.</Body>
+            <Body soft size={15}>Ajoutez votre e-mail et un mot de passe pour retrouver votre boutique si vous changez de téléphone.</Body>
           </View>
           <Chevron />
         </Card>

@@ -2,14 +2,14 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Platform as RNPlatform, Pressable, ScrollView, Text, View } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { BackButton, Badge, Body, Button, Card, Label, Notice, Title } from '../components/ui';
-import { EmailCodeForm } from '../components/AccountForms';
+import { EmailPasswordForm } from '../components/AccountForms';
 import { DeleteAccount } from '../components/DeleteAccount';
 import { TrialReportCard } from '../components/TrialReportCard';
 import { colors, fonts } from '../lib/theme';
 import { useApp } from '../lib/store';
 import { isBackendConfigured } from '../lib/config';
 import {
-  accountState, AccountNotProtectedError, billingPortalUrl, billingStatus, checkoutUrl, confirmProtectAccount,
+  accountState, AccountNotProtectedError, billingPortalUrl, billingStatus, checkoutUrl,
   FriendlyError, NotConfiguredError, protectAccount, type AccountState,
 } from '../lib/api';
 import {
@@ -157,11 +157,11 @@ export function Offers({ payment, blocked }: { payment?: 'ok' | 'annule'; blocke
           ) : account?.kind === 'guest' ? (
             <Card style={{ gap: 12 }}>
               <Body style={{ fontWeight: '700' }}>D'abord, protégez votre compte</Body>
-              <EmailCodeForm
-                intro="Ajoutez votre e-mail : il sert à vous envoyer vos reçus et à retrouver votre boutique si vous changez de téléphone."
-                sendLabel="Recevoir mon code"
-                onSend={protectAccount}
-                onVerify={async (email, code) => { await confirmProtectAccount(email, code); setAccount(await accountState()); }}
+              <EmailPasswordForm
+                intro="Ajoutez votre e-mail et un mot de passe : l'e-mail sert à vous envoyer vos reçus, et les deux à retrouver votre boutique si vous changez de téléphone."
+                submitLabel="Protéger mon compte"
+                isNew
+                onSubmit={async (email, password) => { await protectAccount(email, password); setAccount(await accountState()); }}
               />
             </Card>
           ) : (

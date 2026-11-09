@@ -78,47 +78,106 @@ export async function accountState(): Promise<AccountState> {
 /** Trop d'e-mails envoyés d'un coup (limite du serveur) : on le dit simplement. */
 function tooManyEmails(error: { message: string; status?: number }) {
   if (error.status === 429 || /rate limit|security purposes|too many/i.test(error.message)) {
-    throw new FriendlyError('Trop de codes envoyés en peu de temps. Attendez quelques minutes, puis réessayez.');
+    throw new FriendlyError('Trop de demandes en peu de temps. Attendez quelques minutes, puis réessayez.');
+  }
+}
+
+/** Longueur minimale d'un mot de passe Vitrine (vérifiée aussi à l'écran). */
+export const MIN_PASSWORD = 8;
+
+function weakPassword(error: { message: string }) {
+  if (/password/i.test(error.message) && /least|short|weak|characters/i.test(error.message)) {
+    throw new FriendlyError(`Le mot de passe doit faire au moins ${MIN_PASSWORD} caractères.`);
   }
 }
 
 /**
- * Protéger un compte invité : on lui ajoute un e-mail. C'est le MÊME compte (boutique, posts et réseaux gardés).
- * Supabase envoie un code à 6 chiffres (modèle d'e-mail « Change Email Address » avec {{ .Token }}).
+ * Créer son compte avec e-mail + mot de passe, dès la 1re ouverture de l'appli.
+ * Aucun e-mail n'est envoyé : dans Supabase, « Confirm email » doit être désactivé.
+ * Le téléphone reste ensuite connecté (session gardée en mémoire).
  */
-export async function protectAccount(email: string): Promise<void> {
+export async function createAccount(email: string, password: string): Promise<void> {
   const sb = requireBackend();
-  const { error } = await sb.auth.updateUser({ email });
-  if (!error) return;
-  tooManyEmails(error);
-  if (/already|exists|registered/i.test(error.message)) {
-    throw new FriendlyError('Cette adresse est déjà utilisée par un compte Vitrine. Utilisez-en une autre, ou retrouvez ce compte depuis un nouveau téléphone.');
+  // Un ancien compte « invité » sur ce téléphone : on le protège plutôt que d'en créer un 2e.
+  const { data: current } = await sb.auth.getSession();
+  if (current.session?.user.is_anonymous) return protectAccount(email, password);
+  const { data, error } = await sb.auth.signUp({ email, password });
+  if (error) {
+    tooManyEmails(error);
+    weakPassword(error);
+    if (/already|exists|registered/i.test(error.message)) {
+      throw new FriendlyError('Un compte Vitrine existe déjà avec cette adresse. Touchez « J\'ai déjà un compte » pour vous connecter.');
+    }
+    throw new FriendlyError("Impossible de créer le compte. Vérifiez l'adresse e-mail et réessayez.");
   }
-  throw new FriendlyError("Impossible d'envoyer le code. Vérifiez l'adresse e-mail et réessayez.");
+  // Supabase renvoie un faux compte sans session quand l'adresse existe déjà (protection anti-espionnage).
+  if (data.user && !data.user.identities?.length) {
+    throw new FriendlyError('Un compte Vitrine existe déjà avec cette adresse. Touchez « J\'ai déjà un compte » pour vous connecter.');
+  }
+  if (!data.session) {
+    throw new FriendlyError("Le serveur demande encore une confirmation par e-mail. Il faut désactiver « Confirm email » dans Supabase.");
+  }
 }
 
-export async function confirmProtectAccount(email: string, code: string): Promise<void> {
+/** Se connecter avec son e-mail et son mot de passe (nouveau téléphone, après une déconnexion…). */
+export async function signInWithPassword(email: string, password: string): Promise<void> {
   const sb = requireBackend();
-  const { error } = await sb.auth.verifyOtp({ email, token: code.trim(), type: 'email_change' });
-  if (error) throw new FriendlyError("Ce code n'est pas bon ou a expiré. Demandez-en un nouveau.");
-}
-
-/** Retrouver son compte sur un nouveau téléphone : code envoyé par e-mail. Ne crée jamais de nouveau compte. */
-export async function sendLoginCode(email: string): Promise<void> {
-  const sb = requireBackend();
-  const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
+  const { error } = await sb.auth.signInWithPassword({ email, password });
   if (!error) return;
   tooManyEmails(error);
-  if (/not found|signups not allowed|user/i.test(error.message)) {
-    throw new FriendlyError("Aucun compte Vitrine n'utilise cette adresse. Vérifiez-la, ou créez votre boutique.");
-  }
+  if (/invalid|credentials/i.test(error.message)) throw new FriendlyError('E-mail ou mot de passe incorrect.');
+  if (/not confirmed/i.test(error.message)) throw new FriendlyError("Cette adresse n'a pas encore été confirmée.");
+  throw new FriendlyError('Connexion impossible pour le moment. Vérifiez votre connexion internet et réessayez.');
+}
+
+/**
+ * Mot de passe oublié : Supabase envoie un code à 6 chiffres
+ * (modèle d'e-mail « Reset Password » avec {{ .Token }}).
+ */
+export async function sendPasswordResetCode(email: string): Promise<void> {
+  const sb = requireBackend();
+  const { error } = await sb.auth.resetPasswordForEmail(email);
+  if (!error) return;
+  tooManyEmails(error);
   throw new FriendlyError("Impossible d'envoyer le code. Vérifiez l'adresse e-mail.");
 }
 
-export async function verifyLoginCode(email: string, code: string): Promise<void> {
+/** Valide le code reçu par e-mail puis enregistre le nouveau mot de passe (le téléphone est alors connecté). */
+export async function resetPassword(email: string, code: string, password: string): Promise<void> {
   const sb = requireBackend();
-  const { error } = await sb.auth.verifyOtp({ email, token: code.trim(), type: 'email' });
-  if (error) throw new FriendlyError("Ce code n'est pas bon ou a expiré.");
+  const { error } = await sb.auth.verifyOtp({ email, token: code.trim(), type: 'recovery' });
+  if (error) throw new FriendlyError("Ce code n'est pas bon ou a expiré. Demandez-en un nouveau.");
+  const { error: e2 } = await sb.auth.updateUser({ password });
+  if (e2) {
+    weakPassword(e2);
+    if (/different|same/i.test(e2.message)) throw new FriendlyError("Choisissez un mot de passe différent de l'ancien.");
+    throw new FriendlyError("Le nouveau mot de passe n'a pas pu être enregistré. Réessayez.");
+  }
+}
+
+/**
+ * Protéger un ancien compte « invité » (créé sans e-mail) : on lui ajoute un e-mail et un mot de passe.
+ * C'est le MÊME compte (boutique, posts et réseaux gardés). Sans « Confirm email », c'est immédiat.
+ */
+export async function protectAccount(email: string, password: string): Promise<void> {
+  const sb = requireBackend();
+  const { error } = await sb.auth.updateUser({ email });
+  if (error) {
+    tooManyEmails(error);
+    if (/already|exists|registered/i.test(error.message)) {
+      throw new FriendlyError('Cette adresse est déjà utilisée par un compte Vitrine. Utilisez-en une autre.');
+    }
+    throw new FriendlyError("Impossible d'ajouter cette adresse. Vérifiez-la et réessayez.");
+  }
+  const { data } = await sb.auth.refreshSession();
+  if (!data.user?.email) {
+    throw new FriendlyError("Le serveur demande encore une confirmation par e-mail. Il faut désactiver « Confirm email » dans Supabase.");
+  }
+  const { error: e2 } = await sb.auth.updateUser({ password });
+  if (e2) {
+    weakPassword(e2);
+    throw new FriendlyError("L'adresse est enregistrée, mais pas le mot de passe. Réessayez.");
+  }
 }
 
 /** La boutique enregistrée sur le serveur (pour la retrouver sur un nouveau téléphone). */
