@@ -33,7 +33,8 @@ const BLOBS: Blob[] = [
 
 const useNativeDriver = Platform.OS !== 'web';
 
-function useReduceMotion(): boolean {
+/** Vrai si le téléphone demande de réduire les animations : on garde alors tout immobile. */
+export function useReduceMotion(): boolean {
   const [reduce, setReduce] = useState(false);
   useEffect(() => {
     let alive = true;

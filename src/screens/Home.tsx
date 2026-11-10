@@ -5,12 +5,13 @@ import { takePhoto } from '../lib/photo';
 import { accountState, FriendlyError } from '../lib/api';
 import { BulbIcon, CameraIcon, ChartUpIcon, CheckIcon, GearIcon, LinkIcon, StoreIcon, StoryIcon } from '../components/icons';
 import { daysLeft, isLiveStatus, TRIAL_REPORT_DAYS_BEFORE } from '../lib/billing';
-import { colors, fonts, glassSurface, greenGradient } from '../lib/theme';
+import { colors, fonts, glassSurface } from '../lib/theme';
 import { useApp } from '../lib/store';
 import { daysUntil, inDaysLabel, upcomingEvents, upcomingHolidays } from '../lib/events';
 import { announceDate, dayKey, holidayAnswer } from '../lib/planning';
 import { MonthReportCard } from '../components/MonthReportCard';
 import { ShopSwitcher } from '../components/ShopSwitcher';
+import { PhotoButton } from '../components/PhotoButton';
 import { PersonIcon, SendIcon } from '../components/icons';
 
 export function Home() {
@@ -55,7 +56,7 @@ export function Home() {
   return (
     <ScrollView contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 24 }}>
       <ShopSwitcher />
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <View style={{ flex: 1 }}>
           <Body size={17} style={{ color: colors.greenDark, fontWeight: '600' }}>Bonjour {team?.firstName ?? b.ownerFirstName}</Body>
           <Title size={30}>{b.businessName}</Title>
@@ -95,16 +96,12 @@ export function Home() {
         </Card>
       )}
 
-      {/* Le geste principal : un gros bouton rond, au centre, entouré d'un anneau de verre. */}
-      <Pressable onPress={() => setChoosing((c) => !c)} accessibilityRole="button" accessibilityLabel="Créer un post ou une story" accessibilityState={{ expanded: choosing }}
-        style={({ pressed }) => ({ alignItems: 'center', gap: 14, paddingVertical: 10, transform: [{ scale: pressed ? 0.97 : 1 }] })}>
-        <View style={{ width: 172, height: 172, borderRadius: 86, backgroundColor: 'rgba(255,255,255,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.95)', alignItems: 'center', justifyContent: 'center', boxShadow: '0px 22px 40px -14px rgba(31,95,69,0.5)' }}>
-          <View style={{ ...greenGradient, width: 150, height: 150, borderRadius: 75, alignItems: 'center', justifyContent: 'center' }}>
-            <CameraIcon size={58} />
-          </View>
-        </View>
-        <Text style={{ color: colors.greenDark, fontSize: 23, fontWeight: '700', fontFamily: fonts.body }}>Créer</Text>
-        <Body soft size={16}>{choosing ? 'Que voulez-vous publier ?' : 'Votre prochain post est à portée de main.'}</Body>
+      {/* Le geste principal : un gros bouton rond, au centre, avec des ondes orange autour. */}
+      <Pressable onPress={() => setChoosing((c) => !c)} accessibilityRole="button" accessibilityLabel="Publier une photo : créer un post ou une story" accessibilityState={{ expanded: choosing }}
+        style={({ pressed }) => ({ alignItems: 'center', gap: 8, paddingVertical: 14, transform: [{ scale: pressed ? 0.97 : 1 }] })}>
+        <PhotoButton />
+        <Text style={{ color: colors.greenDark, fontSize: 23, fontWeight: '700', fontFamily: fonts.body, marginTop: 6 }}>Publier une photo</Text>
+        <Body soft size={16}>{choosing ? 'Que voulez-vous publier ?' : 'Touchez le bouton pour commencer'}</Body>
       </Pressable>
 
       {choosing && (
