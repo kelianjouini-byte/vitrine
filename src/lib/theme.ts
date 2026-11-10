@@ -50,3 +50,25 @@ export const fonts = {
 };
 
 export const radius = { sm: 10, md: 16, lg: 24, xl: 32 };
+
+/** Dégradé « verre » réutilisable (web : backgroundImage ; téléphone : experimental_backgroundImage). */
+const gradient = (fallback: string, css: string): ViewStyle => ({
+  backgroundColor: fallback,
+  ...(Platform.OS === 'web' ? ({ backgroundImage: css } as ViewStyle) : { experimental_backgroundImage: css }),
+});
+/**
+ * Couleurs d'Instagram et de Facebook, adoucies pour aller avec le vert et le pêche de l'appli :
+ * on garde la couleur reconnaissable, mais moins vive et un peu poudrée.
+ */
+export const brand = {
+  instagram: {
+    tile: gradient('#C97C93', 'linear-gradient(45deg, #EDB97C 0%, #DE8A86 45%, #B97AA6 75%, #8E7CB8 100%)'),
+    soft: 'rgba(246,226,230,0.75)',
+    line: 'rgba(196,112,138,0.55)',
+  },
+  facebook: {
+    tile: gradient('#4F79B8', 'linear-gradient(160deg, #6E95D0, #4469A6)'),
+    soft: 'rgba(225,234,247,0.75)',
+    line: 'rgba(79,121,184,0.5)',
+  },
+};
