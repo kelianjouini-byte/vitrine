@@ -1,7 +1,7 @@
 import React from 'react';
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, TextInput, View, type TextInputProps, type ViewStyle, type StyleProp } from 'react-native';
-import { colors, fonts, glass, glassSurface, greenGradient, radius } from '../lib/theme';
-import { BackIcon, CheckIcon, ChevronIcon, VideoIcon } from './icons';
+import { brand, colors, fonts, glass, glassSurface, greenGradient, radius } from '../lib/theme';
+import { BackIcon, CheckIcon, ChevronIcon, FacebookMark, InstagramMark, VideoIcon } from './icons';
 import type { Platform, Post, SocialConnection } from '../lib/types';
 
 export function Title({ children, size = 26, style }: { children: React.ReactNode; size?: number; style?: StyleProp<any> }) {
@@ -148,27 +148,38 @@ const s = StyleSheet.create({
   btn: { minHeight: 58, borderRadius: radius.md + 2, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 },
   btnPrimary: { ...greenGradient, boxShadow: '0px 12px 24px -12px rgba(31,95,69,0.6)' },
   card: { ...glassSurface, borderRadius: radius.lg - 2, padding: 16 },
+  netCard: { ...glassSurface, flex: 1, minHeight: 150, borderRadius: radius.lg - 4, borderWidth: 2, borderColor: glass.edge, alignItems: 'center', justifyContent: 'center', paddingVertical: 16, paddingHorizontal: 8, gap: 4 },
+  netLogo: { width: 60, height: 60, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
+  netCheck: { position: 'absolute', top: 10, right: 10, width: 26, height: 26, borderRadius: 13, borderWidth: 2, borderColor: 'rgba(36,51,43,0.18)', backgroundColor: 'rgba(255,255,255,0.7)', alignItems: 'center', justifyContent: 'center' },
   input: { minHeight: 54, borderRadius: 14, borderWidth: 1.5, borderColor: glass.line, backgroundColor: glass.bgStrong, paddingHorizontal: 16, fontSize: 17, color: colors.text, fontFamily: fonts.body },
 });
 
-/** « Publier sur » : Instagram et/ou Facebook (au moins un reste coché). Sert aux posts et aux stories. */
+/**
+ * « Publier sur » : Instagram et/ou Facebook (au moins un reste coché). Sert aux posts et aux stories.
+ * Deux grandes cartes avec le vrai logo, aux couleurs de chaque réseau adoucies pour le thème.
+ */
 export function PlatformPicker({ value, onChange, connections }: { value: Platform[]; onChange: (p: Platform[]) => void; connections: SocialConnection[] }) {
   const toggle = (p: Platform) => onChange(value.includes(p) ? (value.length > 1 ? value.filter((x) => x !== p) : value) : [...value, p]);
   return (
-    <View style={{ gap: 8 }}>
+    <View style={{ gap: 10 }}>
       <Body style={{ fontWeight: '600' }}>Publier sur</Body>
-      <View style={{ flexDirection: 'row', gap: 10 }}>
+      <View style={{ flexDirection: 'row', gap: 12 }}>
         {(['instagram', 'facebook'] as Platform[]).map((p) => {
           const on = value.includes(p);
           const conn = connections.find((c) => c.platform === p)?.status === 'connected';
+          const b = brand[p];
+          const name = p === 'instagram' ? 'Instagram' : 'Facebook';
           return (
-            <Pressable key={p} onPress={() => toggle(p)} accessibilityRole="checkbox" accessibilityState={{ checked: on }}
-              style={{ flex: 1, minHeight: 52, borderRadius: 14, borderWidth: 1.5, borderColor: on ? colors.green : glass.line, backgroundColor: on ? colors.greenSoft : glass.bgStrong, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }}>
-              {on && <CheckIcon size={16} color={colors.green} />}
-              <View style={{ alignItems: 'center' }}>
-                <Text style={{ color: on ? colors.green : colors.textSoft, fontWeight: '700', fontSize: 16, fontFamily: fonts.body }}>{p === 'instagram' ? 'Instagram' : 'Facebook'}</Text>
-                {!conn && <Text style={{ color: colors.textSoft, fontSize: 14, fontFamily: fonts.body }}>pas encore connecté</Text>}
+            <Pressable key={p} onPress={() => toggle(p)} accessibilityRole="checkbox" accessibilityState={{ checked: on }} accessibilityLabel={`Publier sur ${name}`}
+              style={({ pressed }) => [s.netCard, on ? { backgroundColor: b.soft, borderColor: b.line, borderWidth: 2 } : null, { opacity: pressed ? 0.85 : 1 }]}>
+              <View style={[s.netCheck, on ? { backgroundColor: colors.green, borderColor: colors.green } : null]}>
+                {on && <CheckIcon size={16} color="#fff" />}
               </View>
+              <View style={[s.netLogo, b.tile, { opacity: on ? 1 : 0.45 }]}>
+                {p === 'instagram' ? <InstagramMark size={34} /> : <FacebookMark size={38} />}
+              </View>
+              <Text style={{ color: on ? colors.text : colors.textSoft, fontWeight: '700', fontSize: 18, fontFamily: fonts.body }}>{name}</Text>
+              <Text style={{ color: conn ? colors.green : colors.textSoft, fontSize: 14, fontFamily: fonts.body, textAlign: 'center' }}>{conn ? 'Connecté' : 'pas encore connecté'}</Text>
             </Pressable>
           );
         })}
