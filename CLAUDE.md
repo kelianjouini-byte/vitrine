@@ -33,7 +33,7 @@ src/screens/                Onboarding, Home, Planning + PlanDay (la semaine, po
 src/components/             ui.tsx, icons.tsx, NetworkCards.tsx
 src/lib/                    api.ts, events.ts, store.tsx, types.ts, theme.ts, config.ts, notifications.ts, storage.ts, supabase.ts
 supabase/migrations/        schéma SQL + RLS + bucket
-supabase/functions/         generate-post, post-ideas, monthly-report, business-ai, publish-post, publish-story, meta-oauth, meta-data-deletion, account, _shared/
+supabase/functions/         generate-post, post-ideas, monthly-report, post-stats, business-ai, publish-post, publish-story, meta-oauth, meta-data-deletion, account, _shared/
 tests/                      tests node --test
 scripts/build-demo.mjs      page web unique pour essayer l'app
 docs/                       architecture et parcours

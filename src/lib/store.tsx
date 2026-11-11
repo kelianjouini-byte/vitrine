@@ -3,7 +3,7 @@ import { captureMetaReturn } from './metaReturn';
 import type { DayChoice, PlanChoices } from './planning';
 import { load, save, clearAll } from './storage';
 import { onNotificationTap, scheduleReminders } from './notifications';
-import { billingStatus, fetchBusinessRemote, fetchRemotePosts, NotConfiguredError, setCurrentShop, signOut, socialConnections, teamContext } from './api';
+import { billingStatus, fetchBusinessRemote, fetchPostStats, fetchRemotePosts, NotConfiguredError, setCurrentShop, signOut, socialConnections, teamContext } from './api';
 import { isPatron as isPatronRole, type TeamContext } from './team';
 import { isLiveStatus, type BillingStatus } from './billing';
 import { isBackendConfigured } from './config';
@@ -13,6 +13,7 @@ import { Platform } from 'react-native';
 import type { Business, NotificationPrefs, Post, PostIdea, SocialConnection } from './types';
 import type { RawPhoto } from './photo';
 import type { Month } from './report';
+import type { StatsMap } from './stats';
 
 export type Route =
   | { name: 'home' }
@@ -60,6 +61,9 @@ interface AppState {
   /** Essai gratuit et abonnement (null : pas de serveur, ou pas encore lu). */
   billing: BillingStatus | null;
   refreshBilling: () => Promise<void>;
+  /** Likes, commentaires, vues des posts publiés (lus chez Instagram et Facebook). Vide sans connexion. */
+  stats: StatsMap;
+  refreshStats: () => Promise<void>;
   /** Équipe et boutiques (null : pas de serveur, ou pas encore lu). */
   team: TeamContext | null;
   refreshTeam: () => Promise<void>;
@@ -88,6 +92,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [planChoices, setPlanChoices] = useState<PlanChoices>({});
   const [stack, setStack] = useState<Route[]>([{ name: 'home' }]);
   const [billing, setBilling] = useState<BillingStatus | null>(null);
+  const [stats, setStats] = useState<StatsMap>({});
+
+  const refreshStats = useCallback(async () => {
+    if (!isBackendConfigured) return;
+    try { setStats(await fetchPostStats()); } catch { /* hors ligne ou pas connecté : on garde les derniers chiffres */ }
+  }, []);
   const [team, setTeam] = useState<TeamContext | null>(null);
   // Boutique ouverte : lue au démarrage, avant tout le reste (les données de chaque boutique sont rangées à part).
   const shopRef = useRef<ShopRef | null>(null);
@@ -136,6 +146,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await refreshBilling();
       // L'historique du serveur complète celui du téléphone (posts publiés depuis un autre appareil).
       await syncPosts().catch(() => {});
+      await refreshStats();
     })();
   }, []);
 
@@ -228,8 +239,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await openShop(shop, t.companyId);
     setStack([{ name: 'home' }]);
     setConnections(await socialConnections());
+    setStats({});
     await syncPosts().catch(() => {});
-  }, [openShop, syncPosts]);
+    await refreshStats();
+  }, [openShop, syncPosts, refreshStats]);
 
   // Les posts à valider (patron) ou la réponse du patron (employé) : on regarde toutes les minutes.
   useEffect(() => {
@@ -303,8 +316,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const canPublish = !team || team.canPublish;
 
   const value = useMemo<AppState>(
-    () => ({ ready, business, posts, prefs, connections, route: stack[stack.length - 1], go, back, saveBusiness, upsertPost, planChoices, setDayChoice, setPrefs, refreshConnections, resetAll, syncPosts, restoreFromServer, billing, refreshBilling, team, refreshTeam, switchShop, isPatron, canPublish }),
-    [ready, business, posts, prefs, connections, stack, go, back, saveBusiness, upsertPost, planChoices, setDayChoice, setPrefs, refreshConnections, resetAll, syncPosts, restoreFromServer, billing, refreshBilling, team, refreshTeam, switchShop, isPatron, canPublish],
+    () => ({ ready, business, posts, prefs, connections, route: stack[stack.length - 1], go, back, saveBusiness, upsertPost, planChoices, setDayChoice, setPrefs, refreshConnections, resetAll, syncPosts, restoreFromServer, billing, refreshBilling, team, refreshTeam, switchShop, isPatron, canPublish, stats, refreshStats }),
+    [ready, business, posts, prefs, connections, stack, go, back, saveBusiness, upsertPost, planChoices, setDayChoice, setPrefs, refreshConnections, resetAll, syncPosts, restoreFromServer, billing, refreshBilling, team, refreshTeam, switchShop, isPatron, canPublish, stats, refreshStats],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

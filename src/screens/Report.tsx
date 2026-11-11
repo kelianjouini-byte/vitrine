@@ -14,6 +14,7 @@ import {
   addMonths, basicAdvice, compareMonths, comparisonText, durationLabel, firstMonth, MINUTES_SAVED_PER_POST, MINUTES_SAVED_PER_STORY,
   monthKey, monthLabel, monthName, monthOf, ofMonth, summarize, type Month,
 } from '../lib/report';
+import { bestPost, formatCount, reachOf, statsLine, totalOf, type StatsMap } from '../lib/stats';
 
 type AdviceState =
   | { kind: 'loading' }
@@ -23,12 +24,19 @@ type AdviceState =
 
 /** « Mon bilan » : les vrais chiffres du mois, la comparaison avec le mois d'avant et un conseil. */
 export function Report({ initialMonth }: { initialMonth?: Month }) {
-  const { business, posts, back, go } = useApp();
+  const { business, posts, back, go, stats, refreshStats, connections } = useApp();
+  useEffect(() => { refreshStats(); }, [refreshStats]);
+  const connected = connections.some((c) => c.status === 'connected');
   const b = business!;
   const current = monthOf(new Date());
   const oldest = firstMonth(posts);
   const [month, setMonth] = useState<Month>(initialMonth ?? current);
   const s = useMemo(() => summarize(posts, month), [posts, month]);
+  // Vrais chiffres Instagram + Facebook (null = pas encore connu, jamais estimé).
+  const reachPosts = useMemo(() => reachOf(s.posts, stats), [s.posts, stats]);
+  const reachStories = useMemo(() => reachOf(s.stories, stats), [s.stories, stats]);
+  const reachTotal = reachPosts === null && reachStories === null ? null : (reachPosts ?? 0) + (reachStories ?? 0);
+  const best = useMemo(() => bestPost(s.posts, stats), [s.posts, stats]);
   const canGoBack = compareMonths(month, oldest) > 0;
   const canGoNext = compareMonths(month, current) < 0;
 
@@ -83,7 +91,19 @@ export function Report({ initialMonth }: { initialMonth?: Month }) {
       </View>
       <View style={{ flexDirection: 'row', gap: 12 }}>
         <Tile icon={<ClockIcon size={22} color={colors.green} />} value={durationLabel(s.minutesSaved)} label="de temps gagné" hint={`environ ${MINUTES_SAVED_PER_POST} min par post, ${MINUTES_SAVED_PER_STORY} min par story`} />
-        <Tile icon={<StarIcon size={22} color={colors.orangeText} />} tone="orange" soon label="meilleur post" hint="Vitrine saura quel post vos clients ont préféré grâce aux statistiques." />
+        {best ? (
+          <Card style={{ flex: 1, gap: 6, minHeight: 150 }} onPress={() => go({ name: 'published', postId: best.post.id })}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <PostThumb post={best.post} width={42} height={42} />
+              <StarIcon size={20} color={colors.orangeText} />
+            </View>
+            <Body style={{ fontWeight: '700' }} size={15}>meilleur post</Body>
+            <Body soft size={15}>{statsLine(best.stats)}</Body>
+          </Card>
+        ) : (
+          <Tile icon={<StarIcon size={22} color={colors.orangeText} />} tone="orange" soon={!connected} value="—" label="meilleur post"
+            hint={connected ? 'Pas encore de réactions sur vos posts de ce mois.' : 'Connectez Instagram et Facebook pour savoir quel post vos clients préfèrent.'} />
+        )}
       </View>
 
       {/* Le chiffre qui fait plaisir : tous les clients touchés, posts et stories réunis. Jamais estimé. */}
@@ -94,13 +114,15 @@ export function Report({ initialMonth }: { initialMonth?: Month }) {
             <Text style={{ color: colors.text, fontSize: 20, fontWeight: '700', fontFamily: fonts.body }}>Clients touchés</Text>
             <Body soft size={15}>Toutes les personnes qui ont vu vos posts et vos stories {ofMonth(month)}.</Body>
           </View>
-          <Badge text="Bientôt" tone="orange" />
+          {reachTotal !== null ? <Title size={30}>{formatCount(reachTotal)}</Title> : <Badge text={connected ? '—' : 'Bientôt'} tone="orange" />}
         </View>
         <View style={{ flexDirection: 'row', gap: 10 }}>
-          <ViewsPart icon={<CameraIcon size={18} color={colors.green} />} label="Vues des posts" />
-          <ViewsPart icon={<StoryIcon size={18} color={colors.green} />} label="Vues des stories" />
+          <ViewsPart icon={<CameraIcon size={18} color={colors.green} />} label="Posts" value={reachPosts} connected={connected} />
+          <ViewsPart icon={<StoryIcon size={18} color={colors.green} />} label="Stories" value={reachStories} connected={connected} />
         </View>
-        <Body soft size={15}>Les vrais chiffres arriveront dès qu'Instagram et Facebook seront branchés.</Body>
+        <Body soft size={15}>{connected
+          ? 'Chiffres donnés par Instagram et Facebook (personnes différentes, réseau par réseau). Mis à jour toutes les 30 minutes.'
+          : 'Les vrais chiffres arriveront dès qu\'Instagram et Facebook seront connectés.'}</Body>
       </Card>
 
       {s.posts.length > 0 && (
@@ -123,7 +145,7 @@ export function Report({ initialMonth }: { initialMonth?: Month }) {
         <Label>Vos stories {ofMonth(month)}</Label>
         {s.stories.length > 0 ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 14, paddingVertical: 2 }}>
-            {s.stories.map((p) => <StoryRing key={p.id} post={p} onPress={() => go({ name: 'published', postId: p.id })} />)}
+            {s.stories.map((p) => <StoryRing key={p.id} post={p} stats={stats} onPress={() => go({ name: 'published', postId: p.id })} />)}
           </ScrollView>
         ) : (
           <Card style={{ gap: 10, alignItems: 'center' }}>
@@ -193,22 +215,25 @@ function MonthArrow({ label, a11y, enabled, onPress }: { label: string; a11y: st
   );
 }
 
-/** Une part des « clients touchés » : vues des posts ou des stories (bientôt). */
-function ViewsPart({ icon, label }: { icon: React.ReactNode; label: string }) {
+/** Une part des « clients touchés » : posts ou stories. */
+function ViewsPart({ icon, label, value, connected }: { icon: React.ReactNode; label: string; value: number | null; connected: boolean }) {
   return (
     <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: glass.bgStrong, borderRadius: radius.sm + 2, borderWidth: 1, borderColor: glass.line, padding: 10 }}>
       {icon}
       <View style={{ flex: 1 }}>
         <Text style={{ color: colors.text, fontSize: 15, fontWeight: '600', fontFamily: fonts.body }}>{label}</Text>
-        <Text style={{ color: colors.orangeText, fontSize: 14, fontFamily: fonts.body }}>bientôt</Text>
+        {value !== null
+          ? <Text style={{ color: colors.text, fontSize: 18, fontWeight: '700', fontFamily: fonts.body }}>{formatCount(value)}</Text>
+          : <Text style={{ color: colors.orangeText, fontSize: 14, fontFamily: fonts.body }}>{connected ? 'pas encore de chiffre' : 'bientôt'}</Text>}
       </View>
     </View>
   );
 }
 
-/** Une story du mois, en rond comme sur Instagram, avec ses vues en dessous (bientôt). */
-function StoryRing({ post, onPress }: { post: Post; onPress: () => void }) {
+/** Une story du mois, en rond comme sur Instagram, avec ses vues en dessous. */
+function StoryRing({ post, stats, onPress }: { post: Post; stats: StatsMap; onPress: () => void }) {
   const day = new Date(post.publishedAt ?? post.createdAt);
+  const views = totalOf(stats[post.id]).views;
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`Voir la story du ${day.toLocaleDateString('fr-FR')}`} style={{ alignItems: 'center', gap: 6, width: 76 }}>
       <View style={{ ...greenGradient, width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center' }}>
@@ -219,7 +244,7 @@ function StoryRing({ post, onPress }: { post: Post; onPress: () => void }) {
       <Text style={{ color: colors.text, fontSize: 13, fontWeight: '600', fontFamily: fonts.body }}>{day.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</Text>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
         <EyeIcon size={14} color={colors.orangeText} />
-        <Text style={{ color: colors.orangeText, fontSize: 12, fontFamily: fonts.body }}>bientôt</Text>
+        <Text style={{ color: views !== null ? colors.text : colors.orangeText, fontSize: 12, fontFamily: fonts.body }}>{views !== null ? `${formatCount(views)} vues` : '—'}</Text>
       </View>
     </Pressable>
   );
