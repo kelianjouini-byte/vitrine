@@ -508,6 +508,8 @@ export async function publishPost(input: PublishInput): Promise<PublicationResul
     platforms: input.platforms,
     image_paths: input.imagePaths,
     idempotency_key: input.idempotencyKey,
+    // Le serveur rend la main tout de suite et finit l'envoi tout seul (« Publication envoyée »).
+    background: true,
   });
   return res.publications;
 }
@@ -566,6 +568,7 @@ export async function publishStory(input: PublishStoryInput): Promise<Publicatio
     media_type: input.media.kind,
     platforms: input.platforms,
     idempotency_key: input.idempotencyKey,
+    background: true,
   });
   return res.publications;
 }

@@ -81,6 +81,8 @@ test('statut après publication', () => {
   assert.equal(statusAfterPublish([{ platform: 'instagram', status: 'published' }, { platform: 'facebook', status: 'failed' }]), 'partially_published');
   assert.equal(statusAfterPublish([{ platform: 'instagram', status: 'not_configured' }]), 'draft');
   assert.equal(statusAfterPublish([{ platform: 'instagram', status: 'failed' }]), 'failed');
+  // Envoi en arrière-plan : « Publication envoyée », le résultat viendra du serveur.
+  assert.equal(statusAfterPublish([{ platform: 'instagram', status: 'pending' }, { platform: 'facebook', status: 'pending' }]), 'publishing');
 });
 
 test('le jour même d\'une fête : un post ET une story, et le post de préparation avant', () => {

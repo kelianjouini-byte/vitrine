@@ -1,5 +1,6 @@
 // POST { story_id, media_path, media_type: 'photo'|'video', platforms[], idempotency_key }
 // -> { publications: [{ platform, status, url, error, publishedAt }] }
+// background: true -> réponse immédiate (status « pending ») ; le serveur finit l'envoi tout seul.
 // La story (photo ou vidéo) a déjà été envoyée par l'appli dans le stockage privé (dossier de l'utilisateur).
 // Meta va la chercher grâce à une adresse signée valable 1 heure. Idempotent comme publish-post.
 import { requireAccess } from '../_shared/access.ts';
@@ -31,6 +32,6 @@ Deno.serve(handler(async (req) => {
   const { data: post } = await db.from('posts').select('id').eq('id', storyId).eq('business_id', business.id).maybeSingle();
   if (!post) throw new HttpError(404, 'not_found', 'Story introuvable.');
 
-  const publications = await publishSavedStory({ db, businessId: business.id, postId: post.id, path, kind, platforms, key });
+  const publications = await publishSavedStory({ db, businessId: business.id, postId: post.id, path, kind, platforms, key, background: body.background === true });
   return json({ publications });
 }));

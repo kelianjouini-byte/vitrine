@@ -17,7 +17,8 @@ export interface SocialAccount {
 
 export interface PublicationResult {
   platform: Platform;
-  status: 'published' | 'failed';
+  /** pending = envoi en cours en arrière-plan (résultat lu plus tard dans la base). */
+  status: 'published' | 'failed' | 'pending';
   url?: string | null;
   error?: string;
   publishedAt?: string;

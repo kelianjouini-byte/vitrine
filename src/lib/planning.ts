@@ -233,6 +233,8 @@ export function weekCount(posts: Post[], days: PlanDay[]): { post: number; story
 
 /** Statut d'un post après une tentative de publication (Instagram et/ou Facebook). */
 export function statusAfterPublish(publications: PublicationResult[]): PostStatus {
+  // Envoi en cours en arrière-plan : le résultat arrivera du serveur.
+  if (publications.some((x) => x.status === 'pending')) return 'publishing';
   const ok = publications.filter((x) => x.status === 'published').length;
   if (ok === publications.length) return 'published';
   if (ok > 0) return 'partially_published';

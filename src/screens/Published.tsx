@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Linking, ScrollView, View } from 'react-native';
 import { Badge, Body, Button, Card, Notice, PostThumb, Title } from '../components/ui';
 import { AlertIcon, CheckIcon, FacebookIcon, InstagramIcon, SendIcon } from '../components/icons';
@@ -10,9 +10,22 @@ import { StatsRow } from './Posts';
 
 /** Écran 3 : résultat RÉEL de la publication, réseau par réseau. Jamais de faux succès. */
 export function Published({ postId }: { postId: string }) {
-  const { posts, go, team, stats } = useApp();
+  const { posts, go, team, stats, syncPosts } = useApp();
   const post = posts.find((p) => p.id === postId);
+  const sending = post?.status === 'publishing';
+  // Envoi en arrière-plan : on relit le résultat chez le serveur toutes les 4 s (3 minutes au plus).
+  useEffect(() => {
+    if (!sending) return;
+    let tries = 0;
+    const timer = setInterval(() => {
+      tries += 1;
+      if (tries > 45) return clearInterval(timer);
+      syncPosts().catch(() => {});
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [sending, syncPosts]);
   if (!post) return null;
+  if (sending) return <Sending postId={postId} />;
   if (post.reviewState === 'pending') return <SentToPatron postId={postId} patron={team?.ownerFirstName} />;
   if (post.reviewState === 'rejected') {
     return (
@@ -85,6 +98,31 @@ function PublicationRow({ p, stats }: { p: PublicationResult; stats?: Stats }) {
       {stats && hasStats(stats) ? <StatsRow s={stats} /> : null}
       {p.url ? <Button title="Voir la publication" kind="ghost" onPress={() => Linking.openURL(p.url!)} /> : null}
     </Card>
+  );
+}
+
+/** « Publication envoyée » : le serveur publie tout seul, l'écran se met à jour dès que c'est en ligne. */
+function Sending({ postId }: { postId: string }) {
+  const { posts, go } = useApp();
+  const post = posts.find((p) => p.id === postId)!;
+  const story = post.kind === 'story';
+  return (
+    <ScrollView contentContainerStyle={{ padding: 24, gap: 18, alignItems: 'stretch', paddingTop: 64 }}>
+      <View style={{ alignItems: 'center', gap: 16 }}>
+        <View style={{ width: 140, height: 140, borderRadius: 70, backgroundColor: colors.greenSoft, alignItems: 'center', justifyContent: 'center' }}>
+          <View style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: colors.green, alignItems: 'center', justifyContent: 'center' }}>
+            <SendIcon size={46} color="#fff" />
+          </View>
+        </View>
+        <Title size={32} style={{ textAlign: 'center' }}>Publication envoyée</Title>
+        <Body soft center>
+          {story ? 'Votre story part' : 'Votre post part'} sur Instagram et Facebook. Vitrine s'occupe de tout : vous pouvez fermer l'application.
+        </Body>
+      </View>
+      {post.publications.map((p) => <PublicationRow key={p.platform} p={p} />)}
+      <Body soft center size={15}>Le résultat s'affichera ici et dans « Mes posts », en général en moins d'une minute.</Body>
+      <Button title="Retour à l'accueil" onPress={() => go({ name: 'home' })} />
+    </ScrollView>
   );
 }
 
