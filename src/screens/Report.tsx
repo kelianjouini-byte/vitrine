@@ -14,7 +14,7 @@ import {
   addMonths, basicAdvice, compareMonths, comparisonText, durationLabel, firstMonth, MINUTES_SAVED_PER_POST, MINUTES_SAVED_PER_STORY,
   monthKey, monthLabel, monthName, monthOf, ofMonth, summarize, type Month,
 } from '../lib/report';
-import { bestPost, formatCount, reachOf, statsLine, sumOf, totalOf, type StatsMap } from '../lib/stats';
+import { bestPost, formatCount, statsLine, sumOf, totalOf, viewsOf, type StatsMap } from '../lib/stats';
 
 type AdviceState =
   | { kind: 'loading' }
@@ -33,9 +33,10 @@ export function Report({ initialMonth }: { initialMonth?: Month }) {
   const [month, setMonth] = useState<Month>(initialMonth ?? current);
   const s = useMemo(() => summarize(posts, month), [posts, month]);
   // Vrais chiffres Instagram + Facebook (null = pas encore connu, jamais estimé).
-  const reachPosts = useMemo(() => reachOf(s.posts, stats), [s.posts, stats]);
-  const reachStories = useMemo(() => reachOf(s.stories, stats), [s.stories, stats]);
-  const reachTotal = reachPosts === null && reachStories === null ? null : (reachPosts ?? 0) + (reachStories ?? 0);
+  // « Clients touchés » = toutes les vues du mois, Instagram et Facebook réunis (choix de Kelian, 11 nov.).
+  const viewsPosts = useMemo(() => viewsOf(s.posts, stats), [s.posts, stats]);
+  const viewsStories = useMemo(() => viewsOf(s.stories, stats), [s.stories, stats]);
+  const viewsTotal = viewsPosts === null && viewsStories === null ? null : (viewsPosts ?? 0) + (viewsStories ?? 0);
   const best = useMemo(() => bestPost(s.posts, stats), [s.posts, stats]);
   const monthPosts = useMemo(() => [...s.posts, ...s.stories], [s.posts, s.stories]);
   const likes = useMemo(() => sumOf(monthPosts, stats, 'likes'), [monthPosts, stats]);
@@ -139,22 +140,24 @@ export function Report({ initialMonth }: { initialMonth?: Month }) {
         </View>
       </Card>
 
-      {/* Le chiffre qui fait plaisir : tous les clients touchés, posts et stories réunis. Jamais estimé. */}
+      {/* Le chiffre qui fait plaisir : toutes les vues, posts et stories, Instagram et Facebook réunis. Jamais estimé. */}
       <Card style={{ gap: 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <IconTile size={48} tone="orange"><EyeIcon size={26} color={colors.orangeText} /></IconTile>
           <View style={{ flex: 1, gap: 2 }}>
             <Text style={{ color: colors.text, fontSize: 20, fontWeight: '700', fontFamily: fonts.body }}>Clients touchés</Text>
-            <Body soft size={15}>Toutes les personnes qui ont vu vos posts et vos stories {ofMonth(month)}.</Body>
+            <Body soft size={15}>Le nombre de vues de vos posts et de vos stories {ofMonth(month)}, Instagram et Facebook réunis.</Body>
           </View>
-          {reachTotal !== null ? <Title size={30}>{formatCount(reachTotal)}</Title> : <Badge text={connected ? '—' : 'Bientôt'} tone="orange" />}
+          {viewsTotal !== null
+            ? <View style={{ alignItems: 'flex-end' }}><Title size={30}>{formatCount(viewsTotal)}</Title><Body soft size={14}>{viewsTotal > 1 ? 'vues' : 'vue'}</Body></View>
+            : <Badge text={connected ? '—' : 'Bientôt'} tone="orange" />}
         </View>
         <View style={{ flexDirection: 'row', gap: 10 }}>
-          <ViewsPart icon={<CameraIcon size={18} color={colors.green} />} label="Posts" value={reachPosts} connected={connected} />
-          <ViewsPart icon={<StoryIcon size={18} color={colors.green} />} label="Stories" value={reachStories} connected={connected} />
+          <ViewsPart icon={<CameraIcon size={18} color={colors.green} />} label="Posts" value={viewsPosts} connected={connected} />
+          <ViewsPart icon={<StoryIcon size={18} color={colors.green} />} label="Stories" value={viewsStories} connected={connected} />
         </View>
         <Body soft size={15}>{connected
-          ? 'Chiffres donnés par Instagram et Facebook (personnes différentes, réseau par réseau). Mis à jour toutes les 30 minutes.'
+          ? 'Chiffres donnés par Instagram et Facebook. Une même personne peut regarder plusieurs fois. Mis à jour toutes les 30 minutes.'
           : 'Les vrais chiffres arriveront dès qu\'Instagram et Facebook seront connectés.'}</Body>
       </Card>
 
@@ -271,7 +274,7 @@ function ViewsPart({ icon, label, value, connected }: { icon: React.ReactNode; l
       <View style={{ flex: 1 }}>
         <Text style={{ color: colors.text, fontSize: 15, fontWeight: '600', fontFamily: fonts.body }}>{label}</Text>
         {value !== null
-          ? <Text style={{ color: colors.text, fontSize: 18, fontWeight: '700', fontFamily: fonts.body }}>{formatCount(value)}</Text>
+          ? <Text style={{ color: colors.text, fontSize: 18, fontWeight: '700', fontFamily: fonts.body }}>{formatCount(value)} {value > 1 ? 'vues' : 'vue'}</Text>
           : <Text style={{ color: colors.orangeText, fontSize: 14, fontFamily: fonts.body }}>{connected ? 'pas encore de chiffre' : 'bientôt'}</Text>}
       </View>
     </View>
