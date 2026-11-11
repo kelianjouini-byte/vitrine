@@ -388,14 +388,14 @@ export function Create({ occasionId, initialPhoto, idea, plannedFor, note }: { o
   if (phase === 'generating' || phase === 'publishing') {
     const lines = phase === 'generating'
       ? [slides.length > 1 ? 'Vitrine regarde vos photos...' : 'Vitrine regarde votre photo...', 'Votre texte est en cours d\'écriture.']
-      : ['Votre publication est en préparation...', 'Vitrine publie votre contenu.'];
+      : ['Envoi de vos photos à Vitrine...', 'Encore un instant...'];
     const cover = slides[0]?.photo.uri;
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 24 }}>
         {cover && <Image source={{ uri: cover }} style={{ width: 180, height: 180 / ratio, borderRadius: radius.md, opacity: 0.9 }} />}
         <ActivityIndicator size="large" color={colors.green} />
         <Title size={22} style={{ textAlign: 'center' }}>{phase === 'publishing' ? lines[publishStep] : lines[0]}</Title>
-        <Body soft center>{phase === 'generating' ? lines[1] : 'Gardez l\'application ouverte quelques secondes.'}</Body>
+        <Body soft center>{phase === 'generating' ? lines[1] : 'Ensuite, Vitrine publie toute seule : vous pourrez fermer l\'application.'}</Body>
       </View>
     );
   }

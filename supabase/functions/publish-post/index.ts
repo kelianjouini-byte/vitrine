@@ -1,5 +1,6 @@
 // POST { post_id, caption, hashtags[], platforms[], image_paths[]?, idempotency_key }
 // -> { publications: [{ platform, status, url, error, publishedAt }] }
+// background: true -> réponse immédiate (status « pending ») ; le serveur finit l'envoi tout seul.
 // Idempotent : une publication déjà réussie n'est JAMAIS renvoyée à Meta (voir _shared/publish.ts).
 // Un employé sans « Publie seul » ne publie pas : il envoie le post à son patron (fonction team, action submit).
 import { requireAccess } from '../_shared/access.ts';
@@ -24,6 +25,6 @@ Deno.serve(handler(async (req) => {
   if (!platforms.length || !caption || key.length < 16) throw new HttpError(400, 'bad_request', 'Publication incomplète.');
   // Photos envoyées par l'appli : le commerçant a pu les changer (ordre, ajout, retrait) après le texte.
   const paths = readImagePaths(body, userId, false);
-  const publications = await publishSavedPost({ db, businessId: business.id, postId: String(body.post_id ?? ''), caption, hashtags, platforms, paths, key });
+  const publications = await publishSavedPost({ db, businessId: business.id, postId: String(body.post_id ?? ''), caption, hashtags, platforms, paths, key, background: body.background === true });
   return json({ publications });
 }));

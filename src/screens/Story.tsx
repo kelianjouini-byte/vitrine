@@ -12,6 +12,7 @@ import { FriendlyError, metaConfigured, NotConfiguredError, publishStory, submit
 import { STORY_MAX_SECONDS, takeStoryMedia, type StoryMedia } from '../lib/photo';
 import { upcomingEvents } from '../lib/events';
 import { suggestTrack } from '../lib/music';
+import { statusAfterPublish } from '../lib/planning';
 import { audioContext, makeVideoWithMusic, musicSupported, saveVideo, startPreview } from '../lib/videoMusic';
 import type { Platform, Post, PublicationResult } from '../lib/types';
 
@@ -136,7 +137,8 @@ export function Story() {
         error: notConfigured ? null : e instanceof FriendlyError ? e.message : 'La publication a échoué.',
       }));
     }
-    const ok = publications.filter((x) => x.status === 'published').length;
+    const status = statusAfterPublish(publications);
+    const ok = status === 'published' || status === 'partially_published';
     const photo = media.kind === 'photo' ? media.photo : null;
     const post: Post = {
       id: idempotencyKey.current, // même identifiant que sur le serveur
@@ -148,7 +150,7 @@ export function Story() {
       platforms,
       createdAt: new Date().toISOString(),
       publishedAt: ok ? new Date().toISOString() : null,
-      status: ok === publications.length ? 'published' : ok > 0 ? 'partially_published' : publications.every((x) => x.status === 'not_configured') ? 'draft' : 'failed',
+      status,
       publications,
     };
     upsertPost(post);
