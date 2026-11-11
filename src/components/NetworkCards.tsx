@@ -158,6 +158,10 @@ export function NetworkCards() {
       {!allConnected && ready !== false && (
         <Button title="Connecter Instagram et Facebook" kind="secondary" onPress={connect} loading={busy || ready === null} />
       )}
+      {allConnected && ready !== false && (
+        // Déjà connecté : sert à accepter de nouvelles autorisations ou à changer de Page.
+        <Button title="Reconnecter" kind="ghost" onPress={connect} loading={busy} />
+      )}
       {message && <Notice {...message} />}
       <Body soft size={13}>Instagram doit être un compte professionnel relié à votre Page Facebook.</Body>
     </View>
