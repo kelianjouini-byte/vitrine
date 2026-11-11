@@ -35,15 +35,16 @@ export function totalOf(s: PostStats | undefined): Stats {
 /** Au moins un chiffre connu pour ce post ? */
 export const hasStats = (s: Stats) => s.likes !== null || s.comments !== null || s.views !== null || s.reach !== null;
 
-/** Personnes touchées sur une liste de posts (somme). null si aucun chiffre connu. */
-export function reachOf(posts: Post[], stats: StatsMap): number | null {
-  return posts.reduce<number | null>((sum, p) => add(sum, totalOf(stats[p.id]).reach), null);
+/** Somme d'un chiffre (j'aime, commentaires, vues, personnes touchées) sur une liste de posts. null si aucun chiffre connu. */
+export function sumOf(posts: Post[], stats: StatsMap, key: keyof Stats): number | null {
+  return posts.reduce<number | null>((sum, p) => add(sum, totalOf(stats[p.id])[key]), null);
 }
 
+/** Personnes touchées sur une liste de posts (somme). null si aucun chiffre connu. */
+export const reachOf = (posts: Post[], stats: StatsMap) => sumOf(posts, stats, 'reach');
+
 /** Vues sur une liste de posts (somme). null si aucun chiffre connu. */
-export function viewsOf(posts: Post[], stats: StatsMap): number | null {
-  return posts.reduce<number | null>((sum, p) => add(sum, totalOf(stats[p.id]).views), null);
-}
+export const viewsOf = (posts: Post[], stats: StatsMap) => sumOf(posts, stats, 'views');
 
 /**
  * Le post préféré des clients : le plus de likes + commentaires, puis le plus de vues.

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { bestPost, reachOf, statsLine, totalOf, viewsOf, type StatsMap } from '../src/lib/stats.ts';
+import { bestPost, reachOf, statsLine, sumOf, totalOf, viewsOf, type StatsMap } from '../src/lib/stats.ts';
 import { metric } from '../supabase/functions/_shared/insights.ts';
 import type { Post } from '../src/lib/types.ts';
 
@@ -50,4 +50,13 @@ test('metric lit les deux formats de réponse Meta', () => {
   assert.equal(metric({ data: [{ name: 'views', total_value: { value: 9 } }] }, 'views'), 9);
   assert.equal(metric({ data: [] }, 'reach'), null);
   assert.equal(metric(null, 'a', 'b'), null);
+});
+
+test('sumOf : total du mois des j\'aime et commentaires', () => {
+  const stats: StatsMap = {
+    a: { instagram: { likes: 2, comments: 1, views: null, reach: null }, facebook: { likes: 1, comments: 1, views: null, reach: null } },
+  };
+  assert.equal(sumOf([post('a'), post('b')], stats, 'likes'), 3);
+  assert.equal(sumOf([post('a')], stats, 'comments'), 2);
+  assert.equal(sumOf([post('b')], stats, 'likes'), null);
 });
