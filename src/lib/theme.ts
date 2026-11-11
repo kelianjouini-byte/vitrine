@@ -12,6 +12,8 @@ export const colors = {
   orange: '#F2B66D',
   orangeSoft: '#FCEFD9',
   orangeText: '#8A5A12',
+  /** Orange plus vif pour un chiffre à remarquer (gras uniquement, lisible sur fond clair). */
+  orangeStrong: '#B0661A',
   red: '#D96B61',
   redSoft: '#FBE7E5',
   sandSoft: '#F1EBE2',

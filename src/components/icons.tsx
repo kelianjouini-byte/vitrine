@@ -104,6 +104,10 @@ export const LogoMark = ({ size = 64, onGreen = false }: { size?: number; onGree
 export const MessageIcon = ({ size, color = '#fff' }: P) => (
   <S size={size}><Path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z" {...st(color)} /></S>
 );
+/** Cœur : les « j'aime ». fill = couleur de remplissage (facultatif). */
+export const HeartIcon = ({ size, color = '#000', fill = 'none' }: P & { fill?: string }) => (
+  <S size={size}><Path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7a4.3 4.3 0 0 1 7.5 2.8C19.5 15.4 12 20 12 20Z" {...st(color)} fill={fill} /></S>
+);
 export const PrintIcon = ({ size, color = '#000' }: P) => (
   <S size={size}><Path d="M6 9V3h12v6M7 14h10v7H7z" {...st(color)} /><Rect x={3} y={9} width={18} height={8} rx={2} {...st(color)} /></S>
 );

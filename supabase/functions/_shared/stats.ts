@@ -10,13 +10,17 @@ export interface Stats {
   reach: number | null;
 }
 
-const quiet = <T>(p: Promise<T>) => p.catch(() => null);
+// Un refus de Meta n'arrête rien : le chiffre reste vide, et la raison est notée dans les journaux (sans jeton).
+const quiet = <T>(p: Promise<T>, what = '') => p.catch((e) => {
+  console.warn('[vitrine] stats indisponibles', what, e instanceof Error ? e.message : String(e));
+  return null;
+});
 
 /** Instagram : likes et commentaires (posts), vues et personnes touchées (posts et stories). */
 export async function instagramStats(mediaId: string, token: string, story: boolean): Promise<Stats> {
   const [base, ins] = await Promise.all([
-    story ? Promise.resolve(null) : quiet(graph<{ like_count?: number; comments_count?: number }>(mediaId, { fields: 'like_count,comments_count', access_token: token })),
-    quiet(graph<Insights>(`${mediaId}/insights`, { metric: 'reach,views', access_token: token })),
+    story ? Promise.resolve(null) : quiet(graph<{ like_count?: number; comments_count?: number }>(mediaId, { fields: 'like_count,comments_count', access_token: token }), 'ig base'),
+    quiet(graph<Insights>(`${mediaId}/insights`, { metric: 'reach,views', access_token: token }), 'ig insights'),
   ]);
   return {
     likes: base?.like_count ?? null,
@@ -30,10 +34,10 @@ export async function instagramStats(mediaId: string, token: string, story: bool
 export async function facebookStats(postId: string, token: string): Promise<Stats> {
   const [base, ins, old] = await Promise.all([
     quiet(graph<{ reactions?: { summary?: { total_count?: number } }; comments?: { summary?: { total_count?: number } } }>(
-      postId, { fields: 'reactions.summary(total_count).limit(0),comments.summary(total_count).limit(0)', access_token: token })),
+      postId, { fields: 'reactions.summary(total_count).limit(0),comments.summary(total_count).limit(0)', access_token: token }), 'fb base'),
     // Nouveaux noms des métriques de vues (Meta), puis les anciens si ceux-ci ne sont pas reconnus.
-    quiet(graph<Insights>(`${postId}/insights`, { metric: 'post_media_view,post_total_media_view_unique', access_token: token })),
-    quiet(graph<Insights>(`${postId}/insights`, { metric: 'post_impressions,post_impressions_unique', access_token: token })),
+    quiet(graph<Insights>(`${postId}/insights`, { metric: 'post_media_view,post_total_media_view_unique', access_token: token }), 'fb insights'),
+    quiet(graph<Insights>(`${postId}/insights`, { metric: 'post_impressions,post_impressions_unique', access_token: token }), 'fb insights old'),
   ]);
   return {
     likes: base?.reactions?.summary?.total_count ?? null,

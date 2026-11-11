@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { Badge, Body, Button, Card, IconTile, Label, Notice, PostThumb, Title, BackButton } from '../components/ui';
 import { ReferralAsk } from '../components/ReferralAsk';
-import { BulbIcon, CameraIcon, ChartUpIcon, ClockIcon, EyeIcon, RefreshIcon, StarIcon, StoryIcon, VideoIcon } from '../components/icons';
+import { BulbIcon, CameraIcon, ChartUpIcon, ClockIcon, EyeIcon, HeartIcon, MessageIcon, RefreshIcon, StarIcon, StoryIcon, VideoIcon } from '../components/icons';
 import { colors, fonts, glass, greenGradient, radius } from '../lib/theme';
 import type { Post } from '../lib/types';
 import { useApp } from '../lib/store';
@@ -14,7 +14,7 @@ import {
   addMonths, basicAdvice, compareMonths, comparisonText, durationLabel, firstMonth, MINUTES_SAVED_PER_POST, MINUTES_SAVED_PER_STORY,
   monthKey, monthLabel, monthName, monthOf, ofMonth, summarize, type Month,
 } from '../lib/report';
-import { bestPost, formatCount, reachOf, statsLine, totalOf, type StatsMap } from '../lib/stats';
+import { bestPost, formatCount, reachOf, statsLine, sumOf, totalOf, type StatsMap } from '../lib/stats';
 
 type AdviceState =
   | { kind: 'loading' }
@@ -37,6 +37,9 @@ export function Report({ initialMonth }: { initialMonth?: Month }) {
   const reachStories = useMemo(() => reachOf(s.stories, stats), [s.stories, stats]);
   const reachTotal = reachPosts === null && reachStories === null ? null : (reachPosts ?? 0) + (reachStories ?? 0);
   const best = useMemo(() => bestPost(s.posts, stats), [s.posts, stats]);
+  const monthPosts = useMemo(() => [...s.posts, ...s.stories], [s.posts, s.stories]);
+  const likes = useMemo(() => sumOf(monthPosts, stats, 'likes'), [monthPosts, stats]);
+  const comments = useMemo(() => sumOf(monthPosts, stats, 'comments'), [monthPosts, stats]);
   const canGoBack = compareMonths(month, oldest) > 0;
   const canGoNext = compareMonths(month, current) < 0;
 
@@ -89,22 +92,52 @@ export function Report({ initialMonth }: { initialMonth?: Month }) {
         <Tile icon={<CameraIcon size={22} color={colors.green} />} value={String(s.count)} label={s.count > 1 ? 'posts publiés' : 'post publié'} />
         <Tile icon={<StoryIcon size={22} color={colors.green} />} value={String(s.storyCount)} label={s.storyCount > 1 ? 'stories publiées' : 'story publiée'} />
       </View>
-      <View style={{ flexDirection: 'row', gap: 12 }}>
-        <Tile icon={<ClockIcon size={22} color={colors.green} />} value={durationLabel(s.minutesSaved)} label="de temps gagné" hint={`environ ${MINUTES_SAVED_PER_POST} min par post, ${MINUTES_SAVED_PER_STORY} min par story`} />
-        {best ? (
-          <Card style={{ flex: 1, gap: 6, minHeight: 150 }} onPress={() => go({ name: 'published', postId: best.post.id })}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <PostThumb post={best.post} width={42} height={42} />
-              <StarIcon size={20} color={colors.orangeText} />
+      {/* Les réactions des clients : très parlant pour le commerçant, donc juste sous le nombre de posts. */}
+      <Card style={{ gap: 12 }}>
+        <View style={{ gap: 2 }}>
+          <Title size={20}>Vos clients ont aimé</Title>
+          <Body soft size={15}>Sur vos posts et stories {ofMonth(month)}, Instagram et Facebook réunis</Body>
+        </View>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <Reaction icon={<HeartIcon size={30} color={colors.orangeText} fill={colors.orange} />} value={likes} label="j'aime" connected={connected} />
+          <Reaction icon={<MessageIcon size={30} color={colors.orangeText} />} value={comments} label={comments !== null && comments > 1 ? 'commentaires' : 'commentaire'} connected={connected} />
+        </View>
+      </Card>
+
+      {best ? (
+        <Card onPress={() => go({ name: 'published', postId: best.post.id })}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+            <PostThumb post={best.post} width={64} height={64} />
+            <View style={{ flex: 1, gap: 4 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <StarIcon size={18} color={colors.orangeText} />
+                <Body style={{ fontWeight: '700' }} size={16}>Votre meilleur post</Body>
+              </View>
+              <Text style={{ color: colors.orangeStrong, fontSize: 15, fontWeight: '700', fontFamily: fonts.body }}>{statsLine(best.stats)}</Text>
             </View>
-            <Body style={{ fontWeight: '700' }} size={15}>meilleur post</Body>
-            <Body soft size={15}>{statsLine(best.stats)}</Body>
-          </Card>
-        ) : (
-          <Tile icon={<StarIcon size={22} color={colors.orangeText} />} tone="orange" soon={!connected} value="—" label="meilleur post"
-            hint={connected ? 'Pas encore de réactions sur vos posts de ce mois.' : 'Connectez Instagram et Facebook pour savoir quel post vos clients préfèrent.'} />
-        )}
-      </View>
+          </View>
+        </Card>
+      ) : (
+        <Card>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+            <IconTile size={48} tone="orange"><StarIcon size={24} color={colors.orangeText} /></IconTile>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Body style={{ fontWeight: '700' }} size={16}>Votre meilleur post</Body>
+              <Body soft size={15}>{connected ? 'Pas encore de réactions sur vos posts de ce mois.' : 'Connectez Instagram et Facebook pour savoir quel post vos clients préfèrent.'}</Body>
+            </View>
+          </View>
+        </Card>
+      )}
+
+      <Card>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+          <IconTile size={48}><ClockIcon size={24} color={colors.green} /></IconTile>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Body style={{ fontWeight: '700' }} size={16}>{durationLabel(s.minutesSaved)} de temps gagné</Body>
+            <Body soft size={15}>environ {MINUTES_SAVED_PER_POST} min par post, {MINUTES_SAVED_PER_STORY} min par story</Body>
+          </View>
+        </View>
+      </Card>
 
       {/* Le chiffre qui fait plaisir : tous les clients touchés, posts et stories réunis. Jamais estimé. */}
       <Card style={{ gap: 12 }}>
@@ -212,6 +245,21 @@ function MonthArrow({ label, a11y, enabled, onPress }: { label: string; a11y: st
       style={{ width: 52, height: 52, borderRadius: 26, borderWidth: 1.5, borderColor: enabled ? colors.green : glass.line, backgroundColor: glass.bgStrong, alignItems: 'center', justifyContent: 'center', opacity: enabled ? 1 : 0.4 }}>
       <Text style={{ color: enabled ? colors.green : colors.textSoft, fontSize: 26, fontWeight: '700', lineHeight: 28 }}>{label}</Text>
     </Pressable>
+  );
+}
+
+/** Un total de réactions du mois (j'aime ou commentaires), en orange. */
+function Reaction({ icon, value, label, connected }: { icon: React.ReactNode; value: number | null; label: string; connected: boolean }) {
+  return (
+    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.orangeSoft, borderRadius: radius.sm + 2, padding: 12 }}>
+      {icon}
+      <View style={{ flex: 1 }}>
+        {value !== null
+          ? <Title size={28} style={{ color: colors.orangeText }}>{formatCount(value)}</Title>
+          : <Text style={{ color: colors.orangeText, fontSize: 22, fontWeight: '700', fontFamily: fonts.body }}>{connected ? '—' : 'Bientôt'}</Text>}
+        <Text style={{ color: colors.orangeText, fontSize: 15, fontWeight: '600', fontFamily: fonts.body }}>{label}</Text>
+      </View>
+    </View>
   );
 }
 
