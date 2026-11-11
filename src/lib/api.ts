@@ -5,6 +5,7 @@
  * Si le serveur, l'IA ou Meta ne sont pas branchés, on lève NotConfiguredError
  * et l'écran l'affiche clairement.
  */
+import type { StatsMap } from './stats';
 import * as Crypto from 'expo-crypto';
 import { supabase } from './supabase';
 import type { Business, GeneratedPost, Platform, PostIdea, PublicationResult, SocialConnection, Tone } from './types';
@@ -509,6 +510,13 @@ export async function publishPost(input: PublishInput): Promise<PublicationResul
     idempotency_key: input.idempotencyKey,
   });
   return res.publications;
+}
+
+/** Likes, commentaires, vues et personnes touchées des posts publiés (90 derniers jours), lus chez Meta. */
+export async function fetchPostStats(): Promise<StatsMap> {
+  if (!supabase) return {};
+  const res = await callFunction<{ stats: StatsMap }>('post-stats', {});
+  return res.stats ?? {};
 }
 
 export interface PublishStoryInput {

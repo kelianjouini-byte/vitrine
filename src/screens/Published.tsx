@@ -5,10 +5,12 @@ import { AlertIcon, CheckIcon, FacebookIcon, InstagramIcon, SendIcon } from '../
 import { colors } from '../lib/theme';
 import { useApp } from '../lib/store';
 import type { PublicationResult } from '../lib/types';
+import { hasStats, type Stats } from '../lib/stats';
+import { StatsRow } from './Posts';
 
 /** Écran 3 : résultat RÉEL de la publication, réseau par réseau. Jamais de faux succès. */
 export function Published({ postId }: { postId: string }) {
-  const { posts, go, team } = useApp();
+  const { posts, go, team, stats } = useApp();
   const post = posts.find((p) => p.id === postId);
   if (!post) return null;
   if (post.reviewState === 'pending') return <SentToPatron postId={postId} patron={team?.ownerFirstName} />;
@@ -52,7 +54,7 @@ export function Published({ postId }: { postId: string }) {
         </Body>
       </View>
 
-      {pubs.map((p) => <PublicationRow key={p.platform} p={p} />)}
+      {pubs.map((p) => <PublicationRow key={p.platform} p={p} stats={stats[post.id]?.[p.platform]} />)}
 
       {notConfigured && (
         <Notice tone="orange" title="Bientôt disponible" text="Dès que le compte Meta de Vitrine sera configuré et vos réseaux connectés, ce bouton publiera pour de vrai." />
@@ -64,7 +66,7 @@ export function Published({ postId }: { postId: string }) {
   );
 }
 
-function PublicationRow({ p }: { p: PublicationResult }) {
+function PublicationRow({ p, stats }: { p: PublicationResult; stats?: Stats }) {
   const ig = p.platform === 'instagram';
   const label = { published: 'En ligne', failed: 'Échec', not_configured: 'Non configuré', pending: 'En cours' }[p.status];
   const tone = ({ published: 'green', failed: 'red', not_configured: 'orange', pending: 'grey' } as const)[p.status];
@@ -80,6 +82,7 @@ function PublicationRow({ p }: { p: PublicationResult }) {
         </View>
         <Badge text={label} tone={tone} />
       </View>
+      {stats && hasStats(stats) ? <StatsRow s={stats} /> : null}
       {p.url ? <Button title="Voir la publication" kind="ghost" onPress={() => Linking.openURL(p.url!)} /> : null}
     </Card>
   );
