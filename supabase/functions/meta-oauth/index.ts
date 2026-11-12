@@ -12,14 +12,15 @@ import { decrypt, encrypt, hmac } from '../_shared/crypto.ts';
 import { graph, metaConfig, metaReady, META_SCOPES, GRAPH_VERSION } from '../_shared/meta.ts';
 
 const callbackUrl = () => `${Deno.env.get('SUPABASE_URL')}/functions/v1/meta-oauth`;
-/** Version web de Vitrine (GitHub Pages par défaut). Seule adresse https acceptée pour le retour. */
-const WEB_APP_URL = () => env('PUBLIC_APP_URL') ?? 'https://kelianjouini-byte.github.io/vitrine/';
+/** Version web de Vitrine (vitrineappli.fr ; l'ancienne adresse GitHub reste acceptée). Seules adresses https acceptées pour le retour. */
+const WEB_APP_URLS = () => [env('PUBLIC_APP_URL'), 'https://vitrineappli.fr/', 'https://kelianjouini-byte.github.io/vitrine/']
+  .filter(Boolean).map((u) => (u as string).replace(/\/?$/, '/'));
 
 /** Retour autorisé : l'appli (vitrine://), Expo Go en test (exp://), la version web officielle ou un test local. */
 function allowedRedirect(r: string): boolean {
   if (/^(vitrine|exp):\/\//.test(r)) return true;
   if (/^http:\/\/localhost(:\d+)?\//.test(r)) return true;
-  return r.startsWith(WEB_APP_URL());
+  return WEB_APP_URLS().some((u) => r.startsWith(u));
 }
 
 Deno.serve(handler(async (req) => {

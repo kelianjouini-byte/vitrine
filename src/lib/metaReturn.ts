@@ -1,7 +1,7 @@
 /**
  * Retour de la connexion Meta sur la version web.
  * Sur le web, Vitrine ouvre la page Facebook dans le MÊME onglet (une fenêtre à part est souvent
- * bloquée par le navigateur). Meta revient ensuite sur « …/vitrine/app/meta-connected?status=… » :
+ * bloquée par le navigateur). Meta revient ensuite sur « …/app/meta-connected?status=… » :
  * au démarrage, on garde ce résultat de côté, on nettoie l'adresse, et l'écran Réglages l'affiche.
  */
 import { Platform } from 'react-native';

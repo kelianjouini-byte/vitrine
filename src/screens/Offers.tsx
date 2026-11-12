@@ -17,12 +17,12 @@ import {
 } from '../lib/billing';
 import { loadPendingCode, normalizeCode, REFEREE_DISCOUNT_CENTS, REFEREE_DISCOUNT_MONTHS } from '../lib/referral';
 
-const SITE = 'https://kelianjouini-byte.github.io/vitrine/app';
+const SITE = 'https://vitrineappli.fr/app';
 
 /** Adresse où Stripe renvoie le commerçant après le paiement. */
 function returnUrl(): string {
   if (RNPlatform.OS === 'web' && typeof window !== 'undefined') {
-    const base = window.location.pathname.replace(/[^/]*$/, ''); // « /vitrine/app/ »
+    const base = window.location.pathname.replace(/[^/]*$/, ''); // « /app/ »
     return `${window.location.origin}${base}abonnement`;
   }
   return `${SITE}/abonnement`;

@@ -12,7 +12,7 @@ import { findReferrer, refereeCoupon } from '../_shared/referralServer.ts';
 
 /** On ne renvoie le commerçant que vers l'appli Vitrine (jamais vers une adresse donnée par un tiers). */
 function safeReturn(url: unknown): string {
-  const allowed = [env('PUBLIC_APP_URL'), env('PUBLIC_SITE_URL'), 'https://kelianjouini-byte.github.io/vitrine'].filter(Boolean) as string[];
+  const allowed = [env('PUBLIC_APP_URL'), env('PUBLIC_SITE_URL'), 'https://vitrineappli.fr/app', 'https://kelianjouini-byte.github.io/vitrine'].filter(Boolean) as string[];
   const u = typeof url === 'string' ? url : '';
   if (allowed.some((a) => u.startsWith(a.replace(/\/$/, '') + '/'))) return u;
   return `${(env('PUBLIC_APP_URL') ?? allowed[0]).replace(/\/$/, '')}/abonnement`;
