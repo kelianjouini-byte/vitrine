@@ -73,6 +73,8 @@ Créer une clé sur https://platform.openai.com → API keys, ajouter un moyen d
 
 Offres : **15 jours offerts** (sans carte bancaire), puis **Mensuel 39 €/mois** (sans engagement) ou **Annuel 29 €/mois** (engagement 1 an, payé chaque mois). Les montants vivent dans la table `plans`.
 
+**Offre fondateur** (12 nov. 2026) : 29 €/mois sans engagement pour les 15 premières boutiques (`plans.places`), prix gardé tant que l'abonnement continue, boutique en plus 15 €. Tant qu'il reste des places, l'appli propose Fondateur + Mensuel (l'Annuel est masqué). Les places prises = abonnements `founder` en cours ; le webhook donne un numéro (`subscriptions.founder_number`). Pour fermer l'offre : `update public.plans set active = false where id = 'founder';` (les fondateurs la gardent).
+
 - Écran « Mon abonnement » (Réglages) → fonction `billing` → page de paiement Stripe Checkout (carte enregistrée, 1er prélèvement à la fin de l'essai).
 - Fin de l'essai sans abonnement : l'appli n'affiche plus que « Mon abonnement » (bilan des 15 jours + offres + suppression du compte), et le serveur refuse d'écrire ou de publier (`_shared/access.ts`, erreur `trial_over`). Seulement quand `STRIPE_SECRET_KEY` est défini. Accès offert à la main : `status = 'free'` dans `subscriptions`.
 - Bilan de l'essai (3 jours avant la fin) : posts et stories vraiment publiés, temps gagné, et projection sur un mois au même rythme.

@@ -5,7 +5,7 @@
 // Les changements d'état arrivent ensuite par le webhook Stripe (fonction stripe-webhook).
 import { handler, json, HttpError, env } from '../_shared/http.ts';
 import { requireMerchant, requirePatron } from '../_shared/db.ts';
-import { accessState, isLive, isPlanId, PLAN_IDS, stripeTrialEnd, trialEndsAt } from '../_shared/billing.ts';
+import { accessState, founderOffer, isLive, isPlanId, PLAN_IDS, stripeTrialEnd, trialEndsAt } from '../_shared/billing.ts';
 import { extraShopPriceFor, portalConfiguration, priceFor, stripe, stripeConfigured } from '../_shared/stripe.ts';
 import { companyMonthlyCents, isPatron } from '../_shared/team.ts';
 import { findReferrer, refereeCoupon } from '../_shared/referralServer.ts';
@@ -27,11 +27,19 @@ Deno.serve(handler(async (req) => {
   const { data: extraShops } = await db.from('businesses').select('id, business_name, city').eq('main_business_id', business.id).order('created_at');
   const extraCount = extraShops?.length ?? 0;
 
+  /** Offre fondateur : places restantes (abonnements fondateur en cours) et droit de cette boutique à la prendre. */
+  async function founder() {
+    const { data: plan } = await db.from('plans').select('active, places').eq('id', 'founder').maybeSingle();
+    const { count } = await db.from('subscriptions').select('business_id', { count: 'exact', head: true })
+      .eq('plan', 'founder').not('stripe_subscription_id', 'is', null).in('status', ['trialing', 'active', 'past_due', 'unpaid', 'paused']);
+    return founderOffer(plan, count ?? 0, sub);
+  }
+
   if (body.action === 'status') {
     const access = accessState(business.created_at, sub);
     // Un employé n'a besoin que de savoir si l'appli est ouverte (il ne voit ni les prix ni le paiement).
     if (!isPatron(member.role)) {
-      return json({ configured: stripeConfigured(), access, role: member.role, trialStartedAt: business.created_at, trialEndsAt: trialEndsAt(business.created_at).toISOString(), plans: [], subscription: null, shops: [] });
+      return json({ configured: stripeConfigured(), access, role: member.role, trialStartedAt: business.created_at, trialEndsAt: trialEndsAt(business.created_at).toISOString(), plans: [], subscription: null, shops: [], founder: null });
     }
     const { data: plans } = await db.from('plans').select('id, name, monthly_price_cents, commitment_months, extra_shop_price_cents').in('id', PLAN_IDS);
     const current = (plans ?? []).find((p) => p.id === sub?.plan);
@@ -43,11 +51,13 @@ Deno.serve(handler(async (req) => {
       trialEndsAt: trialEndsAt(business.created_at).toISOString(),
       plans: plans ?? [],
       shops: [{ id: business.id, name: `${business.business_name} · ${business.city}` }, ...(extraShops ?? []).map((s) => ({ id: s.id, name: `${s.business_name} · ${s.city}` }))],
+      founder: await founder(),
       monthlyTotalCents: current ? companyMonthlyCents(current.monthly_price_cents, current.extra_shop_price_cents, 1 + extraCount) : null,
       subscription: sub && sub.stripe_subscription_id
         ? {
           plan: sub.plan, status: sub.status, currentPeriodEnd: sub.current_period_end,
           cancelAtPeriodEnd: sub.cancel_at_period_end, trialEnd: sub.trial_end, commitmentEndsAt: sub.commitment_ends_at,
+          founderNumber: sub.founder_number ?? null,
         }
         : null,
     });
@@ -59,8 +69,11 @@ Deno.serve(handler(async (req) => {
     if (!isPlanId(body.plan)) throw new HttpError(400, 'bad_plan', 'Offre inconnue.');
     if (!user.email || user.is_anonymous) throw new HttpError(400, 'account_not_protected', "Ajoutez d'abord votre e-mail pour protéger votre compte.");
     if (sub && isLive(sub.status) && sub.stripe_subscription_id) throw new HttpError(409, 'already_subscribed', 'Vous avez déjà un abonnement.');
-    const { data: plan } = await db.from('plans').select('monthly_price_cents, extra_shop_price_cents').eq('id', body.plan).single();
-    if (!plan) throw new HttpError(400, 'bad_plan', 'Offre inconnue.');
+    const { data: plan } = await db.from('plans').select('monthly_price_cents, extra_shop_price_cents, active').eq('id', body.plan).single();
+    if (!plan || !plan.active) throw new HttpError(400, 'bad_plan', "Cette offre n'est plus proposée.");
+    if (body.plan === 'founder' && !(await founder()).eligible) {
+      throw new HttpError(409, 'founder_full', "Les places de l'offre fondateur sont toutes prises. Choisissez l'offre Mensuel ou Annuel.");
+    }
     const price = await priceFor(body.plan, plan.monthly_price_cents);
     // Boutiques déjà ajoutées (ex. abonnement repris après une résiliation) : une ligne « Boutique en plus » × leur nombre.
     const extraLine = extraCount ? [{ price: await extraShopPriceFor(body.plan, plan.extra_shop_price_cents), quantity: extraCount }] : [];

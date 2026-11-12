@@ -3,7 +3,7 @@
 import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import { env, HttpError } from './http.ts';
 import type { Member } from './db.ts';
-import { isLive, type PlanId } from './billing.ts';
+import { isLive, isPlanId, type PlanId } from './billing.ts';
 import { extraShopPriceFor, stripe } from './stripe.ts';
 import { makeLoginCode } from './team.ts';
 
@@ -62,9 +62,9 @@ export async function syncExtraShops(db: SupabaseClient, companyId: string) {
   if (!sub?.stripe_subscription_id || !isLive(sub.status)) return;
   const { count } = await db.from('businesses').select('id', { count: 'exact', head: true }).eq('main_business_id', companyId);
   const extra = count ?? 0;
-  const plan: PlanId = sub.plan === 'annual' ? 'annual' : 'monthly';
+  const plan: PlanId = isPlanId(sub.plan) ? sub.plan : 'monthly';
   const { data: p } = await db.from('plans').select('extra_shop_price_cents').eq('id', plan).single();
-  const price = await extraShopPriceFor(plan, p?.extra_shop_price_cents ?? (plan === 'annual' ? 1500 : 1900));
+  const price = await extraShopPriceFor(plan, p?.extra_shop_price_cents ?? (plan === 'monthly' ? 1900 : 1500));
   const s = await stripe<{ items: { data: { id: string; price: { id: string; lookup_key?: string | null }; quantity: number }[] } }>('GET', `subscriptions/${sub.stripe_subscription_id}`);
   const item = s.items.data.find((i) => i.price.id === price || (i.price.lookup_key ?? '').startsWith('vitrine_boutique_'));
   if (extra === 0) {

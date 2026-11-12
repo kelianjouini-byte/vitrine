@@ -3,14 +3,45 @@
  * 15 jours offerts, puis « Mensuel » (sans engagement) ou « Annuel » (engagement 12 mois, payé chaque mois).
  */
 
-export type PlanId = 'monthly' | 'annual';
-export const PLAN_IDS: PlanId[] = ['monthly', 'annual'];
+export type PlanId = 'monthly' | 'annual' | 'founder';
+export const PLAN_IDS: PlanId[] = ['monthly', 'annual', 'founder'];
 /** Essai gratuit (décision de Kelian, 5 nov. 2026) : 15 jours, sans carte bancaire. */
 export const TRIAL_DAYS = 15;
 const DAY = 86_400_000;
 
 export function isPlanId(v: unknown): v is PlanId {
-  return v === 'monthly' || v === 'annual';
+  return v === 'monthly' || v === 'annual' || v === 'founder';
+}
+
+/**
+ * Offre fondateur (décision de Kelian, 12 nov. 2026) : 29 € par mois sans engagement, réservée aux premières boutiques
+ * (nombre de places dans la table plans). Le prix est gardé tant que l'abonnement continue.
+ * Kelian ferme l'offre quand il veut (plans.active = false) : ceux qui l'ont déjà la gardent.
+ * Une boutique qui a déjà eu l'offre puis a arrêté ne peut plus la reprendre.
+ */
+export interface FounderOffer {
+  /** Offre ouverte par Kelian. */
+  open: boolean;
+  places: number;
+  /** Places prises : abonnements fondateur en cours. */
+  taken: number;
+  left: number;
+  /** Cette boutique peut la choisir maintenant. */
+  eligible: boolean;
+  /** Numéro de boutique fondatrice (1, 2, 3…) une fois abonnée. */
+  number: number | null;
+}
+
+export function founderOffer(
+  plan: { active?: boolean | null; places?: number | null } | null | undefined,
+  taken: number,
+  mine: { plan?: string | null; status?: string | null; stripe_subscription_id?: string | null; founder_number?: number | null } | null | undefined,
+): FounderOffer {
+  const places = Math.max(0, plan?.places ?? 0);
+  const open = Boolean(plan?.active) && places > 0;
+  const left = open ? Math.max(0, places - taken) : 0;
+  const hadIt = mine?.founder_number != null || mine?.plan === 'founder';
+  return { open, places, taken, left, eligible: open && left > 0 && !hadIt, number: mine?.founder_number ?? null };
 }
 
 /** Fin de l'essai gratuit : 15 jours après la création de la boutique. */
@@ -56,7 +87,7 @@ const iso = (s?: number | null) => (s ? new Date(s * 1000).toISOString() : null)
 
 /** Ligne de la table subscriptions à partir d'un abonnement Stripe. */
 export function subscriptionRow(sub: StripeSubscription) {
-  const plan: PlanId = sub.metadata?.plan === 'annual' ? 'annual' : 'monthly';
+  const plan: PlanId = isPlanId(sub.metadata?.plan) ? sub.metadata!.plan as PlanId : 'monthly';
   const periodEnd = sub.current_period_end ?? sub.items?.data?.[0]?.current_period_end;
   // L'engagement d'un an compte 12 mois payés : il commence à la fin de l'essai gratuit.
   const start = sub.trial_end ?? sub.start_date;

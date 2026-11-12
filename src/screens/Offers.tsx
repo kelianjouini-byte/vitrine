@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Platform as RNPlatform, Pressable, ScrollView, Text, View } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
-import { BackButton, Badge, Body, Button, Card, Field, Label, Notice, Title } from '../components/ui';
+import { BackButton, Badge, Body, Button, Card, Field, IconTile, Label, Notice, Title } from '../components/ui';
+import { StarIcon } from '../components/icons';
 import { EmailPasswordForm } from '../components/AccountForms';
 import { DeleteAccount } from '../components/DeleteAccount';
 import { TrialReportCard } from '../components/TrialReportCard';
@@ -13,7 +14,7 @@ import {
   FriendlyError, NotConfiguredError, protectAccount, type AccountState,
 } from '../lib/api';
 import {
-  daysLeft, euros, frenchDate, isLiveStatus, offersFrom, statusText, TRIAL_DAYS, TRIAL_REPORT_DAYS_BEFORE, yearlySaving, type BillingStatus, type Offer, type PlanId,
+  daysLeft, euros, frenchDate, isLiveStatus, offersFrom, offersToShow, offerTitle, placesLeftText, statusText, TRIAL_DAYS, TRIAL_REPORT_DAYS_BEFORE, yearlySaving, type BillingStatus, type FounderOffer, type Offer, type PlanId,
 } from '../lib/billing';
 import { loadPendingCode, normalizeCode, REFEREE_DISCOUNT_CENTS, REFEREE_DISCOUNT_MONTHS } from '../lib/referral';
 
@@ -86,6 +87,8 @@ export function Offers({ payment, blocked }: { payment?: 'ok' | 'annule'; blocke
       setAccount(await accountState());
       const s = await billingStatus();
       setStatus(s);
+      // Offre fondateur disponible : elle est choisie d'avance. Plus de place : on revient à l'Annuel.
+      setChoice((c) => (s.founder?.eligible ? (c === 'annual' ? 'founder' : c) : c === 'founder' ? 'annual' : c));
       if (!s.configured) setNotReady(true);
     } catch (e) {
       if (e instanceof NotConfiguredError) setNotReady(true);
@@ -113,7 +116,11 @@ export function Offers({ payment, blocked }: { payment?: 'ok' | 'annule'; blocke
     } catch (e) {
       if (e instanceof AccountNotProtectedError) setAccount({ kind: 'guest' });
       else if (e instanceof NotConfiguredError) setNotReady(true);
-      else setError(e instanceof FriendlyError ? e.message : 'Réessayez dans un instant.');
+      else {
+        setError(e instanceof FriendlyError ? e.message : 'Réessayez dans un instant.');
+        // Par exemple la dernière place fondateur vient d'être prise : on relit les offres.
+        refresh();
+      }
     } finally {
       setBusy(false);
     }
@@ -124,7 +131,10 @@ export function Offers({ payment, blocked }: { payment?: 'ok' | 'annule'; blocke
   const live = sub && isLiveStatus(sub.status);
   const trialEnd = status?.trialEndsAt ?? null;
   const trialDays = trialEnd ? daysLeft(trialEnd) : null;
-  const chosen = offers.find((o) => o.id === choice)!;
+  const founder = status?.founder ?? null;
+  const shown = offersToShow(offers, founder);
+  const chosen = shown.find((o) => o.id === choice) ?? shown[0];
+  const monthlyCents = offers.find((o) => o.id === 'monthly')?.priceCents ?? 3900;
 
   return (
     <ScrollView contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 48 }}>
@@ -152,7 +162,11 @@ export function Offers({ payment, blocked }: { payment?: 'ok' | 'annule'; blocke
         </>
       ) : live && sub ? (
         <Card style={{ gap: 12 }}>
+          {sub.plan === 'founder' && <FounderBadge number={sub.founderNumber ?? null} />}
           <Notice {...statusText(sub, offers)} />
+          {sub.plan === 'founder' && (
+            <Body soft size={15}>Sans engagement. Ce prix reste le vôtre tant que vous restez abonné. Si vous arrêtez puis revenez plus tard, le prix fondateur ne sera plus disponible.</Body>
+          )}
           {sub.plan === 'annual' && sub.commitmentEndsAt && new Date(sub.commitmentEndsAt) > new Date() && (
             <Body soft size={15}>Engagement d'un an jusqu'au {frenchDate(sub.commitmentEndsAt)}. Ensuite, l'abonnement continue au même prix, mois par mois.</Body>
           )}
@@ -176,8 +190,11 @@ export function Offers({ payment, blocked }: { payment?: 'ok' | 'annule'; blocke
           )}
 
           <Label>Choisissez votre offre</Label>
-          {offers.map((o) => (
-            <OfferCard key={o.id} offer={o} selected={choice === o.id} saving={o.id === 'annual' ? yearlySaving(offers) : 0} onPress={() => setChoice(o.id)} />
+          {shown.map((o) => (
+            <OfferCard
+              key={o.id} offer={o} selected={chosen.id === o.id} saving={o.id === 'annual' ? yearlySaving(offers) : 0}
+              founder={o.id === 'founder' ? founder : null} normalCents={monthlyCents} onPress={() => setChoice(o.id)}
+            />
           ))}
           <Body soft size={15}>Tout est compris dans les deux offres : les textes écrits par l'IA, la publication sur Instagram et Facebook, les fêtes de votre métier, le planning et le bilan du mois.</Body>
 
@@ -224,7 +241,7 @@ export function Offers({ payment, blocked }: { payment?: 'ok' | 'annule'; blocke
                   <Button title="Vérifier le code" kind="secondary" loading={checking} onPress={() => { verifyCode().catch(() => {}); }} />
                 ) : null}
               </Card>
-              <Button title={`Choisir l'offre ${chosen.name}`} loading={busy} onPress={() => run(async () => checkoutUrl(choice, returnUrl(), await verifyCode()))} />
+              <Button title={chosen.id === 'founder' ? "Choisir l'offre fondateur" : `Choisir l'offre ${chosen.name}`} loading={busy} onPress={() => run(async () => checkoutUrl(choice, returnUrl(), await verifyCode()))} />
               <Body soft size={15} center>
                 {trialEnd && trialDays ? `Vous ne payez rien avant le ${frenchDate(trialEnd)}. ` : ''}Paiement sécurisé par carte bancaire avec Stripe.
               </Body>
@@ -241,26 +258,68 @@ export function Offers({ payment, blocked }: { payment?: 'ok' | 'annule'; blocke
   );
 }
 
-function OfferCard({ offer, selected, saving, onPress }: { offer: Offer; selected: boolean; saving: number; onPress: () => void }) {
+function OfferCard({ offer, selected, saving, founder, normalCents, onPress }: {
+  offer: Offer; selected: boolean; saving: number; founder?: FounderOffer | null; normalCents: number; onPress: () => void;
+}) {
   return (
     <Pressable onPress={onPress} accessibilityRole="radio" accessibilityState={{ selected }}>
-      <Card style={{ gap: 6, borderWidth: selected ? 2.5 : 1, borderColor: selected ? colors.green : 'rgba(36,51,43,0.12)' }}>
+      <Card style={{
+        gap: 6, borderWidth: selected ? 2.5 : 1, borderColor: selected ? colors.green : 'rgba(36,51,43,0.12)',
+        ...(founder ? { backgroundColor: 'rgba(252,239,217,0.75)' } : null),
+      }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <View style={{ width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: selected ? colors.green : colors.textSoft, alignItems: 'center', justifyContent: 'center' }}>
             {selected && <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: colors.green }} />}
           </View>
-          <Body style={{ fontWeight: '700', flex: 1 }} size={20}>{offer.name}</Body>
+          <Body style={{ fontWeight: '700', flex: 1 }} size={20}>{offerTitle(offer)}</Body>
           {saving > 0 && <Badge tone="orange" text={`${euros(saving)} d'économie par an`} />}
+          {founder && <Badge tone="orange" text={placesLeftText(founder.left)} />}
         </View>
         <Text style={{ fontFamily: fonts.title, fontSize: 32, fontWeight: '600', color: colors.text }}>
           {euros(offer.priceCents)}<Text style={{ fontFamily: fonts.body, fontSize: 17, fontWeight: '500', color: colors.textSoft }}> par mois</Text>
+          {founder && normalCents > offer.priceCents && (
+            <Text style={{ fontFamily: fonts.body, fontSize: 18, fontWeight: '500', color: colors.textSoft, textDecorationLine: 'line-through' }}>  {euros(normalCents)}</Text>
+          )}
         </Text>
         <Body soft size={15}>
-          {offer.commitmentMonths ? `Engagement ${offer.commitmentMonths === 12 ? "d'un an" : `de ${offer.commitmentMonths} mois`}, payé chaque mois.` : 'Sans engagement. Vous arrêtez quand vous voulez.'}
+          {founder
+            ? 'Sans engagement. Ce prix reste le vôtre tant que vous restez abonné.'
+            : offer.commitmentMonths ? `Engagement ${offer.commitmentMonths === 12 ? "d'un an" : `de ${offer.commitmentMonths} mois`}, payé chaque mois.` : 'Sans engagement. Vous arrêtez quand vous voulez.'}
         </Body>
+        {founder && <PlacesBar founder={founder} />}
         {offer.extraShopCents > 0 && <Body soft size={15}>Plusieurs boutiques : {euros(offer.extraShopCents)} par mois pour chaque boutique en plus.</Body>}
       </Card>
     </Pressable>
+  );
+}
+
+/** Compteur de l'offre fondateur : une pastille par place, orange quand elle est prise. */
+function PlacesBar({ founder }: { founder: FounderOffer }) {
+  const taken = Math.min(founder.places, founder.places - founder.left);
+  return (
+    <View style={{ gap: 6, marginTop: 4 }} accessible accessibilityLabel={`${taken} places prises sur ${founder.places}`}>
+      <View style={{ flexDirection: 'row', gap: 4 }}>
+        {Array.from({ length: founder.places }, (_, i) => (
+          <View key={i} style={{ flex: 1, height: 10, borderRadius: 5, backgroundColor: i < taken ? colors.orange : 'rgba(36,51,43,0.1)' }} />
+        ))}
+      </View>
+      <Body soft size={14}>
+        Limitée aux {founder.places} premières boutiques.{taken > 0 ? ` ${taken === 1 ? '1 est déjà prise' : `${taken} sont déjà prises`}.` : ''}
+      </Body>
+    </View>
+  );
+}
+
+/** Après le paiement : « Boutique fondatrice n°7 ». */
+function FounderBadge({ number }: { number: number | null }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+      <IconTile size={44} tone="orange"><StarIcon size={22} color={colors.orangeText} /></IconTile>
+      <View style={{ flex: 1 }}>
+        <Body style={{ fontWeight: '700' }} size={18}>{number ? `Boutique fondatrice n°${number}` : 'Boutique fondatrice'}</Body>
+        <Body soft size={15}>Merci d'être parmi les premières.</Body>
+      </View>
+    </View>
   );
 }
 
