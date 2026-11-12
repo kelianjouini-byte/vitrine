@@ -22,7 +22,7 @@ import { admin, requireMerchant, requirePatron } from '../_shared/db.ts';
 import { accessState } from '../_shared/billing.ts';
 import { requireAccess } from '../_shared/access.ts';
 import { metaConfig } from '../_shared/meta.ts';
-import { readImagePaths, postImagePaths } from '../_shared/photos.ts';
+import { readImagePaths, readReelPaths, postImagePaths } from '../_shared/photos.ts';
 import { readPlatforms } from '../_shared/publish.ts';
 import { publishSavedPost, publishSavedStory } from '../_shared/publishCore.ts';
 import { decryptCode, encryptCode, newLoginCode, strongPassword, syncExtraShops } from '../_shared/teamServer.ts';
@@ -274,16 +274,21 @@ async function submit({ db, userId, business, company }: Ctx, body: Record<strin
   const caption = str(body.caption, 2000);
   const hashtags = (Array.isArray(body.hashtags) ? body.hashtags : []).map(String).slice(0, 30);
   if (!UUID.test(id) || !caption) throw new HttpError(400, 'bad_request', 'Post incomplet.');
-  const paths = readImagePaths(body, userId, false);
+  const reel = readReelPaths(body, userId);
+  const paths = reel ? [] : readImagePaths(body, userId, false);
   const { data: existing } = await db.from('posts').select('id, business_id, status, created_by').eq('id', id).maybeSingle();
   if (existing && (existing.business_id !== business.id || existing.status === 'published' || existing.status === 'publishing')) {
     throw new HttpError(409, 'already_done', 'Ce post est déjà publié.');
   }
-  const fields = { ...base, kind: 'post', instagram_caption: caption, facebook_caption: caption, hashtags, ...(paths.length ? { image_url: paths[0], image_urls: paths } : {}) };
+  // Reel : la vidéo dans image_url, son image (vignette) dans image_urls.
+  const media = reel
+    ? { media_type: 'video', image_url: reel.video, image_urls: reel.cover ? [reel.cover] : [] }
+    : paths.length ? { media_type: 'photo', image_url: paths[0], image_urls: paths } : {};
+  const fields = { ...base, kind: 'post', instagram_caption: caption, facebook_caption: caption, hashtags, ...media };
   if (existing) {
     await db.from('posts').update({ ...fields, created_by: existing.created_by ?? userId }).eq('id', id);
   } else {
-    if (!paths.length) throw new HttpError(400, 'bad_image', 'Ajoutez au moins une photo.');
+    if (!paths.length && !reel) throw new HttpError(400, 'bad_image', 'Ajoutez au moins une photo.');
     const { error } = await db.from('posts').insert({ id, ...fields, created_by: userId });
     if (error) throw new HttpError(500, 'db', 'Le post n\'a pas pu être envoyé. Réessayez.');
   }

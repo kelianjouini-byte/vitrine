@@ -7,7 +7,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { colors, fonts } from '../lib/theme';
-import { BackIcon, RefreshIcon } from './icons';
+import { BackIcon, ImageIcon, RefreshIcon } from './icons';
+import { recordingMimeType } from '../lib/videoMusic';
 
 type Props = {
   maxSeconds: number;
@@ -15,16 +16,13 @@ type Props = {
   onCancel: () => void;
   /** Caméra refusée ou absente : on propose la galerie à la place. */
   onError: (message: string) => void;
+  /** Bouton « Mes vidéos » : prendre une vidéo déjà filmée. */
+  onLibrary?: () => void;
 };
 
-/** Le premier format que le navigateur sait enregistrer (mp4 sur iPhone, webm ailleurs). */
-function pickMimeType(): string | undefined {
-  const MR = (globalThis as { MediaRecorder?: typeof MediaRecorder }).MediaRecorder;
-  if (!MR) return undefined;
-  return ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm'].find((t) => MR.isTypeSupported(t));
-}
+const pickMimeType = recordingMimeType;
 
-export function WebVideoRecorder({ maxSeconds, onDone, onCancel, onError }: Props) {
+export function WebVideoRecorder({ maxSeconds, onDone, onCancel, onError, onLibrary }: Props) {
   const [facing, setFacing] = useState<'environment' | 'user'>('environment');
   const [recording, setRecording] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -107,10 +105,15 @@ export function WebVideoRecorder({ maxSeconds, onDone, onCancel, onError }: Prop
   const left = maxSeconds - elapsed;
   return (
     <View style={{ flex: 1, backgroundColor: '#000', overflow: 'hidden' }}>
-      {React.createElement('video', {
-        ref: videoEl, muted: true, autoPlay: true, playsInline: true,
-        style: { width: '100%', height: '100%', objectFit: 'cover', transform: facing === 'user' ? 'scaleX(-1)' : undefined },
-      })}
+      {/* Cadre vertical 9:16 : exactement ce qui sera publié en Reel ou en story. */}
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <View style={{ height: '100%', maxWidth: '100%', aspectRatio: 9 / 16, overflow: 'hidden', borderRadius: 18 }}>
+          {React.createElement('video', {
+            ref: videoEl, muted: true, autoPlay: true, playsInline: true,
+            style: { width: '100%', height: '100%', objectFit: 'cover', transform: facing === 'user' ? 'scaleX(-1)' : undefined },
+          })}
+        </View>
+      </View>
 
       {/* Haut : retour, durée, changer de caméra */}
       <View style={{ position: 'absolute', top: 16, left: 16, right: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -118,14 +121,21 @@ export function WebVideoRecorder({ maxSeconds, onDone, onCancel, onError }: Prop
         {recording && (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6 }}>
             <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors.red }} />
-            <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700', fontFamily: fonts.body }}>{`0:${String(elapsed).padStart(2, '0')}`}</Text>
+            <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700', fontFamily: fonts.body }}>{`${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, '0')}`}</Text>
           </View>
         )}
         <RoundButton a11y="Changer de caméra" onPress={() => setFacing((f) => (f === 'environment' ? 'user' : 'environment'))} disabled={recording}><RefreshIcon size={22} color="#fff" /></RoundButton>
       </View>
 
-      {/* Bas : le gros bouton rouge */}
-      <View style={{ position: 'absolute', bottom: 28, left: 0, right: 0, alignItems: 'center', gap: 10 }}>
+      {/* Bas : le gros bouton rouge (et « Mes vidéos » à gauche) */}
+      {onLibrary && !recording && (
+        <Pressable onPress={onLibrary} accessibilityRole="button" accessibilityLabel="Choisir une vidéo déjà filmée"
+          style={{ position: 'absolute', bottom: 46, left: 20, alignItems: 'center', gap: 4, backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 16, paddingHorizontal: 12, paddingVertical: 8 }}>
+          <ImageIcon size={22} color="#fff" />
+          <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600', fontFamily: fonts.body }}>Mes vidéos</Text>
+        </Pressable>
+      )}
+      <View style={{ position: 'absolute', bottom: 28, left: 0, right: 0, alignItems: 'center', gap: 10 }} pointerEvents="box-none">
         <Text style={{ color: '#fff', fontSize: 15, fontFamily: fonts.body, opacity: 0.9 }}>
           {!ready ? 'Ouverture de la caméra...' : recording ? (left <= 10 ? `Encore ${left} secondes` : 'Appuyez pour arrêter') : `Appuyez pour filmer (${maxSeconds} s maximum)`}
         </Text>

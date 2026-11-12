@@ -11,6 +11,9 @@ import { Onboarding } from './src/screens/Onboarding';
 import { Home } from './src/screens/Home';
 import { Create } from './src/screens/Create';
 import { Story } from './src/screens/Story';
+import { Capture } from './src/screens/Capture';
+import { Choose } from './src/screens/Choose';
+import { Reel } from './src/screens/Reel';
 import { Published } from './src/screens/Published';
 import { Offers } from './src/screens/Offers';
 import { isBlocked } from './src/lib/billing';
@@ -80,9 +83,12 @@ function Root() {
         {route.name === 'settings' && <Settings />}
         {route.name === 'ideas' && <Ideas />}
         {route.name === 'report' && <Report key={route.month ? `${route.month.year}-${route.month.month}` : 'now'} initialMonth={route.month} />}
-        {route.name === 'create' && <Create key={(route.plannedFor ?? '') + (route.occasionId ?? route.idea?.title ?? 'new')} occasionId={route.occasionId} initialPhoto={route.photo} idea={route.idea} plannedFor={route.plannedFor} note={route.note} />}
-        {route.name === 'story' && <Story />}
-        {route.name === 'published' && <Published postId={route.postId} />}
+        {route.name === 'create' && <Create key={(route.plannedFor ?? '') + (route.occasionId ?? route.idea?.title ?? 'new')} occasionId={route.occasionId} initialPhoto={route.photo} idea={route.idea} plannedFor={route.plannedFor} note={route.note} alsoStory={route.alsoStory} />}
+        {route.name === 'story' && <Story initial={route.media} />}
+        {route.name === 'capture' && <Capture />}
+        {route.name === 'choose' && <Choose media={route.media} />}
+        {route.name === 'reel' && <Reel video={route.video} alsoStory={route.alsoStory} />}
+        {route.name === 'published' && <Published postId={route.postId} alsoId={route.alsoId} />}
         {route.name === 'offers' && <Offers payment={route.payment} />}
         {route.name === 'referral' && <Referral />}
         {route.name === 'review' && <Review />}

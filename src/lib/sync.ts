@@ -9,6 +9,9 @@ import type { Platform, Post, PostStatus, PublicationResult } from './types';
 export interface RemotePost {
   id: string;
   status: PostStatus;
+  /** « story » ou « post » ; un post en vidéo est un Reel. Absents : ancien serveur (post photo). */
+  kind?: 'post' | 'story';
+  media_type?: 'photo' | 'video';
   instagram_caption: string | null;
   hashtags: string[] | null;
   image_urls: string[] | null;
@@ -68,7 +71,7 @@ export function mergePosts(local: Post[], remote: RemotePost[]): Post[] {
         publications: pubs.length ? pubs : mine.publications,
         reviewState: r.review_state ?? mine.reviewState ?? null,
         // Photo gardée sur ce téléphone : on la garde ; sinon, lien du serveur (renouvelé à chaque ouverture).
-        imageUri: mine.imageUri && !/^https?:/.test(mine.imageUri) ? mine.imageUri : r.imageUrl ?? mine.imageUri ?? '',
+        imageUri: (mine.imageUri && !/^https?:/.test(mine.imageUri)) || (r.kind === 'story' && r.media_type === 'video') ? mine.imageUri : r.imageUrl ?? mine.imageUri ?? '',
       });
       continue;
     }
@@ -76,10 +79,11 @@ export function mergePosts(local: Post[], remote: RemotePost[]): Post[] {
     const pubs = toPublications(r);
     byId.set(r.id, {
       id: r.id,
-      kind: 'post',
-      mediaType: 'photo',
-      imageUri: r.imageUrl ?? '',
-      photoCount: Math.max(1, r.image_urls?.length ?? 1),
+      kind: r.kind ?? 'post',
+      mediaType: r.media_type ?? 'photo',
+      // Story vidéo : pas d'image (le lien serait celui de la vidéo). Reel : la vignette tirée de la vidéo.
+      imageUri: r.kind === 'story' && r.media_type === 'video' ? '' : r.imageUrl ?? '',
+      photoCount: r.media_type === 'video' ? 1 : Math.max(1, r.image_urls?.length ?? 1),
       caption: r.instagram_caption ?? '',
       hashtags: r.hashtags ?? [],
       platforms: pubs.length ? pubs.map((p) => p.platform) : ['instagram', 'facebook'],

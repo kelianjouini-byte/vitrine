@@ -6,6 +6,7 @@ import { allowedFacts, buildIdeasPrompt, IDEAS_SYSTEM_PROMPT, parseIdeas, type I
 export { containsInventedCommercialInfo } from './guard.ts';
 import { normalizePost, type AiOutput } from './post.ts';
 import { buildPostSystemPrompt } from './prompts.ts';
+import { OVERLAY_SYSTEM_PROMPT, parseOverlay, type OverlayOutput } from './overlay.ts';
 export type { AiOutput } from './post.ts';
 
 export const PROMPT_VERSION = 'v2-2026-11';
@@ -201,6 +202,29 @@ export async function generate(input: { imageUrls: string[]; context: string; av
   const out = normalizePost(content);
   if (!out) throw new HttpError(502, 'ai_failed', "L'IA n'a pas pu écrire votre texte. Réessayez.");
   return { out, usage };
+}
+
+/**
+ * Petit texte posé sur la photo ou la vidéo (Reel, story) + 4 emojis assortis.
+ * Une réponse avec un prix inventé ou un mot « pub » est écartée (le modèle suivant prend le relais).
+ */
+export async function writeOverlay(input: { imageUrl: string; context: string; merchantNote: string }): Promise<OverlayOutput> {
+  const { routes } = aiConfig();
+  const isOpenAI = routes[0].baseUrl.includes('api.openai.com');
+  const url = await toDataUri(input.imageUrl);
+  const { content } = await chatCompletion([
+    { role: 'system', content: OVERLAY_SYSTEM_PROMPT },
+    {
+      role: 'user',
+      content: [
+        { type: 'text', text: input.context },
+        { type: 'image_url', image_url: isOpenAI ? { url, detail: 'low' } : { url } },
+      ],
+    },
+  ], { responseFormat: { type: 'json_object' }, maxTokens: 300, temperature: 0.9, valid: (c) => parseOverlay(c, input.merchantNote) !== null });
+  const out = parseOverlay(content, input.merchantNote);
+  if (!out) throw new HttpError(502, 'ai_failed', "L'IA n'a pas pu écrire le petit texte. Écrivez-le vous-même.");
+  return out;
 }
 
 /** Télécharge une photo du stockage et la transforme en « data URI ». */

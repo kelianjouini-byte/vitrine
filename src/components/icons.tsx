@@ -132,3 +132,17 @@ export const SendIcon = ({ size, color = '#000' }: P) => (
 export const ChevronDownIcon = ({ size, color = '#000' }: P) => (
   <S size={size}><Path d="m6 9 6 6 6-6" {...st(color)} /></S>
 );
+/** Texte sur la vidéo : un grand T. */
+export const TextIcon = ({ size, color = '#000' }: P) => (<S size={size}><Path d="M5 6.5V5h14v1.5M12 5v14M9 19h6" {...st(color)} /></S>);
+/** Style du texte : une lettre A. */
+export const LetterIcon = ({ size, color = '#000' }: P) => (<S size={size}><Path d="m5 19 6-14h2l6 14M7.5 13.5h9" {...st(color)} /></S>);
+/** Placer le texte : flèches haut et bas. */
+export const MoveIcon = ({ size, color = '#000' }: P) => (<S size={size}><Path d="M12 3v18M8 7l4-4 4 4M8 17l4 4 4-4" {...st(color)} /></S>);
+/** Reel : un téléphone debout avec le triangle « lecture ». */
+export const ReelIcon = ({ size, color = '#fff' }: P) => (
+  <S size={size}><Rect x={5.5} y={2.5} width={13} height={19} rx={3} {...st(color)} /><Path d="M10.3 9.2v5.6l4.6-2.8-4.6-2.8Z" {...st(color)} /></S>
+);
+/** Post : une carte avec deux lignes de texte. */
+export const PostIcon = ({ size, color = '#fff' }: P) => (
+  <S size={size}><Rect x={4.5} y={3} width={15} height={18} rx={3} {...st(color)} /><Path d="M8 15h8M8 18h5M8 7.5h8v4H8z" {...st(color)} /></S>
+);

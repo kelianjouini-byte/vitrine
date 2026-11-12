@@ -8,8 +8,11 @@ const RING = 150;
 const DISC = 128;
 const useNativeDriver = Platform.OS !== 'web';
 
-/** Une onde orange qui part du bouton et s'efface, comme un caillou dans l'eau. */
-function Wave({ delay, still }: { delay: number; still: boolean }) {
+/**
+ * Une onde qui part d'un bouton et s'efface, comme un caillou dans l'eau (gros bouton photo,
+ * cartes Photo et Vidéo). `size` = taille du bouton, `radius` = son arrondi.
+ */
+export function Wave({ delay, still, size = RING, radius = RING / 2, color = colors.orange, width = 3 }: { delay: number; still: boolean; size?: number; radius?: number; color?: string; width?: number }) {
   const t = useMemo(() => new Animated.Value(0), []);
   useEffect(() => {
     if (still) { t.setValue(0); return; }
@@ -20,8 +23,9 @@ function Wave({ delay, still }: { delay: number; still: boolean }) {
   if (still) return null;
   return (
     <Animated.View
+      pointerEvents="none"
       style={{
-        position: 'absolute', width: RING, height: RING, borderRadius: RING / 2, borderWidth: 3, borderColor: colors.orange,
+        position: 'absolute', width: size, height: size, borderRadius: radius, borderWidth: width, borderColor: color,
         opacity: t.interpolate({ inputRange: [0, 1], outputRange: [0.85, 0] }),
         transform: [{ scale: t.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1.42] }) }],
       }}

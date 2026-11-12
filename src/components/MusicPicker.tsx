@@ -1,35 +1,27 @@
-/** Musique d'une story vidéo : le bouton Musique (vert allumé, gris éteint) et la liste « Changer la musique ». */
+/** Musique d'une vidéo (story ou Reel) : l'écran « Choisir la musique », avec « Sans musique » en premier. */
 import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
-import { Badge, Body, Button, Card, Label } from './ui';
+import { BackButton, Badge, Body, Button, Label } from './ui';
 import { CheckIcon, MusicIcon, PlayIcon, StopIcon } from './icons';
 import { colors, fonts, glass, glassSurface, radius } from '../lib/theme';
 import { TRACKS, trackById, type Track } from '../lib/music';
 import { playSample } from '../lib/videoMusic';
 
-/** La ligne sous l'aperçu : allumer / éteindre la musique, voir laquelle, en changer. */
-export function MusicBar({ trackId, on, onToggle, onChange }: { trackId: string; on: boolean; onToggle: () => void; onChange: () => void }) {
-  const track = trackById(trackId);
+/** Écran « Choisir la musique » (stories et Reels) : retour, titre, puis la liste. */
+export function MusicChooser({ selected, suggested, onPick, onClose }: { selected: string | null; suggested: string; onPick: (id: string | null) => void; onClose: () => void }) {
   return (
-    <Card style={{ gap: 12 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        <Pressable onPress={onToggle} accessibilityRole="switch" accessibilityState={{ checked: on }} accessibilityLabel={on ? 'Musique allumée : toucher pour éteindre' : 'Musique éteinte : toucher pour allumer'}
-          style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 52, paddingHorizontal: 16, borderRadius: 26, backgroundColor: on ? colors.green : '#C9D1CB', opacity: pressed ? 0.85 : 1 })}>
-          <MusicIcon size={22} color="#fff" />
-          <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16, fontFamily: fonts.body }}>{on ? 'Musique' : 'Sans musique'}</Text>
-        </Pressable>
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: on ? colors.text : colors.textSoft, fontWeight: '700', fontSize: 16, fontFamily: fonts.body }} numberOfLines={1}>{track?.title}</Text>
-          <Text style={{ color: colors.textSoft, fontSize: 15, fontFamily: fonts.body }}>{on ? 'Le son redescend tout seul à la fin' : 'Le son de la vidéo seulement'}</Text>
-        </View>
+    <View style={{ flex: 1 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingTop: 20 }}>
+        <BackButton onPress={onClose} />
+        <Text style={{ flex: 1, fontFamily: fonts.title, fontSize: 24, fontWeight: '700', color: colors.text }}>Choisir la musique</Text>
       </View>
-      <Button title="Changer la musique" kind="secondary" icon={<MusicIcon size={20} color={colors.green} />} onPress={onChange} />
-    </Card>
+      <MusicList selected={selected} suggested={suggested} onPick={onPick} onClose={onClose} />
+    </View>
   );
 }
 
 /** La liste des musiques : ambiances, puis une musique par fête. On peut écouter avant de choisir. */
-export function MusicList({ selected, suggested, onPick, onClose }: { selected: string; suggested: string; onPick: (id: string) => void; onClose: () => void }) {
+export function MusicList({ selected, suggested, onPick, onClose }: { selected: string | null; suggested: string; onPick: (id: string | null) => void; onClose: () => void }) {
   const [playing, setPlaying] = useState<string | null>(null);
   const stop = useRef<(() => void) | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -61,6 +53,17 @@ export function MusicList({ selected, suggested, onPick, onClose }: { selected: 
   return (
     <ScrollView contentContainerStyle={{ padding: 20, gap: 12, paddingBottom: 40 }}>
       <Body soft>Touchez le bouton rond pour écouter, puis choisissez. Toutes ces musiques ont été créées pour Vitrine : vous pouvez les utiliser librement.</Body>
+      <Pressable onPress={() => { stopSample(); onPick(null); }} accessibilityRole="button" accessibilityState={{ selected: selected === null }} accessibilityLabel="Sans musique : garder le son de la vidéo"
+        style={{ ...glassSurface, flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: radius.md, padding: 10, minHeight: 68, borderColor: selected === null ? colors.green : glass.line, borderWidth: selected === null ? 1.5 : 1 }}>
+        <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#E3E9E0', alignItems: 'center', justifyContent: 'center' }}>
+          <MusicIcon size={20} color="#4E6B57" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: colors.text, fontSize: 17, fontWeight: selected === null ? '700' : '500', fontFamily: fonts.body }}>Sans musique</Text>
+          <Text style={{ color: colors.textSoft, fontSize: 14, fontFamily: fonts.body }}>Le son de la vidéo seulement</Text>
+        </View>
+        {selected === null && <CheckIcon size={20} color={colors.green} />}
+      </Pressable>
       {suggestion && (
         <View style={{ gap: 8 }}>
           <Label>Proposée pour vous</Label>

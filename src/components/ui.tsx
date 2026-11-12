@@ -188,9 +188,9 @@ export function PlatformPicker({ value, onChange, connections }: { value: Platfo
   );
 }
 
-/** Vignette d'un post ou d'une story (Mes posts, bilan). Une story vidéo n'a pas d'image gardée : on montre une icône. */
+/** Vignette d'un post, d'un Reel ou d'une story (Mes posts, bilan). Une story vidéo n'a pas d'image gardée : on montre une icône. */
 export function PostThumb({ post, width, height }: { post: Post; width: number; height: number }) {
-  const tag = post.kind === 'story' ? 'Story' : (post.photoCount ?? 1) > 1 ? `${post.photoCount} photos` : null;
+  const tag = post.kind === 'story' ? 'Story' : post.mediaType === 'video' ? 'Reel' : (post.photoCount ?? 1) > 1 ? `${post.photoCount} photos` : null;
   return (
     <View style={{ width, height, borderRadius: 10, overflow: 'hidden', backgroundColor: colors.greenSoft, alignItems: 'center', justifyContent: 'center' }}>
       {post.imageUri

@@ -259,7 +259,7 @@ export async function fetchRemotePosts(shopId?: string): Promise<RemotePost[]> {
   if (!supabase || !(await currentUserId())) return [];
   let query = supabase
     .from('posts')
-    .select('id, status, instagram_caption, hashtags, image_url, image_urls, created_at, published_at, review_state, review_note, post_publications(platform, status, platform_post_url, error_message, published_at)');
+    .select('id, status, kind, media_type, instagram_caption, hashtags, image_url, image_urls, created_at, published_at, review_state, review_note, post_publications(platform, status, platform_post_url, error_message, published_at)');
   // Plusieurs boutiques : seulement l'historique de la boutique ouverte.
   if (shopId) query = query.eq('business_id', shopId);
   const { data, error } = await query.order('created_at', { ascending: false }).limit(200);
@@ -270,6 +270,8 @@ export async function fetchRemotePosts(shopId?: string): Promise<RemotePost[]> {
   return data.map((r, i) => ({
     id: r.id,
     status: r.status,
+    kind: r.kind === 'story' ? 'story' : 'post',
+    media_type: r.media_type === 'video' ? 'video' : 'photo',
     instagram_caption: r.instagram_caption,
     hashtags: r.hashtags,
     image_urls: r.image_urls,
@@ -369,6 +371,8 @@ export interface GenerateInput {
   idea?: Pick<PostIdea, 'title' | 'why'> | null;
   /** Ton choisi sur la page photo (« Changer le ton ») ; sinon celui de la boutique. */
   tone?: Tone;
+  /** 'reel' : la photo est une image tirée d'une vidéo courte. */
+  format?: 'reel';
 }
 
 export async function generatePost(input: GenerateInput): Promise<GeneratedPost & { postId: string }> {
@@ -382,7 +386,28 @@ export async function generatePost(input: GenerateInput): Promise<GeneratedPost 
     trade_hint: input.tradeHint ?? null,
     idea: input.idea ? { title: input.idea.title, why: input.idea.why } : null,
     tone: input.tone ?? null,
+    format: input.format ?? null,
   });
+}
+
+/** Petit texte posé sur la photo ou la vidéo (story, Reel), écrit par l'IA, et 4 emojis assortis. */
+export async function overlayText(input: {
+  imagePath: string;
+  video?: boolean;
+  occasion?: Pick<CommercialEvent, 'name'> | null;
+  tradeHint?: string;
+  merchantNote?: string;
+}): Promise<{ text: string; emojis: string[] }> {
+  const res = await callFunction<{ text?: string; emojis?: string[] }>('generate-post', {
+    mode: 'overlay',
+    image_paths: [input.imagePath],
+    format: input.video ? 'video' : 'photo',
+    occasion: input.occasion ? { name: input.occasion.name } : null,
+    trade_hint: input.tradeHint ?? null,
+    merchant_note: input.merchantNote ?? null,
+  });
+  if (!res?.text) throw new FriendlyError("L'IA n'a pas pu écrire le petit texte. Écrivez-le vous-même.");
+  return { text: res.text, emojis: Array.isArray(res.emojis) ? res.emojis : [] };
 }
 
 /**
@@ -525,16 +550,21 @@ export interface PublishStoryInput {
   /** Identifiant de la story (le même dans l'appli et sur le serveur). */
   storyId: string;
   platforms: Platform[];
-  /** Photo (JPEG en base64) ou vidéo (adresse locale, ou fichier déjà prêt avec la musique). */
-  media: { kind: 'photo'; base64: string } | { kind: 'video'; uri: string; blob?: Blob };
+  /**
+   * Photo (JPEG en base64) ou vidéo (adresse locale, ou fichier déjà prêt avec la musique et le texte).
+   * `path` : fichier déjà envoyé dans le stockage (Reel + story : la même vidéo n'est envoyée qu'une fois).
+   */
+  media: { kind: 'photo'; base64: string } | { kind: 'video'; uri: string; blob?: Blob; path?: string };
   idempotencyKey: string;
 }
 
-/** Formats vidéo acceptés par Instagram et Facebook pour une story. */
-const STORY_VIDEO_TYPES: Record<string, string> = { 'video/mp4': 'mp4', 'video/quicktime': 'mov' };
+/** Formats vidéo acceptés par Instagram et Facebook (stories et Reels). */
+const VIDEO_TYPES: Record<string, string> = { 'video/mp4': 'mp4', 'video/quicktime': 'mov' };
+/** Taille maximale d'un fichier dans le stockage (offre gratuite du serveur : 50 Mo). */
+export const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
 
-/** Envoie la vidéo de la story dans le stockage privé. Retourne son chemin. */
-async function uploadStoryVideo(uri: string, given?: Blob): Promise<string> {
+/** Envoie une vidéo (story ou Reel) dans le stockage privé. Retourne son chemin. */
+export async function uploadVideo(uri: string, given?: Blob): Promise<string> {
   const sb = requireBackend();
   const userId = await currentUserId();
   if (!userId) throw new NotConfiguredError('compte');
@@ -546,13 +576,53 @@ async function uploadStoryVideo(uri: string, given?: Blob): Promise<string> {
   }
   // « video/mp4;codecs=avc1 » -> « video/mp4 » ; un fichier sans type venant du téléphone est traité comme un MP4.
   const type = (blob.type || 'video/mp4').split(';')[0].trim().toLowerCase();
-  const ext = STORY_VIDEO_TYPES[type];
+  const ext = VIDEO_TYPES[type];
   if (!ext) throw new FriendlyError("Ce navigateur enregistre la vidéo dans un format qu'Instagram refuse. Filmez-la avec l'appareil photo du téléphone, puis choisissez-la dans vos vidéos.");
-  if (blob.size > 50 * 1024 * 1024) throw new FriendlyError('La vidéo est trop lourde. Choisissez une vidéo plus courte.');
+  if (blob.size > MAX_VIDEO_BYTES) throw new FriendlyError('La vidéo est trop lourde. Choisissez une vidéo plus courte.');
   const path = `${userId}/${Crypto.randomUUID()}.${ext}`;
   const { error } = await sb.storage.from('post-images').upload(path, await blob.arrayBuffer(), { contentType: type });
   if (error) throw new FriendlyError("La vidéo n'a pas pu être envoyée. Réessayez.");
   return path;
+}
+
+/** Le fichier de la story dans le stockage (envoyé maintenant, sauf s'il y est déjà). */
+function storyFile(media: PublishStoryInput['media']): Promise<string> {
+  if (media.kind === 'photo') return uploadPhoto(media.base64);
+  return media.path ? Promise.resolve(media.path) : uploadVideo(media.uri, media.blob);
+}
+
+export interface PublishReelInput {
+  postId: string;
+  caption: string;
+  hashtags: string[];
+  platforms: Platform[];
+  /** Vidéo finale (texte et musique dedans) et image tirée de la vidéo, déjà dans le stockage. */
+  videoPath: string;
+  coverPath: string | null;
+  idempotencyKey: string;
+}
+
+/** Publie un Reel (vidéo courte + légende) sur Instagram et Facebook. Le serveur finit l'envoi tout seul. */
+export async function publishReel(input: PublishReelInput): Promise<PublicationResult[]> {
+  const res = await callFunction<{ publications: PublicationResult[] }>('publish-post', {
+    post_id: input.postId,
+    caption: input.caption,
+    hashtags: input.hashtags,
+    platforms: input.platforms,
+    video_path: input.videoPath,
+    cover_path: input.coverPath,
+    idempotency_key: input.idempotencyKey,
+    background: true,
+  });
+  return res.publications;
+}
+
+/** Un employé envoie son Reel au patron (rien n'est publié). */
+export async function submitReel(input: PublishReelInput): Promise<void> {
+  await callFunction('team', {
+    action: 'submit', kind: 'post', post_id: input.postId, caption: input.caption, hashtags: input.hashtags,
+    platforms: input.platforms, video_path: input.videoPath, cover_path: input.coverPath, idempotency_key: input.idempotencyKey,
+  });
 }
 
 /** Publie une story (photo ou vidéo) sur Instagram et Facebook. Jamais de faux succès. */
@@ -561,7 +631,7 @@ export async function publishStory(input: PublishStoryInput): Promise<Publicatio
   if (!(await ensureSession())) throw new NotConfiguredError('compte');
   // On vérifie d'abord que Meta est branché : inutile d'envoyer une vidéo pour rien.
   if (!(await metaConfigured())) throw new NotConfiguredError('meta');
-  const path = input.media.kind === 'photo' ? await uploadPhoto(input.media.base64) : await uploadStoryVideo(input.media.uri, input.media.blob);
+  const path = await storyFile(input.media);
   const res = await callFunction<{ publications: PublicationResult[] }>('publish-story', {
     story_id: input.storyId,
     media_path: path,
@@ -724,7 +794,7 @@ export async function submitPost(input: Omit<PublishInput, 'postId'> & { postId:
 export async function submitStory(input: PublishStoryInput): Promise<void> {
   requireBackend();
   if (!(await ensureSession())) throw new NotConfiguredError('compte');
-  const path = input.media.kind === 'photo' ? await uploadPhoto(input.media.base64) : await uploadStoryVideo(input.media.uri, input.media.blob);
+  const path = await storyFile(input.media);
   await callFunction('team', {
     action: 'submit', kind: 'story', story_id: input.storyId, media_path: path, media_type: input.media.kind,
     platforms: input.platforms, idempotency_key: input.idempotencyKey,
