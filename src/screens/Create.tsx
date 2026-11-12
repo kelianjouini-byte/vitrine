@@ -2,23 +2,24 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Platform as RNPlatform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import * as Crypto from 'expo-crypto';
 import { Body, Button, Chip, Field, Notice, PlatformPicker, Title, BackButton } from '../components/ui';
-import { CameraIcon, CheckIcon, ImageIcon, PencilIcon, RefreshIcon, SparkIcon, TrashIcon, SendIcon } from '../components/icons';
+import { CameraIcon, CheckIcon, CropIcon, ImageIcon, PencilIcon, RefreshIcon, SparkIcon, TrashIcon, SendIcon } from '../components/icons';
 import { colors, fonts, glassSurface, radius } from '../lib/theme';
 import { useApp } from '../lib/store';
 import { upcomingEvents } from '../lib/events';
 import { isBackendConfigured } from '../lib/config';
 import { ensureSession, exampleCaption, FriendlyError, generatePost, NotConfiguredError, publishPost, saveBusinessRemote, submitPost, uploadPhoto } from '../lib/api';
-import { autoCrop, formatRatio, MAX_PHOTOS, takePhotos, type PhotoFormat, type PickedPhoto, type RawPhoto } from '../lib/photo';
+import { CENTERED, formatRatio, MAX_PHOTOS, renderCrop, takePhotos, type Framing, type PhotoFormat, type PickedPhoto, type RawPhoto } from '../lib/photo';
+import { PhotoCropper } from '../components/PhotoCropper';
 import { PhotoCarousel } from '../components/PhotoCarousel';
 import { tradeById } from '../lib/trades';
 import type { GeneratedPost, Platform, Post, PostIdea, PublicationResult, Tone } from '../lib/types';
 import { DEFAULT_TONE, toneLabel, TONES } from '../lib/business';
 import { DAY_NAMES, dayLabel, parseDayKey, reminderDate, statusAfterPublish, weekday } from '../lib/planning';
 
-type Phase = 'pick' | 'photos' | 'generating' | 'preview' | 'publishing';
+type Phase = 'pick' | 'photos' | 'crop' | 'generating' | 'preview' | 'publishing';
 
-/** Une photo du post : la version cadrée et son chemin sur le serveur. */
-type Slide = { key: string; photo: PickedPhoto; path: string | null };
+/** Une photo du post : l'originale (pour « Recadrer »), son cadrage, la version cadrée et son chemin sur le serveur. */
+type Slide = { key: string; raw: RawPhoto; framing: Framing; photo: PickedPhoto; path: string | null };
 
 /** Format de toutes les photos d'un post. */
 const FORMAT: PhotoFormat = 'portrait';
@@ -62,6 +63,10 @@ export function Create({ occasionId, initialPhoto, idea, plannedFor, note }: { o
     slidesRef.current = next;
     setSlides(next);
   };
+  // Recadrage d'une photo : laquelle, et le cadrage en cours (validé seulement avec « Valider »).
+  const [cropKey, setCropKey] = useState<string | null>(null);
+  const [cropDraft, setCropDraft] = useState<Framing>(CENTERED);
+  const [cropDragging, setCropDragging] = useState(false);
 
   // Photo déjà prise depuis l'accueil : elle est cadrée toute seule, on passe directement à la suite.
   // Sinon (depuis une fête), on ouvre directement l'appareil photo sur téléphone.
@@ -93,7 +98,7 @@ export function Create({ occasionId, initialPhoto, idea, plannedFor, note }: { o
     try {
       const next = [...slidesRef.current];
       for (const raw of raws.slice(0, MAX_PHOTOS - next.length)) {
-        next.push({ key: Crypto.randomUUID(), photo: await autoCrop(raw, FORMAT), path: null });
+        next.push({ key: Crypto.randomUUID(), raw, framing: CENTERED, photo: await renderCrop(raw, FORMAT, CENTERED), path: null });
       }
       updateSlides(next);
       setPhase('photos');
@@ -120,6 +125,35 @@ export function Create({ occasionId, initialPhoto, idea, plannedFor, note }: { o
     if (!next.length) {
       setGen(null);
       setPhase('pick');
+    }
+  }
+
+  // ------------------------------------------------------------------ recadrage à la main
+
+  function openCrop(key: string) {
+    const s = slidesRef.current.find((x) => x.key === key);
+    if (!s) return;
+    setError(null);
+    setCropDraft(s.framing);
+    setCropKey(key);
+    setPhase('crop');
+  }
+
+  /** Redécoupe la photo avec le nouveau cadrage. Elle sera renvoyée au serveur (le texte, lui, ne change pas). */
+  async function saveCrop() {
+    const s = slidesRef.current.find((x) => x.key === cropKey);
+    if (!s) return setPhase('photos');
+    setBusy(true);
+    setError(null);
+    try {
+      const photo = await renderCrop(s.raw, FORMAT, cropDraft);
+      updateSlides(slidesRef.current.map((x) => (x.key === s.key ? { ...x, framing: cropDraft, photo, path: null } : x)));
+      setCropKey(null);
+      setPhase('photos');
+    } catch (e) {
+      setError(e instanceof FriendlyError ? e.message : "La photo n'a pas pu être recadrée. Réessayez.");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -348,7 +382,8 @@ export function Create({ occasionId, initialPhoto, idea, plannedFor, note }: { o
             <View style={{ flex: 1, gap: 8 }}>
               <Text style={{ fontWeight: '700', fontSize: 16, color: colors.text, fontFamily: fonts.body }}>Photo {i + 1}</Text>
               <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-                <SmallButton label="Retirer" icon={<TrashIcon size={18} color={colors.textSoft} />} onPress={() => remove(i)} />
+                <SmallButton label="Recadrer" a11y={`Recadrer la photo ${i + 1}`} icon={<CropIcon size={18} color={colors.green} />} green onPress={() => openCrop(s.key)} />
+                <SmallButton label="Retirer" a11y={`Retirer la photo ${i + 1}`} icon={<TrashIcon size={18} color={colors.textSoft} />} onPress={() => remove(i)} />
               </View>
             </View>
             {slides.length > 1 && (
@@ -381,6 +416,23 @@ export function Create({ occasionId, initialPhoto, idea, plannedFor, note }: { o
         ) : (
           <Button title="Écrire mon texte" icon={<SparkIcon size={22} color={colors.white} />} onPress={start} style={{ minHeight: 64 }} />
         )}
+      </ScrollView>
+    );
+  }
+
+  if (phase === 'crop') {
+    const index = slides.findIndex((x) => x.key === cropKey);
+    const s = slides[index];
+    if (!s) return null;
+    return (
+      <ScrollView scrollEnabled={!cropDragging} contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 40 }}>
+        {header(slides.length > 1 ? `Recadrer la photo ${index + 1}` : 'Recadrer la photo', () => setPhase('photos'))}
+        <Body soft>Faites glisser la photo avec le doigt pour choisir ce qui apparaît. Zoomez avec deux doigts ou avec les boutons.</Body>
+        <PhotoCropper photo={s.raw} format={FORMAT} framing={cropDraft} onChange={setCropDraft} onDragging={setCropDragging} />
+        {error && <Notice tone="red" title="Nous avons besoin de votre attention" text={error} />}
+        <Button title="Valider le cadrage" icon={<CheckIcon size={22} />} loading={busy} onPress={saveCrop} style={{ minHeight: 64 }} />
+        <Button title="Remettre au centre" kind="secondary" disabled={busy} onPress={() => setCropDraft(CENTERED)} />
+        <Button title="Annuler" kind="ghost" disabled={busy} onPress={() => setPhase('photos')} />
       </ScrollView>
     );
   }
@@ -491,12 +543,12 @@ const inputStyle = (minHeight: number) => ({
   minHeight, borderWidth: 1.5, borderColor: colors.border, borderRadius: 12, padding: 12, fontSize: 16, color: colors.text, textAlignVertical: 'top' as const, fontFamily: fonts.body,
 });
 
-/** Petit bouton des photos (monter, descendre, retirer). « Retirer » est gris : ce n'est pas une erreur. */
-function SmallButton({ label, a11y, onPress, disabled, icon }: { label: string; a11y?: string; onPress: () => void; disabled?: boolean; icon?: React.ReactNode }) {
-  const c = icon ? colors.textSoft : colors.green;
+/** Petit bouton des photos (monter, descendre, recadrer, retirer). « Retirer » est gris : ce n'est pas une erreur. */
+function SmallButton({ label, a11y, onPress, disabled, icon, green }: { label: string; a11y?: string; onPress: () => void; disabled?: boolean; icon?: React.ReactNode; green?: boolean }) {
+  const c = icon && !green ? colors.textSoft : colors.green;
   return (
     <Pressable onPress={onPress} disabled={disabled} accessibilityRole="button" accessibilityLabel={a11y ?? label}
-      style={({ pressed }) => ({ minHeight: 44, minWidth: 44, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1.5, borderColor: icon ? 'rgba(36,51,43,0.15)' : c, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.3 : pressed ? 0.8 : 1 })}>
+      style={({ pressed }) => ({ minHeight: 44, minWidth: 44, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1.5, borderColor: icon && !green ? 'rgba(36,51,43,0.15)' : c, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.3 : pressed ? 0.8 : 1 })}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
         {icon}
         <Text style={{ color: c, fontWeight: '700', fontSize: 15, fontFamily: fonts.body }}>{label}</Text>
