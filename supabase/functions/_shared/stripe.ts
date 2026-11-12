@@ -25,8 +25,10 @@ export async function stripe<T = Record<string, unknown>>(method: 'GET' | 'POST'
   return data as T;
 }
 
-const LOOKUP: Record<PlanId, string> = { monthly: 'vitrine_mensuel', annual: 'vitrine_annuel' };
-const NICKNAME: Record<PlanId, string> = { monthly: 'Mensuel, sans engagement', annual: 'Annuel, engagement 1 an (payé chaque mois)' };
+const LOOKUP: Record<PlanId, string> = { monthly: 'vitrine_mensuel', annual: 'vitrine_annuel', founder: 'vitrine_fondateur' };
+const NICKNAME: Record<PlanId, string> = {
+  monthly: 'Mensuel, sans engagement', annual: 'Annuel, engagement 1 an (payé chaque mois)', founder: 'Offre fondateur, sans engagement',
+};
 
 /**
  * Prix Stripe de l'offre. Créé automatiquement la 1re fois (produit « Vitrine » + prix mensuel),
@@ -49,10 +51,10 @@ export async function priceFor(plan: PlanId, amountCents: number): Promise<strin
   return price.id;
 }
 
-const EXTRA_LOOKUP: Record<PlanId, string> = { monthly: 'vitrine_boutique_mensuel', annual: 'vitrine_boutique_annuel' };
-const EXTRA_NICKNAME: Record<PlanId, string> = { monthly: 'Boutique en plus (Mensuel)', annual: 'Boutique en plus (Annuel)' };
+const EXTRA_LOOKUP: Record<PlanId, string> = { monthly: 'vitrine_boutique_mensuel', annual: 'vitrine_boutique_annuel', founder: 'vitrine_boutique_fondateur' };
+const EXTRA_NICKNAME: Record<PlanId, string> = { monthly: 'Boutique en plus (Mensuel)', annual: 'Boutique en plus (Annuel)', founder: 'Boutique en plus (Fondateur)' };
 
-/** Prix Stripe d'une boutique en plus (19 € en mensuel, 15 € en annuel). Créé automatiquement la 1re fois. */
+/** Prix Stripe d'une boutique en plus (19 € en mensuel, 15 € en annuel et en fondateur). Créé automatiquement la 1re fois. */
 export async function extraShopPriceFor(plan: PlanId, amountCents: number): Promise<string> {
   const found = await stripe<{ data: { id: string; unit_amount: number }[] }>('GET', 'prices', { lookup_keys: [EXTRA_LOOKUP[plan]], active: 'true' });
   const same = found.data.find((p) => p.unit_amount === amountCents);

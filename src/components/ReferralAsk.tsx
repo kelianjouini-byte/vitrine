@@ -17,8 +17,9 @@ export function ReferralAsk({ monthKey, eligible, onSend }: { monthKey: string; 
   const [open, setOpen] = useState(false);
   // Nombre de commerçants pour ne plus rien payer : 3 avec l'offre Annuel (29 €), 4 avec le Mensuel (39 €).
   const { billing } = useApp();
-  const plan = billing?.subscription?.plan === 'monthly' ? 'monthly' : 'annual';
-  const freeAt = referralsUntilFree(offersFrom(billing).find((o) => o.id === plan)!.priceCents, 0);
+  const offers = offersFrom(billing);
+  const offer = offers.find((o) => o.id === billing?.subscription?.plan) ?? offers.find((o) => o.id === 'annual')!;
+  const freeAt = referralsUntilFree(offer.priceCents, 0);
   useEffect(() => {
     if (!eligible || !isBackendConfigured) return;
     let alive = true;

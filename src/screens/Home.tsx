@@ -3,8 +3,8 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Body, Card, Chevron, DateTile, IconTile, Label, Notice, Title } from '../components/ui';
 import { takePhoto, takeVideo } from '../lib/photo';
 import { accountState, FriendlyError } from '../lib/api';
-import { BulbIcon, ChartUpIcon, CheckIcon, GearIcon, LinkIcon, StoreIcon } from '../components/icons';
-import { daysLeft, isLiveStatus, TRIAL_REPORT_DAYS_BEFORE } from '../lib/billing';
+import { BulbIcon, ChartUpIcon, CheckIcon, GearIcon, LinkIcon, StarIcon, StoreIcon } from '../components/icons';
+import { daysLeft, euros, isLiveStatus, offersFrom, placesLeftText, TRIAL_REPORT_DAYS_BEFORE } from '../lib/billing';
 import { colors, fonts, glassSurface } from '../lib/theme';
 import { useApp } from '../lib/store';
 import { daysUntil, inDaysLabel, upcomingEvents, upcomingHolidays } from '../lib/events';
@@ -167,6 +167,17 @@ export function Home() {
           <View style={{ flex: 1 }}>
             <Body style={{ fontWeight: '700' }}>{trialLeft <= 1 ? 'Dernier jour de votre essai gratuit' : `Votre essai gratuit se termine dans ${trialLeft} jours`}</Body>
             <Body soft size={15}>Voir mon bilan et choisir mon offre.</Body>
+          </View>
+          <Chevron />
+        </Card>
+      )}
+
+      {trialLeft !== null && trialLeft > TRIAL_REPORT_DAYS_BEFORE && billing?.founder?.eligible && (
+        <Card onPress={() => go({ name: 'offers' })} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: 'rgba(252,239,217,0.8)', borderColor: colors.orange }}>
+          <IconTile size={44} tone="orange"><StarIcon size={22} color={colors.orangeText} /></IconTile>
+          <View style={{ flex: 1 }}>
+            <Body style={{ fontWeight: '700' }}>Offre fondateur : {placesLeftText(billing.founder.left).toLowerCase()}</Body>
+            <Body soft size={15}>{euros(offersFrom(billing).find((o) => o.id === 'founder')!.priceCents)} par mois sans engagement, pour les {billing.founder.places} premières boutiques.</Body>
           </View>
           <Chevron />
         </Card>

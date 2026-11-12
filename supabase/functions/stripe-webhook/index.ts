@@ -8,6 +8,14 @@ import { subscriptionRow, verifyStripeSignature, type StripeSubscription } from 
 import { stripe } from '../_shared/stripe.ts';
 import { endReferral, recordReferral, rewardReferrer } from '../_shared/referralServer.ts';
 
+async function giveFounderNumber(db: ReturnType<typeof admin>, businessId: string) {
+  const { data: mine } = await db.from('subscriptions').select('founder_number').eq('business_id', businessId).maybeSingle();
+  if (mine?.founder_number != null) return;
+  const { data: last } = await db.from('subscriptions').select('founder_number').not('founder_number', 'is', null)
+    .order('founder_number', { ascending: false }).limit(1).maybeSingle();
+  await db.from('subscriptions').update({ founder_number: (last?.founder_number ?? 0) + 1 }).eq('business_id', businessId).is('founder_number', null);
+}
+
 Deno.serve(handler(async (req) => {
   const secret = env('STRIPE_WEBHOOK_SECRET');
   if (!secret) throw new HttpError(503, 'stripe_not_configured', 'Webhook non configuré.');
@@ -41,6 +49,9 @@ Deno.serve(handler(async (req) => {
         const { error } = await db.from('subscriptions').upsert({ business_id: businessId, ...subscriptionRow(sub) }, { onConflict: 'business_id' });
         if (error) throw new Error(error.message);
         console.log('[vitrine] abonnement', businessId, sub.status, event.type);
+
+        // Offre fondateur : la boutique reçoit son numéro (1, 2, 3…) une seule fois, à sa 1re inscription.
+        if (sub.metadata?.plan === 'founder') await giveFounderNumber(db, businessId);
 
         // Parrainage : le code tapé au paiement est rangé dans l'abonnement (metadata).
         const referrerId = sub.metadata?.referrer_business_id;

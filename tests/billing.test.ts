@@ -73,3 +73,28 @@ test('signature du webhook Stripe : bonne, fausse, trop ancienne', async () => {
   assert.equal(await verifyStripeSignature(body, header, 'whsec_test', t + 3600), false);
   assert.equal(await verifyStripeSignature(body, null, 'whsec_test', t), false);
 });
+
+test('offre fondateur : places restantes, fermeture par Kelian, pas de 2e fois', async () => {
+  const { founderOffer } = await import('../supabase/functions/_shared/billing.ts');
+  const plan = { active: true, places: 15 };
+  assert.deepEqual(founderOffer(plan, 6, null), { open: true, places: 15, taken: 6, left: 9, eligible: true, number: null });
+  // Toutes les places prises.
+  assert.equal(founderOffer(plan, 15, null).eligible, false);
+  assert.equal(founderOffer(plan, 16, null).left, 0);
+  // Kelian ferme l'offre : plus personne ne peut la prendre.
+  assert.equal(founderOffer({ active: false, places: 15 }, 2, null).eligible, false);
+  assert.equal(founderOffer(null, 0, null).open, false);
+  // Déjà fondateur (ou ancien fondateur qui revient) : pas une 2e fois.
+  const mine = founderOffer(plan, 6, { plan: 'founder', status: 'active', stripe_subscription_id: 's', founder_number: 4 });
+  assert.equal(mine.eligible, false);
+  assert.equal(mine.number, 4);
+  assert.equal(founderOffer(plan, 6, { plan: 'monthly', status: 'canceled', founder_number: 2 }).eligible, false);
+  // Ligne d'abonnement vide (client Stripe créé, rien payé) : toujours le droit.
+  assert.equal(founderOffer(plan, 6, { plan: 'discovery', status: 'trialing', stripe_subscription_id: null }).eligible, true);
+});
+
+test("l'offre fondateur est bien rangée dans la table subscriptions", () => {
+  const row = subscriptionRow({ id: 's', customer: 'c', status: 'trialing', metadata: { plan: 'founder' } });
+  assert.equal(row.plan, 'founder');
+  assert.equal(row.commitment_ends_at, null);
+});
