@@ -35,7 +35,7 @@ npx expo start --web        # ou l'ouvrir dans le navigateur
 | `META_GRAPH_VERSION` | secrets Supabase | Version Graph API (défaut `v23.0`) |
 | `TOKEN_ENCRYPTION_KEY` | secrets Supabase | Chiffrement des jetons Meta (`openssl rand -base64 32`) |
 | `PUBLIC_SITE_URL` | secrets Supabase | Site public (pages légales, suivi de suppression) |
-| `PUBLIC_APP_URL` | secrets Supabase | Facultatif : adresse de la version web, seule adresse https autorisée au retour de la connexion Meta (défaut `https://kelianjouini-byte.github.io/vitrine/`) |
+| `PUBLIC_APP_URL` | secrets Supabase | Facultatif : adresse de la version web, seule adresse https autorisée au retour de la connexion Meta (par défaut `https://vitrineappli.fr/` ; l'ancienne adresse `https://kelianjouini-byte.github.io/vitrine/` reste acceptée) |
 | `STRIPE_SECRET_KEY` | secrets Supabase | Paiement des abonnements (clé secrète Stripe, `sk_test_…` ou `sk_live_…`) |
 | `STRIPE_WEBHOOK_SECRET` | secrets Supabase | Vérifie que les messages du webhook viennent bien de Stripe (`whsec_…`) |
 
@@ -62,7 +62,7 @@ Créer une clé sur https://platform.openai.com → API keys, ajouter un moyen d
 3. URL de redirection OAuth valide : `https://<ref>.supabase.co/functions/v1/meta-oauth`.
 4. URL de suppression des données : `https://<ref>.supabase.co/functions/v1/meta-data-deletion`.
 5. Permissions : `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`, `instagram_basic`, `instagram_content_publish`, `business_management` (à revérifier dans la doc Meta à jour).
-6. Domaine de l'app : `kelianjouini-byte.github.io` (la version web revient sur `…/vitrine/app/meta-connected` après la connexion). Dès que `META_APP_ID`, `META_APP_SECRET` et `TOKEN_ENCRYPTION_KEY` sont posés, le bouton « Connecter Instagram et Facebook » apparaît ; avant, l'appli affiche « Bientôt disponible ».
+6. Domaine de l'app : `vitrineappli.fr` (la version web revient sur `https://vitrineappli.fr/app/meta-connected` après la connexion). Dès que `META_APP_ID`, `META_APP_SECRET` et `TOKEN_ENCRYPTION_KEY` sont posés, le bouton « Connecter Instagram et Facebook » apparaît ; avant, l'appli affiche « Bientôt disponible ».
 7. Plusieurs Pages sur le compte : Vitrine demande « Sur quelle Page publier ? » (jetons gardés chiffrés 30 minutes dans `meta_pending_pages`, lisible seulement par le serveur).
 7b. Publication : posts (1 à 10 photos) via `publish-post`, stories photo ou vidéo (MP4/MOV) via `publish-story`, Reels (vidéo de 3 à 90 s, Instagram + Facebook) via `publish-post` avec `video_path` + `cover_path`. Un petit texte court + emoji (écrit par l'IA, `generate-post` en `mode: 'overlay'`, modifiable) est dessiné sur les stories et les Reels avant l'envoi (web uniquement).
 7c. Statistiques : `post-stats` lit chez Meta les likes, commentaires, vues et personnes touchées des posts publiés (90 jours), gardés 30 min dans `post_stats`. Affichés dans « Mes posts », l'écran d'un post et « Mon bilan ». Un chiffre que Meta ne donne pas reste vide (jamais estimé).
@@ -102,7 +102,7 @@ Fonction `team` (déployée avec `verify_jwt = false`, le jeton est vérifié da
 - App : `npx eas-cli@latest build -p all` (compte Expo nécessaire, compte Apple Developer 99 $/an, compte Google Play 25 $ une fois), puis `eas submit`.
 - Démo web : `npm run build:web && node scripts/build-demo.mjs` → `demo/index.html`.
 - Icônes et écran d'ouverture (logo « La devanture ») : `NODE_PATH=$(npm root -g) node scripts/build-icons.mjs` → `assets/*.png`.
-- Recommencer depuis l'inscription (test web) : ouvrir `https://kelianjouini-byte.github.io/vitrine/app/?nouveau` (efface les données de cet appareil seulement).
+- Recommencer depuis l'inscription (test web) : ouvrir `https://vitrineappli.fr/app/?nouveau` (efface les données de cet appareil seulement).
 
 ## 8. Tests
 
@@ -119,7 +119,7 @@ deno check supabase/functions/*/index.ts   # Edge Functions
 - `.claude/skills/` : 5 skills Claude Code (`/vitrine-architect`, `/vitrine-meta`, `/vitrine-design`, `/vitrine-ai`, `/vitrine-security`).
 
 ## Adresses en ligne (GitHub Pages)
-- `https://kelianjouini-byte.github.io/vitrine/` : site de présentation (`site/index.html`).
-- `https://kelianjouini-byte.github.io/vitrine/app/` : l'appli web. Même origine que le site, donc les données gardées dans le navigateur ne changent pas.
-- Pages légales : `…/vitrine/conditions/`, `…/confidentialite/`, `…/suppression/`, `…/mentions-legales/` (dossier `public/`).
-- Les anciens liens de l'appli (`…/vitrine/abonnement`, `…/vitrine/meta-connected`) sont renvoyés vers `…/vitrine/app/…` par `404.html` (voir `scripts/build-site.mjs`).
+- `https://vitrineappli.fr/` : site de présentation (`site/index.html`). Nom de domaine acheté chez OVH ; le fichier `CNAME` est écrit par `scripts/build-site.mjs`. L'ancienne adresse `https://kelianjouini-byte.github.io/vitrine/…` est renvoyée par GitHub vers `vitrineappli.fr`.
+- `https://vitrineappli.fr/app/` : l'appli web. Même origine que le site.
+- Pages légales : `…/conditions/`, `…/confidentialite/`, `…/suppression/`, `…/mentions-legales/` (dossier `public/`).
+- Les anciens liens (`…/vitrine/…`, `…/abonnement`, `…/meta-connected`) sont renvoyés vers `…/app/…` par `404.html` (voir `scripts/build-site.mjs`).

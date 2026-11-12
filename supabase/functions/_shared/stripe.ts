@@ -77,7 +77,7 @@ export async function portalConfiguration(kind: 'free' | 'locked'): Promise<stri
   const list = await stripe<{ data: { id: string; metadata?: Record<string, string> }[] }>('GET', 'billing_portal/configurations', { active: 'true', limit: 100 });
   const found = list.data.find((c) => c.metadata?.vitrine === kind);
   if (found) return found.id;
-  const site = env('PUBLIC_SITE_URL') ?? 'https://kelianjouini-byte.github.io/vitrine';
+  const site = env('PUBLIC_SITE_URL') ?? 'https://vitrineappli.fr';
   const conf = await stripe<{ id: string }>('POST', 'billing_portal/configurations', {
     business_profile: { headline: 'Vitrine : mon abonnement', privacy_policy_url: `${site}/confidentialite/`, terms_of_service_url: `${site}/conditions/` },
     features: {

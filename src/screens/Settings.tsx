@@ -14,7 +14,7 @@ import { EmailPasswordForm } from '../components/AccountForms';
 import { DeleteAccount } from '../components/DeleteAccount';
 
 /** Pages légales publiques (public/confidentialite, public/conditions), servies par GitHub Pages. */
-const LEGAL_SITE = 'https://kelianjouini-byte.github.io/vitrine';
+const LEGAL_SITE = 'https://vitrineappli.fr';
 
 export function Settings() {
   const { business, prefs, setPrefs, back, go, saveBusiness, refreshConnections, isPatron, team } = useApp();

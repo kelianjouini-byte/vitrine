@@ -18,11 +18,11 @@ import { takeMetaReturn } from '../lib/metaReturn';
  */
 /**
  * Adresse où Meta renvoie le commerçant après la connexion.
- * Appli : vitrine://meta-connected. Web : la page de Vitrine elle-même (ex. …github.io/vitrine/app/meta-connected).
+ * Appli : vitrine://meta-connected. Web : la page de Vitrine elle-même (ex. vitrineappli.fr/app/meta-connected).
  */
 function redirectUri(): string {
   if (RNPlatform.OS === 'web' && typeof window !== 'undefined') {
-    const base = window.location.pathname.replace(/[^/]*$/, ''); // « /vitrine/app/ »
+    const base = window.location.pathname.replace(/[^/]*$/, ''); // « /app/ »
     return `${window.location.origin}${base}meta-connected`;
   }
   return AuthSession.makeRedirectUri({ scheme: 'vitrine', path: 'meta-connected' });

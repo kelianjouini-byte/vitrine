@@ -4,7 +4,7 @@
  */
 import qrcode from 'qrcode-generator';
 
-const APP = 'https://kelianjouini-byte.github.io/vitrine/app';
+const APP = 'https://vitrineappli.fr/app';
 
 /** Lien à partager : ouvre Vitrine et retient le code pour le moment du paiement. */
 export function referralLink(code: string): string {

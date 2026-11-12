@@ -61,6 +61,6 @@ test('la carte à imprimer : 10 cartes avec le code, le nom protégé et un QR c
   assert.equal(html.match(/class="card"/g)?.length, 10);
   assert.ok(html.includes('Fleurs &lt;de&gt; Marie'));
   assert.ok(html.includes('<svg') && html.includes('FLEURS-7K4Q9'));
-  assert.equal(referralLink('FLEURS-7K4Q9'), 'https://kelianjouini-byte.github.io/vitrine/app/?parrain=FLEURS-7K4Q9');
+  assert.equal(referralLink('FLEURS-7K4Q9'), 'https://vitrineappli.fr/app/?parrain=FLEURS-7K4Q9');
   assert.ok(shareMessage('FLEURS-7K4Q9').includes('FLEURS-7K4Q9'));
 });
