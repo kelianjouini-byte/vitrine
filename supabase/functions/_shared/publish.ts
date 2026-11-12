@@ -40,36 +40,30 @@ export async function sendToNetworks(opts: {
   send: (platform: Platform, account: SocialAccount, token: string) => Promise<{ id: string; url: string | null }>;
 }): Promise<PublicationResult[]> {
   const { db, businessId, postId, platforms, idempotencyKey, mediaError, send } = opts;
-  const results: PublicationResult[] = [];
 
-  for (const platform of platforms) {
+  // Les réseaux sont servis en même temps : une vidéo longue à préparer chez Instagram ne retarde pas Facebook.
+  const one = async (platform: Platform): Promise<PublicationResult> => {
     await db.from('post_publications').upsert({ post_id: postId, platform, idempotency_key: idempotencyKey }, { onConflict: 'post_id,platform', ignoreDuplicates: true });
     const { data: pub } = await db.from('post_publications').select('*').eq('post_id', postId).eq('platform', platform).single();
     if (pub.status === 'published') { // déjà fait : on ne republie pas
-      results.push({ platform, status: 'published', url: pub.platform_post_url, publishedAt: pub.published_at });
-      continue;
+      return { platform, status: 'published', url: pub.platform_post_url, publishedAt: pub.published_at };
     }
     const log = (kind: string, detail: Record<string, unknown> = {}) => db.from('post_events').insert({ post_id: postId, kind, detail: { platform, ...detail } });
-    const fail = async (error: string) => {
+    const fail = async (error: string): Promise<PublicationResult> => {
       await db.from('post_publications').update({ status: 'failed', error_message: error }).eq('id', pub.id);
-      results.push({ platform, status: 'failed', error });
+      return { platform, status: 'failed', error };
     };
 
     const { data: account } = await db.from('social_accounts').select('*').eq('business_id', businessId).eq('platform', platform).maybeSingle<SocialAccount>();
     if (!account || account.connection_status !== 'connected') {
       await log('skipped_not_connected');
-      await fail(platform === 'instagram' ? 'Instagram n\'est pas connecté.' : 'Facebook n\'est pas connecté.');
-      continue;
+      return fail(platform === 'instagram' ? 'Instagram n\'est pas connecté.' : 'Facebook n\'est pas connecté.');
     }
     if (account.token_expires_at && new Date(account.token_expires_at) < new Date()) {
       await db.from('social_accounts').update({ connection_status: 'expired' }).eq('id', account.id);
-      await fail('Votre compte doit être reconnecté.');
-      continue;
+      return fail('Votre compte doit être reconnecté.');
     }
-    if (mediaError) {
-      await fail(mediaError);
-      continue;
-    }
+    if (mediaError) return fail(mediaError);
 
     await db.from('post_publications').update({ status: 'publishing', attempts: pub.attempts + 1 }).eq('id', pub.id);
     await log('publish_started', { attempt: pub.attempts + 1 });
@@ -79,13 +73,14 @@ export async function sendToNetworks(opts: {
       const now = new Date().toISOString();
       await db.from('post_publications').update({ status: 'published', platform_post_id: r.id, platform_post_url: r.url, published_at: now, error_message: null }).eq('id', pub.id);
       await log('published', { platform_post_id: r.id });
-      results.push({ platform, status: 'published', url: r.url, publishedAt: now });
+      return { platform, status: 'published', url: r.url, publishedAt: now };
     } catch (e) {
       if (e instanceof MetaError && e.tokenInvalid) await db.from('social_accounts').update({ connection_status: 'expired' }).eq('id', account.id);
       await log('publish_failed', { code: e instanceof MetaError ? e.code : null, message: e instanceof Error ? e.message.slice(0, 300) : '' });
-      await fail(friendlyMetaError(e));
+      return fail(friendlyMetaError(e));
     }
-  }
+  };
+  const results = await Promise.all(platforms.map(one));
 
   const ok = results.filter((r) => r.status === 'published').length;
   const status = ok === results.length ? 'published' : ok > 0 ? 'partially_published' : 'failed';

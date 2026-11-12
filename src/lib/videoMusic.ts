@@ -1,15 +1,17 @@
 /**
- * Musique des stories vidéo, dans le navigateur (version web) :
+ * Musique et petit texte des vidéos (stories et Reels), dans le navigateur (version web) :
  * - écoute de la musique pendant l'aperçu, calée sur la vidéo ;
- * - fabrication de la vidéo finale, avec la musique collée dedans et un son qui redescend à la fin.
+ * - fabrication de la vidéo finale, avec la musique et le petit texte collés dedans.
  *
- * La musique doit être DANS le fichier : Instagram ne laisse pas une appli ajouter sa propre musique.
+ * La musique et le texte doivent être DANS le fichier : Instagram ne laisse pas une appli ajouter les siens.
  * Tout se fait sur le téléphone (rien n'est envoyé à un serveur pour le mélange).
  * Sur l'appli installée (iOS / Android), le mélange viendra plus tard : le bouton n'y est pas proposé.
  */
 import { Platform } from 'react-native';
 import { Asset } from 'expo-asset';
 import { FADE_IN_SECONDS, musicVolumeAt } from './music';
+import { drawOverlay, FRAME, hasOverlay, loadOverlayFonts, type Overlay } from './overlay';
+import { MAX_VIDEO_BYTES } from './api';
 
 /** Les fichiers des musiques (assets/sons). Le navigateur ne les charge qu'au moment où on les écoute. */
 const FILES: Record<string, number> = {
@@ -168,24 +170,32 @@ export function playSample(trackId: string): () => void {
 
 // ------------------------------------------------------------------ vidéo finale
 
-/** Le premier format que le navigateur sait enregistrer (mp4 sur iPhone, webm ailleurs). */
+/**
+ * Le premier format que le navigateur sait enregistrer. MP4 d'abord (H.264 + son AAC) :
+ * c'est le seul qu'Instagram et Facebook acceptent. Le webm (anciens navigateurs) est refusé à l'envoi.
+ */
 export function recordingMimeType(): string | undefined {
   const MR = (globalThis as { MediaRecorder?: typeof MediaRecorder }).MediaRecorder;
   if (!MR) return undefined;
-  return ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm'].find((t) => MR.isTypeSupported(t));
+  return ['video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm'].find((t) => MR.isTypeSupported(t));
 }
 
+/** Le texte sur la vidéo et la vidéo finale ne sont fabriqués que dans le navigateur (comme la musique). */
+export const videoEditSupported = musicSupported && typeof HTMLCanvasElement !== 'undefined' && 'captureStream' in HTMLCanvasElement.prototype;
+
 /**
- * Fabrique la vidéo de la story avec la musique dedans : image plein écran 1080 x 1920,
- * son de la vidéo baissé, musique qui entre doucement et redescend pile à la fin.
+ * Fabrique la vidéo finale (story ou Reel) : image plein écran 1080 x 1920, petit texte qui apparaît
+ * en douceur, et musique (facultative) qui entre doucement et redescend pile à la fin.
+ * Avec musique, le son de la vidéo est baissé ; sans musique, il est gardé tel quel.
  * Ça prend le temps de la vidéo (elle est rejouée une fois, sans le son, pour être enregistrée).
  * `onProgress` reçoit un nombre de 0 à 1.
  */
-export async function makeVideoWithMusic(
+export async function makeFinalVideo(
   videoUri: string,
-  trackId: string,
+  opts: { trackId: string | null; overlay: Overlay | null },
   onProgress: (p: number) => void = () => {},
 ): Promise<{ blob: Blob; uri: string; mimeType: string }> {
+  const { trackId, overlay } = opts;
   const ctx = audioContext();
   const mimeType = recordingMimeType();
   if (!mimeType) throw new Error('enregistrement impossible sur ce navigateur');
@@ -201,23 +211,24 @@ export async function makeVideoWithMusic(
     video.onerror = () => ko(new Error('vidéo illisible'));
   });
 
-  const [music, sound] = await Promise.all([loadTrack(ctx, trackId), loadVideoSound(ctx, videoUri)]);
+  const [music, sound] = await Promise.all([trackId ? loadTrack(ctx, trackId) : Promise.resolve(null), loadVideoSound(ctx, videoUri), overlay ? loadOverlayFonts() : Promise.resolve()]);
   // Une vidéo filmée dans le navigateur n'annonce pas toujours sa durée : on prend celle de son son.
   const duration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : sound?.duration ?? 0;
   if (!duration) throw new Error('durée inconnue');
 
   // Image : plein écran vertical, la vidéo est recadrée au centre si besoin.
   const canvas = document.createElement('canvas');
-  canvas.width = 1080;
-  canvas.height = 1920;
+  canvas.width = FRAME.width;
+  canvas.height = FRAME.height;
   const g = canvas.getContext('2d')!;
   const draw = () => {
-    const vw = video.videoWidth || 1080;
-    const vh = video.videoHeight || 1920;
+    const vw = video.videoWidth || FRAME.width;
+    const vh = video.videoHeight || FRAME.height;
     const scale = Math.max(canvas.width / vw, canvas.height / vh);
     const w = vw * scale;
     const h = vh * scale;
     g.drawImage(video, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
+    if (overlay) drawOverlay(g, overlay, canvas.width, canvas.height, video.currentTime);
   };
   draw();
 
@@ -225,28 +236,57 @@ export async function makeVideoWithMusic(
   const dest = ctx.createMediaStreamDestination();
   const musicGain = ctx.createGain();
   musicGain.connect(dest);
-  const musicSource = ctx.createBufferSource();
-  musicSource.buffer = music;
-  musicSource.loop = true;
-  musicSource.connect(musicGain);
+  let musicSource: AudioBufferSourceNode | null = null;
+  if (music) {
+    musicSource = ctx.createBufferSource();
+    musicSource.buffer = music;
+    musicSource.loop = true;
+    musicSource.connect(musicGain);
+  }
   let soundSource: AudioBufferSourceNode | null = null;
   if (sound) {
     const soundGain = ctx.createGain();
-    soundGain.gain.value = VIDEO_VOLUME_WITH_MUSIC;
+    soundGain.gain.value = music ? VIDEO_VOLUME_WITH_MUSIC : 1;
     soundGain.connect(dest);
     soundSource = ctx.createBufferSource();
     soundSource.buffer = sound;
     soundSource.connect(soundGain);
   }
 
-  const stream = new MediaStream([...canvas.captureStream(30).getVideoTracks(), ...dest.stream.getAudioTracks()]);
-  const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 8_000_000 });
+  // Son d'origine illisible d'avance (certains formats) : on le prend directement pendant la lecture,
+  // envoyé vers l'enregistreur seulement (rien dans le haut-parleur).
+  let liveSound = false;
+  if (!sound) {
+    try {
+      const el = ctx.createMediaElementSource(video);
+      const g2 = ctx.createGain();
+      g2.gain.value = music ? VIDEO_VOLUME_WITH_MUSIC : 1;
+      el.connect(g2);
+      g2.connect(dest);
+      video.muted = false;
+      liveSound = true;
+    } catch {
+      /* tant pis : vidéo sans son d'origine */
+    }
+  }
+  const audio = music || sound || liveSound ? dest.stream.getAudioTracks() : [];
+  const stream = new MediaStream([...canvas.captureStream(30).getVideoTracks(), ...audio]);
+  // Qualité d'une vidéo de téléphone (8 Mbit/s), réduite pour les vidéos longues : le fichier doit rester
+  // sous 50 Mo (limite du stockage). 90 secondes : environ 3,5 Mbit/s, encore net sur un téléphone.
+  const videoBitsPerSecond = Math.max(2_500_000, Math.min(8_000_000, Math.floor((42 * 8 * 1024 * 1024) / duration) - 160_000));
+  const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond });
   const chunks: Blob[] = [];
   recorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
   const done = new Promise<void>((ok) => { recorder.onstop = () => ok(); });
 
   recorder.start(1000);
-  await video.play();
+  try {
+    await video.play();
+  } catch {
+    // Lecture avec le son refusée par le navigateur : on rejoue sans le son d'origine.
+    video.muted = true;
+    await video.play();
+  }
   const t0 = ctx.currentTime;
   // Volume de la musique : entrée douce, puis redescente pendant les dernières secondes.
   const fadeOut = Math.min(3, duration / 3);
@@ -255,7 +295,7 @@ export async function makeVideoWithMusic(
   musicGain.gain.linearRampToValueAtTime(1, t0 + fadeIn);
   musicGain.gain.setValueAtTime(1, t0 + duration - fadeOut);
   musicGain.gain.linearRampToValueAtTime(0, t0 + duration);
-  musicSource.start(t0);
+  musicSource?.start(t0);
   soundSource?.start(t0);
 
   await new Promise<void>((ok) => {
@@ -272,7 +312,7 @@ export async function makeVideoWithMusic(
 
   // Une dernière image, puis on arrête tout.
   draw();
-  try { musicSource.stop(); soundSource?.stop(); } catch { /* déjà arrêtés */ }
+  try { musicSource?.stop(); soundSource?.stop(); } catch { /* déjà arrêtés */ }
   recorder.stop();
   await done;
   stream.getTracks().forEach((t) => t.stop());
@@ -286,7 +326,7 @@ export async function makeVideoWithMusic(
  * Donne la vidéo au commerçant : sur iPhone, le menu « Partager » permet de l'enregistrer
  * dans Photos ou de l'envoyer ; sinon, simple téléchargement.
  */
-export async function saveVideo(blob: Blob, name = 'story-vitrine'): Promise<void> {
+export async function saveVideo(blob: Blob, name = 'video-vitrine'): Promise<void> {
   const ext = blob.type.includes('mp4') ? 'mp4' : 'webm';
   const file = new File([blob], `${name}.${ext}`, { type: blob.type });
   const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean };
@@ -304,4 +344,23 @@ export async function saveVideo(blob: Blob, name = 'story-vitrine'): Promise<voi
   document.body.appendChild(a);
   a.click();
   a.remove();
+}
+
+/**
+ * La vidéo qui part sur les réseaux : refabriquée avec le texte et la musique s'il y en a,
+ * ou si elle est trop lourde pour le stockage (elle est alors un peu compressée).
+ * Retourne undefined quand la vidéo d'origine convient telle quelle (ou sur l'appli installée).
+ */
+export async function prepareVideo(
+  uri: string,
+  opts: { overlay: Overlay | null; trackId: string | null },
+  onProgress: (p: number) => void,
+): Promise<Blob | undefined> {
+  if (!videoEditSupported) return undefined;
+  const overlay = hasOverlay(opts.overlay) ? opts.overlay : null;
+  if (!overlay && !opts.trackId) {
+    const original = await (await fetch(uri)).blob().catch(() => null);
+    if (!original || original.size <= MAX_VIDEO_BYTES) return undefined;
+  }
+  return (await makeFinalVideo(uri, { trackId: opts.trackId, overlay }, onProgress)).blob;
 }

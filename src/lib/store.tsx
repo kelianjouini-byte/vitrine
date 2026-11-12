@@ -11,7 +11,7 @@ import { mergePosts } from './sync';
 import { codeFromUrl, savePendingCode } from './referral';
 import { Platform } from 'react-native';
 import type { Business, NotificationPrefs, Post, PostIdea, SocialConnection } from './types';
-import type { RawPhoto } from './photo';
+import type { Captured, RawPhoto } from './photo';
 import type { Month } from './report';
 import type { StatsMap } from './stats';
 
@@ -24,9 +24,15 @@ export type Route =
   | { name: 'settings' }
   | { name: 'ideas' }
   | { name: 'report'; month?: Month }
-  | { name: 'create'; occasionId?: string; photo?: RawPhoto; idea?: PostIdea; plannedFor?: string; note?: string }
-  | { name: 'story' }
-  | { name: 'published'; postId: string }
+  | { name: 'create'; occasionId?: string; photo?: RawPhoto; idea?: PostIdea; plannedFor?: string; note?: string; alsoStory?: boolean }
+  | { name: 'story'; media?: Captured }
+  /** Caméra vidéo de l'appli (version web), ouverte par le bouton « Vidéo » de l'accueil. */
+  | { name: 'capture' }
+  /** Après la photo ou la vidéo : « Où la publier ? » (Post / Reel, Story, ou les deux). */
+  | { name: 'choose'; media: Captured }
+  | { name: 'reel'; video: Extract<Captured, { kind: 'video' }>; alsoStory?: boolean }
+  /** alsoId : la story publiée en même temps que le post ou le Reel. */
+  | { name: 'published'; postId: string; alsoId?: string }
   | { name: 'offers'; payment?: 'ok' | 'annule' }
   | { name: 'referral' }
   | { name: 'review' }
@@ -45,6 +51,8 @@ interface AppState {
   connections: SocialConnection[];
   route: Route;
   go: (r: Route) => void;
+  /** Remplace l'écran actuel (le bouton retour ne revient pas dessus). */
+  replace: (r: Route) => void;
   back: () => void;
   saveBusiness: (b: Business) => Promise<void>;
   upsertPost: (p: Post) => void;
@@ -165,6 +173,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }), []);
   const back = useCallback(() => setStack((s) => (s.length > 1 ? s.slice(0, -1) : s)), []);
+  const replace = useCallback((r: Route) => setStack((s) => [...s.slice(0, -1), r]), []);
 
   const saveBusiness = useCallback(async (b: Business) => {
     setBusiness(b);
@@ -316,8 +325,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const canPublish = !team || team.canPublish;
 
   const value = useMemo<AppState>(
-    () => ({ ready, business, posts, prefs, connections, route: stack[stack.length - 1], go, back, saveBusiness, upsertPost, planChoices, setDayChoice, setPrefs, refreshConnections, resetAll, syncPosts, restoreFromServer, billing, refreshBilling, team, refreshTeam, switchShop, isPatron, canPublish, stats, refreshStats }),
-    [ready, business, posts, prefs, connections, stack, go, back, saveBusiness, upsertPost, planChoices, setDayChoice, setPrefs, refreshConnections, resetAll, syncPosts, restoreFromServer, billing, refreshBilling, team, refreshTeam, switchShop, isPatron, canPublish, stats, refreshStats],
+    () => ({ ready, business, posts, prefs, connections, route: stack[stack.length - 1], go, replace, back, saveBusiness, upsertPost, planChoices, setDayChoice, setPrefs, refreshConnections, resetAll, syncPosts, restoreFromServer, billing, refreshBilling, team, refreshTeam, switchShop, isPatron, canPublish, stats, refreshStats }),
+    [ready, business, posts, prefs, connections, stack, go, replace, back, saveBusiness, upsertPost, planChoices, setDayChoice, setPrefs, refreshConnections, resetAll, syncPosts, restoreFromServer, billing, refreshBilling, team, refreshTeam, switchShop, isPatron, canPublish, stats, refreshStats],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

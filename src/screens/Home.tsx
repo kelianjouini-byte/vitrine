@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Body, Card, Chevron, DateTile, IconTile, Label, Notice, Title } from '../components/ui';
-import { takePhoto } from '../lib/photo';
+import { takePhoto, takeVideo } from '../lib/photo';
 import { accountState, FriendlyError } from '../lib/api';
-import { BulbIcon, CameraIcon, ChartUpIcon, CheckIcon, GearIcon, LinkIcon, StoreIcon, StoryIcon } from '../components/icons';
+import { BulbIcon, ChartUpIcon, CheckIcon, GearIcon, LinkIcon, StoreIcon } from '../components/icons';
 import { daysLeft, isLiveStatus, TRIAL_REPORT_DAYS_BEFORE } from '../lib/billing';
 import { colors, fonts, glassSurface } from '../lib/theme';
 import { useApp } from '../lib/store';
@@ -12,6 +12,8 @@ import { announceDate, dayKey, holidayAnswer } from '../lib/planning';
 import { MonthReportCard } from '../components/MonthReportCard';
 import { ShopSwitcher } from '../components/ShopSwitcher';
 import { PhotoButton } from '../components/PhotoButton';
+import { MediaCard } from '../components/CreateChoice';
+import { Platform } from 'react-native';
 import { PersonIcon, SendIcon } from '../components/icons';
 
 export function Home() {
@@ -33,23 +35,53 @@ export function Home() {
   const scheduled = posts.find((p) => p.status === 'scheduled');
   const days = next ? daysUntil(next.date) : 0;
   const [photoError, setPhotoError] = useState<string | null>(null);
-  // Le gros bouton propose 2 choix : un post (photo + texte de l'IA) ou une story (photo ou vidéo).
+  // Le gros bouton propose 2 choix : Photo (post ou story) ou Vidéo (Reel ou story).
   const [choosing, setChoosing] = useState(false);
+  // La carte touchée reste en couleur pleine pendant que la caméra s'ouvre.
+  const [opening, setOpening] = useState<'photo' | 'video' | null>(null);
   // Compte sans e-mail : après le 1er post, on propose de le protéger (sinon, perdu en changeant de téléphone).
   const [guest, setGuest] = useState(false);
   useEffect(() => { accountState().then((a) => setGuest(a.kind === 'guest')).catch(() => {}); }, [posts.length]);
   const pending = isPatron ? team?.pending ?? 0 : 0;
   const mine = !isPatron ? team?.mine : undefined;
 
-  // Post : l'appareil photo s'ouvre tout de suite, la photo est cadrée toute seule.
-  async function shoot() {
-    setChoosing(false);
+  // Photo : l'appareil photo s'ouvre tout de suite ; ensuite « Où la publier ? » (post, story ou les deux).
+  /** La carte touchée passe en couleur pleine un instant : on voit bien qu'elle a été choisie. */
+  function flash(kind: 'photo' | 'video') {
+    setOpening(kind);
+    setTimeout(() => setOpening((k) => (k === kind ? null : k)), 900);
+  }
+
+  async function shootPhoto() {
     setPhotoError(null);
+    flash('photo');
     try {
       const photo = await takePhoto();
-      if (photo) go({ name: 'create', photo });
+      if (photo) {
+        setChoosing(false);
+        go({ name: 'choose', media: { kind: 'photo', raw: photo } });
+      }
     } catch (e) {
       setPhotoError(e instanceof FriendlyError ? e.message : "La photo n'a pas pu être ouverte. Réessayez.");
+    }
+  }
+
+  // Vidéo : la caméra de Vitrine (version web) ou celle du téléphone ; ensuite « Où la publier ? » (Reel, story ou les deux).
+  async function shootVideo() {
+    setPhotoError(null);
+    if (Platform.OS === 'web') {
+      setChoosing(false);
+      return go({ name: 'capture' });
+    }
+    flash('video');
+    try {
+      const video = await takeVideo('camera');
+      if (video) {
+        setChoosing(false);
+        go({ name: 'choose', media: video });
+      }
+    } catch (e) {
+      setPhotoError(e instanceof FriendlyError ? e.message : "La vidéo n'a pas pu être ouverte. Réessayez.");
     }
   }
 
@@ -97,17 +129,17 @@ export function Home() {
       )}
 
       {/* Le geste principal : un gros bouton rond, au centre, avec des ondes orange autour. */}
-      <Pressable onPress={() => setChoosing((c) => !c)} accessibilityRole="button" accessibilityLabel="Publier une photo : créer un post ou une story" accessibilityState={{ expanded: choosing }}
+      <Pressable onPress={() => setChoosing((c) => !c)} accessibilityRole="button" accessibilityLabel="Publier : une photo ou une vidéo" accessibilityState={{ expanded: choosing }}
         style={({ pressed }) => ({ alignItems: 'center', gap: 8, paddingVertical: 14, transform: [{ scale: pressed ? 0.97 : 1 }] })}>
         <PhotoButton />
-        <Text style={{ color: colors.greenDark, fontSize: 23, fontWeight: '700', fontFamily: fonts.body, marginTop: 6 }}>Publier une photo</Text>
-        <Body soft size={16}>{choosing ? 'Que voulez-vous publier ?' : 'Touchez le bouton pour commencer'}</Body>
+        <Text style={{ color: colors.greenDark, fontSize: 23, fontWeight: '700', fontFamily: fonts.body, marginTop: 6 }}>Publier</Text>
+        <Body soft size={16}>{choosing ? 'Que voulez-vous montrer ?' : 'Touchez le bouton pour commencer'}</Body>
       </Pressable>
 
       {choosing && (
         <View style={{ flexDirection: 'row', gap: 12 }}>
-          <Choice icon={<CameraIcon size={30} color={colors.green} />} title="Post" text="Photo + texte écrit par l'IA" onPress={shoot} />
-          <Choice icon={<StoryIcon size={30} color={colors.green} />} title="Story" text="Photo ou vidéo qui reste 24 h" onPress={() => { setChoosing(false); go({ name: 'story' }); }} />
+          <MediaCard kind="photo" active={opening === 'photo'} onPress={shootPhoto} />
+          <MediaCard kind="video" active={opening === 'video'} onPress={shootVideo} delay={120} />
         </View>
       )}
 
@@ -206,18 +238,5 @@ export function Home() {
         )}
       </View>
     </ScrollView>
-  );
-}
-
-/** Un des 2 choix du gros bouton : grande carte facile à toucher. */
-function Choice({ icon, title, text, onPress }: { icon: React.ReactNode; title: string; text: string; onPress: () => void }) {
-  return (
-    <View style={{ flex: 1 }}>
-      <Card onPress={onPress} style={{ alignItems: 'center', gap: 8, paddingVertical: 20, paddingHorizontal: 12 }}>
-        <IconTile size={60}>{icon}</IconTile>
-        <Text style={{ color: colors.text, fontSize: 21, fontWeight: '700', fontFamily: fonts.body }} accessibilityLabel={`${title} : ${text}`}>{title}</Text>
-        <Text style={{ color: colors.textSoft, fontSize: 15, textAlign: 'center', fontFamily: fonts.body }}>{text}</Text>
-      </Card>
-    </View>
   );
 }

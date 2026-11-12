@@ -7,8 +7,11 @@ import { colors, fonts, glassSurface, radius } from '../lib/theme';
 import { useApp } from '../lib/store';
 import { upcomingEvents } from '../lib/events';
 import { isBackendConfigured } from '../lib/config';
-import { ensureSession, exampleCaption, FriendlyError, generatePost, NotConfiguredError, publishPost, saveBusinessRemote, submitPost, uploadPhoto } from '../lib/api';
-import { CENTERED, formatRatio, MAX_PHOTOS, renderCrop, takePhotos, type Framing, type PhotoFormat, type PickedPhoto, type RawPhoto } from '../lib/photo';
+import { ensureSession, exampleCaption, FriendlyError, generatePost, NotConfiguredError, publishPost, publishStory, saveBusinessRemote, submitPost, submitStory, uploadPhoto } from '../lib/api';
+import { autoCrop, CENTERED, formatRatio, MAX_PHOTOS, renderCrop, takePhotos, type Framing, type PhotoFormat, type PickedPhoto, type RawPhoto } from '../lib/photo';
+import { OverlayEditor, OverlayStage, OverlayStatus, OverlayTools, useOverlayText } from '../components/TextOverlay';
+import { hasOverlay } from '../lib/overlay';
+import { photoWithText } from '../lib/media';
 import { PhotoCropper } from '../components/PhotoCropper';
 import { PhotoCarousel } from '../components/PhotoCarousel';
 import { tradeById } from '../lib/trades';
@@ -24,7 +27,11 @@ type Slide = { key: string; raw: RawPhoto; framing: Framing; photo: PickedPhoto;
 /** Format de toutes les photos d'un post. */
 const FORMAT: PhotoFormat = 'portrait';
 
-export function Create({ occasionId, initialPhoto, idea, plannedFor, note }: { occasionId?: string; initialPhoto?: RawPhoto; idea?: PostIdea; plannedFor?: string; note?: string }) {
+/**
+ * Post : photos + texte écrit par l'IA. `alsoStory` (choisi sur « Où la publier ? ») : la 1re photo part
+ * aussi en story, en plein écran, avec un petit texte écrit dessus.
+ */
+export function Create({ occasionId, initialPhoto, idea, plannedFor, note, alsoStory }: { occasionId?: string; initialPhoto?: RawPhoto; idea?: PostIdea; plannedFor?: string; note?: string; alsoStory?: boolean }) {
   const { business, back, go, upsertPost, connections, saveBusiness, prefs, canPublish, refreshTeam } = useApp();
   // Post préparé à l'avance depuis le planning : « Vendredi 6 novembre ».
   const plannedLabel = plannedFor ? dayLabel(parseDayKey(plannedFor)) : null;
@@ -67,6 +74,11 @@ export function Create({ occasionId, initialPhoto, idea, plannedFor, note }: { o
   const [cropKey, setCropKey] = useState<string | null>(null);
   const [cropDraft, setCropDraft] = useState<Framing>(CENTERED);
   const [cropDragging, setCropDragging] = useState(false);
+  // Story publiée en même temps : la 1re photo en plein écran vertical, avec son petit texte.
+  const storyText = useOverlayText(b, occasion ?? null);
+  const [storyPhoto, setStoryPhoto] = useState<PickedPhoto | null>(null);
+  const storyFor = useRef<string | null>(null);
+  const storyId = useRef<string>(Crypto.randomUUID());
 
   // Photo déjà prise depuis l'accueil : elle est cadrée toute seule, on passe directement à la suite.
   // Sinon (depuis une fête), on ouvre directement l'appareil photo sur téléphone.
@@ -77,6 +89,34 @@ export function Create({ occasionId, initialPhoto, idea, plannedFor, note }: { o
   }, []);
 
   const room = MAX_PHOTOS - slides.length;
+
+  // La story suit la 1re photo : préparée (et son petit texte demandé à l'IA) quand le post est prêt.
+  useEffect(() => {
+    const first = slides[0];
+    if (!alsoStory || phase !== 'preview' || !first || storyFor.current === first.key) return;
+    storyFor.current = first.key;
+    autoCrop(first.raw, 'story').then((p) => {
+      setStoryPhoto(p);
+      if (first.path) storyText.ask({ kind: 'path', path: first.path, video: false });
+      else if (p.base64) storyText.ask({ kind: 'photo', base64: p.base64 });
+    }).catch(() => setStoryPhoto(null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [alsoStory, phase, slides]);
+
+  /** La story telle qu'elle part : photo plein écran, avec le petit texte dessiné dessus. */
+  async function storyBase64(): Promise<string> {
+    if (!storyPhoto?.base64) throw new FriendlyError("La photo de la story n'a pas pu être préparée.");
+    if (storyText.supported && hasOverlay(storyText.overlay)) return (await photoWithText(storyPhoto.uri, storyText.overlay)).base64;
+    return storyPhoto.base64;
+  }
+
+  function storyPost(extra: Pick<Post, 'status' | 'publications'> & Partial<Post>): Post {
+    return {
+      id: storyId.current, kind: 'story', mediaType: 'photo',
+      imageUri: storyPhoto?.base64 ? `data:image/jpeg;base64,${storyPhoto.base64}` : storyPhoto?.uri ?? '',
+      caption: storyText.overlay.text.trim() || 'Story photo', hashtags: [], platforms, createdAt: new Date().toISOString(), ...extra,
+    };
+  }
 
   async function pick(source: 'camera' | 'library') {
     setError(null);
@@ -259,7 +299,26 @@ export function Create({ occasionId, initialPhoto, idea, plannedFor, note }: { o
     const done = status === 'published' || status === 'partially_published';
     const post = buildPost(tags, { status, publications, publishedAt: done ? new Date().toISOString() : null });
     upsertPost(post);
-    go({ name: 'published', postId: post.id });
+    // La story part juste après le post (même réseaux). Jamais de faux succès : son résultat est le sien.
+    let withStory = false;
+    if (alsoStory && storyPhoto) {
+      withStory = true;
+      const notConfigured = publications.every((p) => p.status === 'not_configured');
+      let storyPubs: PublicationResult[];
+      try {
+        if (notConfigured) throw new NotConfiguredError('meta');
+        storyPubs = await publishStory({ storyId: storyId.current, platforms, media: { kind: 'photo', base64: await storyBase64() }, idempotencyKey: storyId.current });
+      } catch (e) {
+        storyPubs = platforms.map((p) => ({
+          platform: p,
+          status: e instanceof NotConfiguredError ? 'not_configured' : 'failed',
+          error: e instanceof NotConfiguredError ? null : e instanceof FriendlyError ? e.message : "La story n'a pas pu partir.",
+        }));
+      }
+      const st = statusAfterPublish(storyPubs);
+      upsertPost(storyPost({ status: st, publications: storyPubs, publishedAt: st === 'published' || st === 'partially_published' ? new Date().toISOString() : null }));
+    }
+    go({ name: 'published', postId: post.id, alsoId: withStory ? storyId.current : undefined });
   }
 
   /** Employé : le post part chez le patron, qui le publie (ou le refuse avec un petit mot). Rien n'est publié ici. */
@@ -271,6 +330,10 @@ export function Create({ occasionId, initialPhoto, idea, plannedFor, note }: { o
       const imagePaths = await ensureUploaded();
       await submitPost({ postId, caption: caption.trim(), hashtags: tags, platforms, imagePaths, idempotencyKey: idempotencyKey.current });
       upsertPost(buildPost(tags, { status: 'awaiting_approval', publications: [], reviewState: 'pending', reviewNote: null }));
+      if (alsoStory && storyPhoto) {
+        await submitStory({ storyId: storyId.current, platforms, media: { kind: 'photo', base64: await storyBase64() }, idempotencyKey: storyId.current });
+        upsertPost(storyPost({ status: 'awaiting_approval', publications: [], reviewState: 'pending' }));
+      }
       refreshTeam();
       go({ name: 'published', postId });
     } catch (e) {
@@ -513,6 +576,33 @@ export function Create({ occasionId, initialPhoto, idea, plannedFor, note }: { o
         </View>
       )}
 
+      {alsoStory && (
+        <View style={{ gap: 10 }}>
+          <Body style={{ fontWeight: '700' }}>Votre story</Body>
+          <Body soft size={15}>La 1re photo part aussi en story, en plein écran, avec ce petit texte dessus.</Body>
+          {storyPhoto ? (
+            <>
+              <OverlayStage media={{ kind: 'photo', uri: storyPhoto.uri }} overlay={storyText.supported ? storyText.overlay : null} width="62%" />
+              {storyText.supported && (
+                <>
+                  <OverlayStatus loading={storyText.loading} failed={storyText.failed} empty={!hasOverlay(storyText.overlay)} />
+                  <OverlayTools overlay={storyText.overlay} onChange={storyText.setOverlay} onEdit={() => storyText.setEditing(true)} />
+                </>
+              )}
+            </>
+          ) : <ActivityIndicator color={colors.green} />}
+          <OverlayEditor
+            visible={storyText.editing}
+            overlay={storyText.overlay}
+            emojis={storyText.emojis}
+            onChange={storyText.setOverlay}
+            onClose={() => storyText.setEditing(false)}
+            onRewrite={storyText.canRewrite ? storyText.rewrite : undefined}
+            rewriting={storyText.loading}
+          />
+        </View>
+      )}
+
       <PlatformPicker value={platforms} onChange={setPlatforms} connections={connections} />
 
       {error && <Notice tone="red" title="Nous avons besoin de votre attention" text={error} />}
@@ -523,7 +613,7 @@ export function Create({ occasionId, initialPhoto, idea, plannedFor, note }: { o
           <Button title={canPublish ? 'Publier maintenant' : 'Envoyer au patron maintenant'} kind="secondary" disabled={busy} onPress={publish} />
         </>
       ) : canPublish ? (
-        <Button title="Publier maintenant" onPress={publish} style={{ minHeight: 64 }} />
+        <Button title={alsoStory ? 'Publier le post et la story' : 'Publier maintenant'} onPress={publish} style={{ minHeight: 64 }} />
       ) : (
         <>
           <Button title="Envoyer au patron" icon={<SendIcon size={22} color={colors.white} />} loading={busy} onPress={publish} style={{ minHeight: 64 }} />

@@ -1,31 +1,39 @@
 import React, { useEffect } from 'react';
 import { Linking, ScrollView, View } from 'react-native';
-import { Badge, Body, Button, Card, Notice, PostThumb, Title } from '../components/ui';
+import { Badge, Body, Button, Card, Label, Notice, PostThumb, Title } from '../components/ui';
 import { AlertIcon, CheckIcon, FacebookIcon, InstagramIcon, SendIcon } from '../components/icons';
 import { colors } from '../lib/theme';
 import { useApp } from '../lib/store';
-import type { PublicationResult } from '../lib/types';
+import type { Post, PublicationResult } from '../lib/types';
 import { hasStats, type Stats } from '../lib/stats';
 import { StatsRow } from './Posts';
 
-/** Écran 3 : résultat RÉEL de la publication, réseau par réseau. Jamais de faux succès. */
-export function Published({ postId }: { postId: string }) {
+/** « Votre post », « Votre story », « Votre Reel ». */
+export const postNoun = (p: Post) => (p.kind === 'story' ? 'story' : p.mediaType === 'video' ? 'Reel' : 'post');
+const again = (p: Post) => (p.kind === 'story' ? { name: 'story' as const } : p.mediaType === 'video' ? { name: 'home' as const } : { name: 'create' as const });
+
+/**
+ * Écran 3 : résultat RÉEL de la publication, réseau par réseau. Jamais de faux succès.
+ * `alsoId` : la story publiée en même temps (Post + Story, Reel + Story), montrée en dessous.
+ */
+export function Published({ postId, alsoId }: { postId: string; alsoId?: string }) {
   const { posts, go, team, stats, syncPosts } = useApp();
   const post = posts.find((p) => p.id === postId);
-  const sending = post?.status === 'publishing';
-  // Envoi en arrière-plan : on relit le résultat chez le serveur toutes les 4 s (3 minutes au plus).
+  const also = alsoId ? posts.find((p) => p.id === alsoId) : undefined;
+  const sending = post?.status === 'publishing' || also?.status === 'publishing';
+  // Envoi en arrière-plan : on relit le résultat chez le serveur toutes les 4 s (4 minutes au plus : un Reel est plus long).
   useEffect(() => {
     if (!sending) return;
     let tries = 0;
     const timer = setInterval(() => {
       tries += 1;
-      if (tries > 45) return clearInterval(timer);
+      if (tries > 60) return clearInterval(timer);
       syncPosts().catch(() => {});
     }, 4000);
     return () => clearInterval(timer);
   }, [sending, syncPosts]);
   if (!post) return null;
-  if (sending) return <Sending postId={postId} />;
+  if (sending) return <Sending postId={postId} also={also} />;
   if (post.reviewState === 'pending') return <SentToPatron postId={postId} patron={team?.ownerFirstName} />;
   if (post.reviewState === 'rejected') {
     return (
@@ -35,7 +43,7 @@ export function Published({ postId }: { postId: string }) {
           <Title size={28} style={{ textAlign: 'center' }}>Le patron a refusé ce post</Title>
         </View>
         {post.reviewNote ? <Notice tone="orange" title="Son message" text={post.reviewNote} /> : <Body soft center>Il n'a pas laissé de message.</Body>}
-        <Button title={post.kind === 'story' ? 'Faire une autre story' : 'Refaire un post'} onPress={() => go(post.kind === 'story' ? { name: 'story' } : { name: 'create' })} />
+        <Button title={post.kind === 'story' ? 'Faire une autre story' : post.mediaType === 'video' ? 'Refaire un Reel' : 'Refaire un post'} onPress={() => go(again(post))} />
         <Button title="Retour à l'accueil" kind="ghost" onPress={() => go({ name: 'home' })} />
       </ScrollView>
     );
@@ -62,18 +70,25 @@ export function Published({ postId }: { postId: string }) {
           {allOk
             ? `Votre publication est en ligne${when ? `, le ${when.toLocaleDateString('fr-FR')} à ${when.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : ''}.`
             : notConfigured
-              ? `La publication sur Instagram et Facebook n'est pas encore configurée. ${story ? 'Votre story est gardée' : 'Votre post est gardé'} dans « Mes posts ».`
+              ? `La publication sur Instagram et Facebook n'est pas encore configurée. ${story ? 'Votre story est gardée' : `Votre ${postNoun(post)} est gardé`} dans « Mes posts ».`
               : 'Rien n\'a été publié sur le réseau en erreur. Vous pouvez réessayer.'}
         </Body>
       </View>
 
       {pubs.map((p) => <PublicationRow key={p.platform} p={p} stats={stats[post.id]?.[p.platform]} />)}
 
+      {also && also.publications.length > 0 && (
+        <View style={{ gap: 10 }}>
+          <Label>Votre story</Label>
+          {also.publications.map((p) => <PublicationRow key={`s-${p.platform}`} p={p} />)}
+        </View>
+      )}
+
       {notConfigured && (
         <Notice tone="orange" title="Bientôt disponible" text="Dès que le compte Meta de Vitrine sera configuré et vos réseaux connectés, ce bouton publiera pour de vrai." />
       )}
 
-      {!allOk && !notConfigured && <Button title="Réessayer" kind="secondary" onPress={() => go(story ? { name: 'story' } : { name: 'create' })} />}
+      {!allOk && !notConfigured && <Button title="Réessayer" kind="secondary" onPress={() => go(again(post))} />}
       <Button title="Retour à l'accueil" onPress={() => go({ name: 'home' })} />
     </ScrollView>
   );
@@ -102,10 +117,9 @@ function PublicationRow({ p, stats }: { p: PublicationResult; stats?: Stats }) {
 }
 
 /** « Publication envoyée » : le serveur publie tout seul, l'écran se met à jour dès que c'est en ligne. */
-function Sending({ postId }: { postId: string }) {
+function Sending({ postId, also }: { postId: string; also?: Post }) {
   const { posts, go } = useApp();
   const post = posts.find((p) => p.id === postId)!;
-  const story = post.kind === 'story';
   return (
     <ScrollView contentContainerStyle={{ padding: 24, gap: 18, alignItems: 'stretch', paddingTop: 64 }}>
       <View style={{ alignItems: 'center', gap: 16 }}>
@@ -116,11 +130,19 @@ function Sending({ postId }: { postId: string }) {
         </View>
         <Title size={32} style={{ textAlign: 'center' }}>Publication envoyée</Title>
         <Body soft center>
-          {story ? 'Votre story part' : 'Votre post part'} sur Instagram et Facebook. Vitrine s'occupe de tout : vous pouvez fermer l'application.
+          {also ? `Votre ${postNoun(post)} et votre story partent` : `Votre ${postNoun(post)} part`} sur Instagram et Facebook. Vitrine s'occupe de tout : vous pouvez fermer l'application.
         </Body>
       </View>
       {post.publications.map((p) => <PublicationRow key={p.platform} p={p} />)}
-      <Body soft center size={15}>Le résultat s'affichera ici et dans « Mes posts », en général en moins d'une minute.</Body>
+      {also && also.publications.length > 0 && (
+        <View style={{ gap: 10 }}>
+          <Label>Votre story</Label>
+          {also.publications.map((p) => <PublicationRow key={`s-${p.platform}`} p={p} />)}
+        </View>
+      )}
+      <Body soft center size={15}>
+        {post.mediaType === 'video' ? 'Instagram prépare la vidéo avant de la mettre en ligne : en général une à deux minutes.' : 'Le résultat s\'affichera ici et dans « Mes posts », en général en moins d\'une minute.'}
+      </Body>
       <Button title="Retour à l'accueil" onPress={() => go({ name: 'home' })} />
     </ScrollView>
   );
@@ -144,6 +166,7 @@ function SentToPatron({ postId, patron }: { postId: string; patron?: string }) {
         <PostThumb post={post} width={64} height={64} />
         <View style={{ flex: 1 }}>
           <Body style={{ fontWeight: '700' }} size={15}>{story ? 'Votre story' : post.caption.length > 60 ? `${post.caption.slice(0, 60)}…` : post.caption}</Body>
+          {post.mediaType === 'video' && !story ? <Body soft size={13}>Reel</Body> : null}
         </View>
         <Badge text="En attente" tone="orange" />
       </Card>

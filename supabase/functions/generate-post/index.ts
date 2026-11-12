@@ -1,9 +1,12 @@
-// POST { image_paths[] (ou image_path), post_id?, occasion?, merchant_note?, trade_hint?, idea?, tone? }
+// POST { image_paths[] (ou image_path), post_id?, occasion?, merchant_note?, trade_hint?, idea?, tone?, format? }
 // -> { postId, instagramCaption, facebookCaption, hashtags, callToAction, photoDescription, improvementTip }
+// format = 'reel' : la photo est une image tirée d'une vidéo courte (Reel).
+// POST { mode: 'overlay', image_path, occasion?, merchant_note?, trade_hint? } -> { text, emojis }
+// Petit texte posé sur la photo ou la vidéo (story, Reel). Aucun post n'est créé.
 import { requireAccess } from '../_shared/access.ts';
 import { handler, json, HttpError } from '../_shared/http.ts';
 import { requireMerchant, rateLimit } from '../_shared/db.ts';
-import { generate, PROMPT_VERSION, containsInventedCommercialInfo } from '../_shared/openai.ts';
+import { generate, PROMPT_VERSION, containsInventedCommercialInfo, writeOverlay } from '../_shared/openai.ts';
 import { readImagePaths } from '../_shared/photos.ts';
 import { findAdWords, toTone } from '../_shared/prompts.ts';
 
@@ -27,8 +30,30 @@ Deno.serve(handler(async (req) => {
   // Ton : celui choisi sur la page photo (« Changer le ton »), sinon celui de la boutique, sinon Premium.
   const tone = toTone(body.tone ?? business.tone);
 
-  // Limitation des coûts : 20 générations / heure / boutique (les limites par offre viendront de public.plans).
-  await rateLimit(db, 'ai_generations', business.id, 20, 60);
+  // Limitation des coûts : 40 appels à l'IA / heure / boutique (texte du post + petit texte sur l'image).
+  await rateLimit(db, 'ai_generations', business.id, 40, 60);
+
+  if (body.mode === 'overlay') {
+    const { data: signed } = await db.storage.from('post-images').createSignedUrl(imagePath, 600);
+    if (!signed?.signedUrl) throw new HttpError(400, 'bad_image', 'La photo est introuvable. Reprenez-la.');
+    const context = [
+      `Commerce : ${business.business_name} à ${business.city}.`,
+      `Métier exact : ${business.trade || business.business_type}.`,
+      tradeHint ? `Ce que ce métier met en valeur : ${tradeHint}` : '',
+      body.occasion?.name ? `Occasion commerciale : ${String(body.occasion.name).slice(0, 80)}.` : '',
+      merchantNote ? `Idées du commerçant : « ${merchantNote} ».` : '',
+      body.format === 'video' ? 'L\'image est tirée d\'une vidéo courte.' : '',
+    ].filter(Boolean).join('\n');
+    const inputData = { mode: 'overlay', image_path: imagePath, merchant_note: merchantNote };
+    try {
+      const out = await writeOverlay({ imageUrl: signed.signedUrl, context, merchantNote });
+      await db.from('ai_generations').insert({ business_id: business.id, prompt_version: 'overlay-v1', input_data: inputData, output_data: out });
+      return json(out);
+    } catch (e) {
+      await db.from('ai_generations').insert({ business_id: business.id, prompt_version: 'overlay-v1', input_data: inputData, error: e instanceof Error ? e.message : 'erreur' });
+      throw e;
+    }
+  }
 
   // L'IA regarde les 3 premières photos : assez pour comprendre le carrousel, et ça reste rapide et gratuit.
   const seen = imagePaths.slice(0, AI_MAX_IMAGES);
@@ -60,6 +85,9 @@ Deno.serve(handler(async (req) => {
     business.strengths ? `Ce qui rend la boutique unique : ${business.strengths}.` : '',
     business.description ? `Présentation : ${business.description}.` : '',
     business.audience ? `Clientèle : ${business.audience}.` : '',
+    body.format === 'reel'
+      ? 'Publication VIDÉO courte (Reel) : l\'image est tirée de la vidéo. Écris le texte qui accompagne la vidéo, sans dire « photo », sans parler de ce que tu ne vois pas, et sans écrire les mots « Reel » ou « vidéo ».'
+      : '',
     imagePaths.length > 1
       ? `Publication en carrousel de ${imagePaths.length} photos qui défilent${imagePaths.length > seen.length ? ` (tu vois les ${seen.length} premières)` : ''} : écris UN texte qui présente l'ensemble, sans décrire les photos une par une ni parler de ce que tu ne vois pas.`
       : '',

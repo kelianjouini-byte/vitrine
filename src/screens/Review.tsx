@@ -114,15 +114,18 @@ function ReviewCard({ post, onDone }: { post: PendingPost; onDone: (r: { title: 
         {story && <Badge text="Story" tone="sand" />}
       </View>
 
-      {post.mediaType === 'video' ? (
+      {post.mediaType === 'video' && (story || !post.mediaUrls[0]) ? (
         <View style={{ height: 200, borderRadius: 16, backgroundColor: colors.greenSoft, alignItems: 'center', justifyContent: 'center', gap: 8 }}>
           <VideoIcon size={36} color={colors.green} />
-          <Body soft size={15}>Story en vidéo</Body>
+          <Body soft size={15}>{story ? 'Story en vidéo' : 'Reel en vidéo'}</Body>
         </View>
       ) : post.mediaUrls[0] ? (
         <View>
-          <Image source={{ uri: post.mediaUrls[0] }} accessibilityLabel="Photo du post" style={{ width: '100%', aspectRatio: story ? 9 / 16 : 4 / 5, maxHeight: 420, borderRadius: 16, backgroundColor: colors.greenSoft }} resizeMode="cover" />
-          {post.mediaUrls.length > 1 && (
+          <Image source={{ uri: post.mediaUrls[0] }} accessibilityLabel={post.mediaType === 'video' ? 'Image du Reel' : 'Photo du post'} style={{ width: '100%', aspectRatio: story || post.mediaType === 'video' ? 9 / 16 : 4 / 5, maxHeight: 420, borderRadius: 16, backgroundColor: colors.greenSoft }} resizeMode="cover" />
+          {post.mediaType === 'video' && (
+            <View style={{ position: 'absolute', top: 10, right: 10 }}><Badge text="Reel" tone="grey" /></View>
+          )}
+          {post.mediaType !== 'video' && post.mediaUrls.length > 1 && (
             <View style={{ position: 'absolute', top: 10, right: 10 }}><Badge text={`${post.mediaUrls.length} photos`} tone="grey" /></View>
           )}
         </View>

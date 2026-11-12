@@ -24,3 +24,17 @@ export function readImagePaths(body: Record<string, unknown>, userId: string, re
 export function postImagePaths(post: { image_url: string; image_urls?: string[] | null }): string[] {
   return post.image_urls?.length ? post.image_urls : [post.image_url];
 }
+
+/**
+ * Reel envoyé par l'appli : `video_path` (MP4 ou MOV) et `cover_path` (image tirée de la vidéo, facultative).
+ * Retourne null si l'appli n'a pas envoyé de vidéo (post photo classique).
+ */
+export function readReelPaths(body: Record<string, unknown>, userId: string): { video: string; cover: string | null } | null {
+  if (!body.video_path) return null;
+  const video = String(body.video_path);
+  const cover = body.cover_path ? String(body.cover_path) : null;
+  const ok = (p: string, ext: RegExp) => p.startsWith(`${userId}/`) && !p.includes('..') && p.length <= 200 && ext.test(p);
+  if (!ok(video, /\.(mp4|mov)$/i)) throw new HttpError(400, 'bad_media', 'Vidéo invalide.');
+  if (cover && !ok(cover, /\.jpg$/i)) throw new HttpError(400, 'bad_image', 'Image de la vidéo invalide.');
+  return { video, cover };
+}

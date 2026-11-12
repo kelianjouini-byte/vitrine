@@ -58,6 +58,7 @@ export function friendlyMetaError(e: unknown): string {
     if (e.code === 4 || e.code === 17 || e.code === 32 || e.code === 613) return 'Trop de publications en peu de temps. Réessayez plus tard.';
     if (e.code === 10 || (e.code && e.code >= 200 && e.code < 300)) return 'Vitrine n\'a pas l\'autorisation de publier. Reconnectez votre compte.';
     if (e.code === 9004 || e.code === 36003) return 'La photo ou la vidéo n\'a pas été acceptée (format ou taille).';
+    if (e.code === 9007) return 'Instagram prépare encore la vidéo. Réessayez dans quelques minutes.';
   }
   return 'La publication a échoué. Réessayez.';
 }
@@ -70,12 +71,12 @@ export function metaReady(): boolean {
 }
 
 /** Attend qu'Instagram ait fini de préparer un conteneur (photo, carrousel ou vidéo, plus longue). */
-async function waitContainer(id: string, token: string, tries = 10) {
+async function waitContainer(id: string, token: string, tries = 10, pause = 1500) {
   for (let i = 0; i < tries; i++) {
     const s = await graph<{ status_code: string }>(id, { fields: 'status_code', access_token: token });
     if (s.status_code === 'FINISHED') return;
     if (s.status_code === 'ERROR' || s.status_code === 'EXPIRED') throw new MetaError(9004, undefined, `conteneur ${s.status_code}`, false);
-    await sleep(1500);
+    await sleep(pause);
   }
   // Pas encore prêt : on tente quand même la publication, Meta dira si c'est trop tôt.
 }
@@ -157,4 +158,44 @@ export async function publishFacebookStory(pageId: string, pageToken: string, me
   }
   const res = await graph<{ post_id?: string }>(`${pageId}/video_stories`, { upload_phase: 'finish', video_id: start.video_id, access_token: pageToken }, 'POST');
   return { id: res.post_id ?? start.video_id, url: null };
+}
+
+// ------------------------------------------------------------------ Reels (vidéos courtes)
+
+/** Durées acceptées pour un Reel (Facebook : 3 à 90 secondes ; Instagram accepte plus long). */
+export const REEL_MIN_SECONDS = 3;
+export const REEL_MAX_SECONDS = 90;
+
+/**
+ * Instagram : Reel (media_type REELS) avec sa légende, aussi montré dans le fil.
+ * La couverture est prise à 1,5 s : le petit texte posé sur la vidéo y est déjà affiché.
+ * Instagram prépare la vidéo avant de pouvoir la publier (souvent 20 à 60 secondes).
+ */
+export async function publishInstagramReel(igUserId: string, token: string, videoUrl: string, caption: string) {
+  const container = await graph<{ id: string }>(`${igUserId}/media`, {
+    media_type: 'REELS', video_url: videoUrl, caption, share_to_feed: 'true', thumb_offset: '1500', access_token: token,
+  }, 'POST');
+  await waitContainer(container.id, token, 40, 2500);
+  const published = await graph<{ id: string }>(`${igUserId}/media_publish`, { creation_id: container.id, access_token: token }, 'POST');
+  const info = await graph<{ permalink?: string }>(published.id, { fields: 'permalink', access_token: token }).catch(() => ({ permalink: undefined }));
+  return { id: published.id, url: info.permalink ?? null };
+}
+
+/**
+ * Facebook : Reel de Page, en 3 temps (start -> Meta va chercher le fichier à notre adresse -> finish publié).
+ */
+export async function publishFacebookReel(pageId: string, pageToken: string, videoUrl: string, description: string) {
+  const start = await graph<{ video_id: string; upload_url?: string }>(`${pageId}/video_reels`, { upload_phase: 'start', access_token: pageToken }, 'POST');
+  const uploadUrl = start.upload_url ?? `https://rupload.facebook.com/video-upload/${GRAPH_VERSION}/${start.video_id}`;
+  const up = await fetch(uploadUrl, { method: 'POST', headers: { Authorization: `OAuth ${pageToken}`, file_url: videoUrl } });
+  const upData = await up.json().catch(() => ({}));
+  if (!up.ok || upData.error || upData.success === false) {
+    const e = upData.error ?? {};
+    throw new MetaError(e.code ?? 9004, e.error_subcode, e.message ?? `envoi vidéo ${up.status}`, e.code === 190);
+  }
+  const res = await graph<{ success?: boolean; post_id?: string }>(`${pageId}/video_reels`, {
+    upload_phase: 'finish', video_id: start.video_id, video_state: 'PUBLISHED', description, access_token: pageToken,
+  }, 'POST');
+  if (res.success === false) throw new MetaError(9004, undefined, 'reel refusé', false);
+  return { id: res.post_id ?? start.video_id, url: `https://www.facebook.com/reel/${start.video_id}` };
 }

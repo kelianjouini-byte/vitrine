@@ -96,6 +96,15 @@ export const autoCrop = (photo: RawPhoto, format: PhotoFormat) => renderCrop(pho
 export const STORY_MAX_SECONDS = 60;
 const STORY_MAX_BYTES = 100 * 1024 * 1024;
 
+/** Ce qui vient d'être pris avec les boutons « Photo » et « Vidéo » de l'accueil. */
+export type Captured =
+  | { kind: 'photo'; raw: RawPhoto }
+  | { kind: 'video'; uri: string; seconds: number | null };
+
+/** Durées d'un Reel : Facebook les accepte de 3 à 90 secondes. */
+export const REEL_MIN_SECONDS = 3;
+export const REEL_MAX_SECONDS = 90;
+
 /** Ce qu'on met en story : une photo plein écran (déjà cadrée en 9:16) ou une vidéo. */
 export type StoryMedia =
   | { kind: 'photo'; photo: PickedPhoto }
@@ -138,4 +147,37 @@ export async function takeStoryMedia(source: 'photo' | 'video' | 'library'): Pro
     return { kind: 'video', uri: a.uri, seconds };
   }
   return { kind: 'photo', photo: await autoCrop(await normalize(a), 'story') };
+}
+
+/**
+ * Bouton « Vidéo » : filmer (appli installée) ou choisir une vidéo dans la galerie.
+ * La version web filme avec sa propre caméra (WebVideoRecorder) ; elle utilise ceci pour la galerie.
+ * Retourne null si la personne annule.
+ */
+export async function takeVideo(source: 'camera' | 'library', maxSeconds = REEL_MAX_SECONDS): Promise<Extract<Captured, { kind: 'video' }> | null> {
+  if (source === 'camera' && Platform.OS !== 'web') {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) throw new FriendlyError("Vitrine a besoin de l'appareil photo. Vous pouvez aussi choisir une vidéo dans la galerie.");
+  }
+  const opts: ImagePicker.ImagePickerOptions = {
+    mediaTypes: ['videos'],
+    videoMaxDuration: maxSeconds,
+    videoQuality: ImagePicker.UIImagePickerControllerQualityType.High,
+    videoExportPreset: ImagePicker.VideoExportPreset.Passthrough,
+    preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Current,
+  };
+  let res: ImagePicker.ImagePickerResult;
+  try {
+    res = source === 'camera' ? await ImagePicker.launchCameraAsync(opts) : await ImagePicker.launchImageLibraryAsync(opts);
+  } catch {
+    throw new FriendlyError("La vidéo n'a pas pu être ouverte. Réessayez.");
+  }
+  const a = res.canceled ? null : res.assets?.[0];
+  if (!a) return null;
+  const seconds = a.duration ? Math.round(Platform.OS === 'web' ? a.duration : a.duration / 1000) : null;
+  if (seconds && seconds > maxSeconds) {
+    throw new FriendlyError(`Cette vidéo dure ${seconds} secondes. Choisissez une vidéo de ${maxSeconds} secondes au maximum.`);
+  }
+  if (a.fileSize && a.fileSize > 300 * 1024 * 1024) throw new FriendlyError('Cette vidéo est trop lourde. Choisissez une vidéo plus courte.');
+  return { kind: 'video', uri: a.uri, seconds };
 }
