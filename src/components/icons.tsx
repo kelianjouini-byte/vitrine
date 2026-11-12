@@ -36,6 +36,8 @@ export const PlayIcon = ({ size, color = '#fff' }: P) => (<S size={size}><Path d
 export const StopIcon = ({ size, color = '#fff' }: P) => (<S size={size}><Rect x={6.5} y={6.5} width={11} height={11} rx={2} {...st(color)} /></S>);
 export const DownloadIcon = ({ size, color = '#fff' }: P) => (<S size={size}><Path d="M12 4v11M7 10.5l5 5 5-5M5 20h14" {...st(color)} /></S>);
 export const CheckIcon = ({ size, color = '#fff' }: P) => (<S size={size}><Path d="m5 12.5 4.5 4.5L19 7.5" {...st(color)} strokeWidth={2.6} /></S>);
+/** Recadrer : deux équerres qui se croisent, comme dans les applis photo. */
+export const CropIcon = ({ size, color = '#000' }: P) => (<S size={size}><Path d="M6 2v14a2 2 0 0 0 2 2h14M2 6h14a2 2 0 0 1 2 2v14" {...st(color)} /></S>);
 export const BackIcon = ({ size, color = '#000' }: P) => (<S size={size}><Path d="M15 5 8 12l7 7" {...st(color)} /></S>);
 export const ImageIcon = ({ size, color = '#000' }: P) => (
   <S size={size}><Rect x={3} y={4} width={18} height={16} rx={2} {...st(color)} /><Circle cx={9} cy={10} r={2} {...st(color)} /><Path d="m21 16-5-5-9 9" {...st(color)} /></S>
