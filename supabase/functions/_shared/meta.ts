@@ -12,12 +12,12 @@ export const META_SCOPES = [
   'instagram_basic',
   'instagram_content_publish',
   'business_management',
-  // Statistiques (bilan du mois) et commentaires (lire / répondre).
+  // Statistiques (bilan du mois) et nombre de commentaires.
   'read_insights',
   'pages_read_user_content',
-  'pages_manage_engagement',
   'instagram_manage_insights',
-  'instagram_manage_comments',
+  // Répondre aux commentaires (pages_manage_engagement, instagram_manage_comments) :
+  // à rajouter le jour où la fonction existe, Meta refuse une permission non utilisée.
 ];
 
 export function metaConfig() {
