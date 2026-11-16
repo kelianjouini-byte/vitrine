@@ -3,6 +3,7 @@ import { ActivityIndicator, Image, Pressable, StyleSheet, Text, TextInput, View,
 import { brand, colors, fonts, glass, glassSurface, greenGradient, radius } from '../lib/theme';
 import { BackIcon, CheckIcon, ChevronIcon, FacebookMark, InstagramMark, VideoIcon } from './icons';
 import type { Platform, Post, SocialConnection } from '../lib/types';
+import { isBackendConfigured } from '../lib/config';
 
 export function Title({ children, size = 26, style }: { children: React.ReactNode; size?: number; style?: StyleProp<any> }) {
   return <Text style={[{ fontFamily: fonts.title, fontSize: size, color: colors.text, fontWeight: '600' }, style]}>{children}</Text>;
@@ -160,6 +161,8 @@ const s = StyleSheet.create({
  */
 export function PlatformPicker({ value, onChange, connections }: { value: Platform[]; onChange: (p: Platform[]) => void; connections: SocialConnection[] }) {
   const toggle = (p: Platform) => onChange(value.includes(p) ? (value.length > 1 ? value.filter((x) => x !== p) : value) : [...value, p]);
+  // Aucun des réseaux choisis n'est connecté : on le dit avant l'envoi, plutôt qu'un échec juste après.
+  const missing = isBackendConfigured && !value.some((p) => connections.find((c) => c.platform === p)?.status === 'connected');
   return (
     <View style={{ gap: 10 }}>
       <Body style={{ fontWeight: '600' }}>Publier sur</Body>
@@ -184,6 +187,10 @@ export function PlatformPicker({ value, onChange, connections }: { value: Platfo
           );
         })}
       </View>
+      {missing && (
+        <Notice title="Instagram et Facebook ne sont pas encore connectés"
+          text="Sans eux, rien ne peut partir. Connectez-les d'abord dans Réglages, rubrique « Mes réseaux »." />
+      )}
     </View>
   );
 }
