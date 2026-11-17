@@ -54,9 +54,6 @@ export function Reel({ video, alsoStory }: { video: Video; alsoStory?: boolean }
   const [making, setMaking] = useState<number | null>(null);
   const [sending, setSending] = useState(false);
 
-  // L'outil qui fabrique la vidéo finale se télécharge pendant qu'on prépare le texte.
-  useEffect(() => { preloadFastVideo(); }, []);
-
   // Dès l'arrivée : une image de la vidéo est envoyée, l'IA écrit la légende et le petit texte en même temps.
   useEffect(() => {
     (async () => {
@@ -80,6 +77,8 @@ export function Reel({ video, alsoStory }: { video: Video; alsoStory?: boolean }
         showExample(e);
       } finally {
         setWriting(false);
+        // Une fois la légende écrite, l'outil qui fabrique la vidéo finale se télécharge (pendant que le commerçant relit).
+        preloadFastVideo();
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps

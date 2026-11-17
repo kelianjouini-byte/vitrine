@@ -53,8 +53,8 @@ export function Story({ initial }: { initial?: Captured }) {
     if (m.kind === 'video') text.ask({ kind: 'video', uri: m.uri });
   }
 
-  // L'outil qui fabrique la vidéo finale se télécharge pendant qu'on prépare le texte.
-  useEffect(() => { preloadFastVideo(); }, []);
+  // L'outil qui fabrique la vidéo finale se télécharge un peu après (pour ne pas ralentir l'ouverture de la vidéo).
+  useEffect(() => { const t = setTimeout(preloadFastVideo, 6000); return () => clearTimeout(t); }, []);
 
   // Photo ou vidéo venue de l'accueil : la photo est recadrée en plein écran vertical.
   useEffect(() => {
