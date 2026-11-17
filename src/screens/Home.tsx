@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
-import { Body, Card, Chevron, DateTile, IconTile, Label, Notice, Title } from '../components/ui';
-import { takePhoto, takeVideo } from '../lib/photo';
+import { Body, Button, Card, Chevron, DateTile, IconTile, Label, Notice, Title } from '../components/ui';
+import { takePhoto, takePhotos, takeVideo } from '../lib/photo';
 import { accountState, FriendlyError } from '../lib/api';
-import { BulbIcon, ChartUpIcon, CheckIcon, GearIcon, LinkIcon, StarIcon, StoreIcon } from '../components/icons';
+import { BulbIcon, ChartUpIcon, CheckIcon, GearIcon, ImageIcon, LinkIcon, StarIcon, StoreIcon } from '../components/icons';
 import { daysLeft, euros, isLiveStatus, offersFrom, placesLeftText, TRIAL_REPORT_DAYS_BEFORE } from '../lib/billing';
 import { colors, fonts, glassSurface } from '../lib/theme';
 import { useApp } from '../lib/store';
@@ -85,6 +85,22 @@ export function Home() {
     }
   }
 
+  // « Ma galerie » : une photo ou une vidéo déjà prise. Le sélecteur s'ouvre tout de suite (pas d'attente avant).
+  async function fromGallery(kind: 'photo' | 'video') {
+    setPhotoError(null);
+    try {
+      const media = kind === 'photo'
+        ? await takePhotos('library', 1).then(([raw]) => (raw ? { kind: 'photo' as const, raw } : null))
+        : await takeVideo('library');
+      if (media) {
+        setChoosing(false);
+        go({ name: 'choose', media });
+      }
+    } catch (e) {
+      setPhotoError(e instanceof FriendlyError ? e.message : "La galerie n'a pas pu être ouverte. Réessayez.");
+    }
+  }
+
   return (
     <ScrollView contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 24 }}>
       <ShopSwitcher />
@@ -137,9 +153,15 @@ export function Home() {
       </Pressable>
 
       {choosing && (
-        <View style={{ flexDirection: 'row', gap: 12 }}>
-          <MediaCard kind="photo" active={opening === 'photo'} onPress={shootPhoto} />
-          <MediaCard kind="video" active={opening === 'video'} onPress={shootVideo} delay={120} />
+        <View style={{ gap: 10 }}>
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <MediaCard kind="photo" active={opening === 'photo'} onPress={shootPhoto} />
+            <MediaCard kind="video" active={opening === 'video'} onPress={shootVideo} delay={120} />
+          </View>
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <Button title="Ma galerie" kind="secondary" icon={<ImageIcon size={20} color={colors.green} />} onPress={() => fromGallery('photo')} style={{ flex: 1, paddingHorizontal: 8 }} />
+            <Button title="Ma galerie" kind="secondary" icon={<ImageIcon size={20} color={colors.green} />} onPress={() => fromGallery('video')} style={{ flex: 1, paddingHorizontal: 8 }} />
+          </View>
         </View>
       )}
 

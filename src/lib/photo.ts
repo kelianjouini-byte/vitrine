@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import { FriendlyError } from './api';
+import { videoDuration } from './media';
 import { CENTERED, cropRect, FORMATS, type Framing, type PhotoFormat } from './crop';
 export * from './crop';
 
@@ -54,7 +55,7 @@ const WORK_SIZE = 2160;
  * Prépare la photo pour le recadrage : on la redessine une fois (orientation du téléphone corrigée,
  * vraie largeur et hauteur connues) et on la réduit si elle est énorme (souvent 4000 px).
  */
-async function normalize(a: ImagePicker.ImagePickerAsset): Promise<RawPhoto> {
+async function normalize(a: Pick<ImagePicker.ImagePickerAsset, 'uri' | 'width' | 'height'>): Promise<RawPhoto> {
   try {
     const ctx = ImageManipulator.manipulate(a.uri);
     const big = Math.max(a.width || 0, a.height || 0);
@@ -90,6 +91,34 @@ export async function renderCrop(photo: RawPhoto, format: PhotoFormat, framing: 
 /** Photo cadrée automatiquement, au centre (plus de page de recadrage : on gagne du temps). */
 export const autoCrop = (photo: RawPhoto, format: PhotoFormat) => renderCrop(photo, format, CENTERED);
 
+/**
+ * Galerie, version web : on ouvre nous-mêmes le sélecteur de fichiers du téléphone.
+ * Celui d'expo-image-picker attend la durée de la vidéo, et l'iPhone (Safari) ne la donne jamais :
+ * la vidéo choisie restait bloquée, rien ne se passait. Ici, la durée est mesurée ensuite (« Où la publier ? »).
+ * Le sélecteur doit s'ouvrir tout de suite après le toucher (sinon Safari le bloque) : pas d'attente avant.
+ */
+function pickFileWeb(accept: string): Promise<File | null> {
+  return new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = accept;
+    input.style.display = 'none';
+    document.body.appendChild(input);
+    let done = false;
+    const finish = (f: File | null) => {
+      if (done) return;
+      done = true;
+      input.remove();
+      resolve(f);
+    };
+    input.addEventListener('change', () => finish(input.files?.[0] ?? null));
+    input.addEventListener('cancel', () => finish(null));
+    input.click();
+  });
+}
+
+const isVideoFile = (f: File) => f.type.startsWith('video/') || /\.(mov|mp4|m4v|webm)$/i.test(f.name);
+
 // ---------------------------------------------------------------- story
 
 /** Limites d'une story vidéo sur Instagram (les plus strictes des deux réseaux). */
@@ -115,6 +144,23 @@ export type StoryMedia =
  * Retourne null si la personne annule.
  */
 export async function takeStoryMedia(source: 'photo' | 'video' | 'library'): Promise<StoryMedia | null> {
+  if (source === 'library' && Platform.OS === 'web') {
+    const f = await pickFileWeb('image/*,video/*');
+    if (!f) return null;
+    if (isVideoFile(f)) {
+      if (f.size > STORY_MAX_BYTES) throw new FriendlyError('Cette vidéo est trop lourde (plus de 100 Mo). Choisissez une vidéo plus courte.');
+      const uri = URL.createObjectURL(f);
+      // Durée mesurée ici (4 s au plus : si le navigateur ne répond pas, on continue sans).
+      const d = await Promise.race([videoDuration(uri), new Promise<null>((ok) => setTimeout(() => ok(null), 4000))]);
+      const seconds = d ? Math.round(d) : null;
+      if (seconds && seconds > STORY_MAX_SECONDS) {
+        throw new FriendlyError(`Cette vidéo dure ${seconds} secondes. Une story vidéo dure ${STORY_MAX_SECONDS} secondes au maximum : choisissez une vidéo plus courte.`);
+      }
+      return { kind: 'video', uri, seconds };
+    }
+    const raw = await normalize({ uri: URL.createObjectURL(f), width: 0, height: 0 });
+    return { kind: 'photo', photo: await autoCrop(raw, 'story') };
+  }
   const camera = source !== 'library';
   if (camera && Platform.OS !== 'web') {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
@@ -155,6 +201,12 @@ export async function takeStoryMedia(source: 'photo' | 'video' | 'library'): Pro
  * Retourne null si la personne annule.
  */
 export async function takeVideo(source: 'camera' | 'library', maxSeconds = REEL_MAX_SECONDS): Promise<Extract<Captured, { kind: 'video' }> | null> {
+  if (source === 'library' && Platform.OS === 'web') {
+    const f = await pickFileWeb('video/*');
+    if (!f) return null;
+    if (f.size > 300 * 1024 * 1024) throw new FriendlyError('Cette vidéo est trop lourde. Choisissez une vidéo plus courte.');
+    return { kind: 'video', uri: URL.createObjectURL(f), seconds: null };
+  }
   if (source === 'camera' && Platform.OS !== 'web') {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) throw new FriendlyError("Vitrine a besoin de l'appareil photo. Vous pouvez aussi choisir une vidéo dans la galerie.");
