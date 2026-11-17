@@ -19,7 +19,7 @@ import { videoFrame } from '../lib/media';
 import { statusAfterPublish } from '../lib/planning';
 import { tradeById } from '../lib/trades';
 import { DEFAULT_TONE, toneLabel } from '../lib/business';
-import { audioContext, musicSupported, prepareVideo } from '../lib/videoMusic';
+import { audioContext, musicSupported, prepareVideo, preloadFastVideo } from '../lib/videoMusic';
 import type { Captured } from '../lib/photo';
 import type { Platform, Post, PublicationResult } from '../lib/types';
 
@@ -53,6 +53,9 @@ export function Reel({ video, alsoStory }: { video: Video; alsoStory?: boolean }
   const [error, setError] = useState<string | null>(null);
   const [making, setMaking] = useState<number | null>(null);
   const [sending, setSending] = useState(false);
+
+  // L'outil qui fabrique la vidéo finale se télécharge pendant qu'on prépare le texte.
+  useEffect(() => { preloadFastVideo(); }, []);
 
   // Dès l'arrivée : une image de la vidéo est envoyée, l'IA écrit la légende et le petit texte en même temps.
   useEffect(() => {
