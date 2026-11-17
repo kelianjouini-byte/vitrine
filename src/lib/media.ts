@@ -14,10 +14,13 @@ function loadVideo(uri: string): Promise<HTMLVideoElement> {
     v.playsInline = true;
     v.setAttribute('playsinline', '');
     v.preload = 'auto';
-    v.onloadeddata = () => ok(v);
-    v.onerror = () => ko(new Error('vidéo illisible'));
+    const timer = setTimeout(() => ko(new Error('vidéo trop lente à lire')), 8000);
+    v.onloadeddata = () => { clearTimeout(timer); v.pause(); ok(v); };
+    v.onerror = () => { clearTimeout(timer); ko(new Error('vidéo illisible')); };
     v.src = uri;
     v.load();
+    // iPhone : une vidéo hors de l'écran ne se charge pas toute seule. La lancer (sans le son) débloque le chargement.
+    v.play().catch(() => {});
   });
 }
 
