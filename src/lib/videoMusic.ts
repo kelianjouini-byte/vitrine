@@ -67,7 +67,7 @@ export const VIDEO_VOLUME_WITH_MUSIC = 0.3;
 const cache = new Map<string, Promise<AudioBuffer>>();
 
 /** Télécharge et décode une musique (une seule fois par musique). */
-function loadTrack(ctx: AudioContext, id: string): Promise<AudioBuffer> {
+export function loadTrack(ctx: AudioContext, id: string): Promise<AudioBuffer> {
   const key = id;
   if (!cache.has(key)) {
     cache.set(key, fetch(trackUrl(id)).then((r) => r.arrayBuffer()).then((b) => ctx.decodeAudioData(b)));
@@ -78,7 +78,7 @@ function loadTrack(ctx: AudioContext, id: string): Promise<AudioBuffer> {
 }
 
 /** Le son d'origine de la vidéo (null si la vidéo n'a pas de son ou si le navigateur ne sait pas le lire). */
-async function loadVideoSound(ctx: AudioContext, videoUri: string): Promise<AudioBuffer | null> {
+export async function loadVideoSound(ctx: AudioContext, videoUri: string): Promise<AudioBuffer | null> {
   try {
     const bytes = await (await fetch(videoUri)).arrayBuffer();
     return await ctx.decodeAudioData(bytes);
@@ -187,13 +187,36 @@ export const videoEditSupported = musicSupported && typeof HTMLCanvasElement !==
  * Fabrique la vidéo finale (story ou Reel) : image plein écran 1080 x 1920, petit texte qui apparaît
  * en douceur, et musique (facultative) qui entre doucement et redescend pile à la fin.
  * Avec musique, le son de la vidéo est baissé ; sans musique, il est gardé tel quel.
- * Ça prend le temps de la vidéo (elle est rejouée une fois, sans le son, pour être enregistrée).
+ * Méthode rapide image par image (videoFast.ts) ; ancienne méthode (la vidéo est rejouée) si le téléphone ne sait pas.
  * `onProgress` reçoit un nombre de 0 à 1.
  */
 export async function makeFinalVideo(
   videoUri: string,
   opts: { trackId: string | null; overlay: Overlay | null },
   onProgress: (p: number) => void = () => {},
+): Promise<{ blob: Blob; uri: string; mimeType: string }> {
+  // D'abord la méthode rapide (image par image) ; si le téléphone ne sait pas, l'ancienne (la vidéo est rejouée).
+  try {
+    const { makeFinalVideoFast } = await import('./videoFast');
+    const blob = await makeFinalVideoFast(videoUri, opts, onProgress);
+    if (blob) return { blob, uri: URL.createObjectURL(blob), mimeType: blob.type };
+  } catch (e) {
+    console.warn('[vitrine] méthode rapide impossible, ancienne méthode', e);
+  }
+  onProgress(0);
+  return makeFinalVideoLive(videoUri, opts, onProgress);
+}
+
+/** Télécharge d'avance l'outil de fabrication rapide (dès l'ouverture de l'écran Reel ou story) : on ne l'attend pas au moment de publier. */
+export function preloadFastVideo(): void {
+  if (Platform.OS === 'web') import('./videoFast').catch(() => {});
+}
+
+/** Ancienne méthode (téléphones trop anciens) : la vidéo est rejouée une fois et « refilmée ». */
+async function makeFinalVideoLive(
+  videoUri: string,
+  opts: { trackId: string | null; overlay: Overlay | null },
+  onProgress: (p: number) => void,
 ): Promise<{ blob: Blob; uri: string; mimeType: string }> {
   const { trackId, overlay } = opts;
   const ctx = audioContext();
