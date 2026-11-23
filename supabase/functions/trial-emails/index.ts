@@ -54,7 +54,7 @@ async function ownerEmail(db: SupabaseClient, business: Row): Promise<string | n
   return u && !u.is_anonymous && u.email ? u.email : null;
 }
 
-/** Les offres de l'e-mail : l'offre fondateur s'il reste des places, puis Mensuel et Annuel. */
+/** Les offres de l'e-mail : l'offre fondateur (orange, très rare) s'il reste des places, puis Mensuel et Annuel. */
 async function emailOffers(db: SupabaseClient, business: Row, sub: Row | null): Promise<EmailOffer[]> {
   const { data: plans } = await db.from('plans').select('id, name, monthly_price_cents, active').in('id', ['founder', 'monthly', 'annual']);
   const by = (id: string) => (plans ?? []).find((p) => p.id === id && p.active);
@@ -62,13 +62,14 @@ async function emailOffers(db: SupabaseClient, business: Row, sub: Row | null): 
   const founder = await founderFor(db, sub);
   const f = by('founder');
   if (f && founder?.eligible) {
-    offers.push({ name: 'Offre fondateur', priceCents: f.monthly_price_cents, detail: `Sans engagement, réservée aux ${founder.places} premières boutiques. Ce prix reste le vôtre tant que vous restez abonné.`, url: await signedLink(business.id, 'founder'), highlight: true });
+    // Compteur réel des places restantes (jamais de fausse rareté).
+    const rare = founder.left === 1 ? `Très rare : dernière place sur ${founder.places}` : `Très rare : plus que ${founder.left} places sur ${founder.places}`;
+    offers.push({ name: 'Offre fondateur', priceCents: f.monthly_price_cents, detail: `Sans engagement, réservée aux ${founder.places} premières boutiques. Ce prix reste le vôtre tant que vous restez abonné.`, url: await signedLink(business.id, 'founder'), rare });
   }
   const m = by('monthly');
   if (m) offers.push({ name: 'Mensuel', priceCents: m.monthly_price_cents, detail: 'Sans engagement, arrêtable à tout moment.', url: await signedLink(business.id, 'monthly') });
-  // Tant que l'offre fondateur est ouverte, l'Annuel n'est pas proposé (comme dans l'appli).
   const a = by('annual');
-  if (a && !(f && founder?.eligible)) offers.push({ name: 'Annuel', priceCents: a.monthly_price_cents, detail: 'Engagement 1 an, payé chaque mois.', url: await signedLink(business.id, 'annual'), highlight: true });
+  if (a) offers.push({ name: 'Annuel', priceCents: a.monthly_price_cents, detail: 'Engagement 1 an, payé chaque mois.', url: await signedLink(business.id, 'annual') });
   return offers;
 }
 

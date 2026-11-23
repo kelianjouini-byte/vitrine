@@ -12,7 +12,8 @@ export interface EmailOffer {
   detail: string;
   /** Lien qui ouvre directement la page de paiement Stripe pour cette offre. */
   url: string;
-  highlight?: boolean;
+  /** Offre fondateur : carte orange « très rare », avec un petit bandeau (ex. « Plus que 9 places sur 15 »). */
+  rare?: string;
 }
 
 export interface TrialEmailInput {
@@ -48,7 +49,7 @@ function intro(i: TrialEmailInput): string {
 /** Version texte (pour les messageries qui n'affichent pas la mise en page). */
 export function trialEmailText(i: TrialEmailInput): string {
   const hello = i.firstName ? `Bonjour ${i.firstName},` : 'Bonjour,';
-  const offers = i.offers.map((o) => `- ${o.name} : ${euros(o.priceCents)} par mois. ${o.detail}\n  ${o.url}`).join('\n');
+  const offers = i.offers.map((o) => `- ${o.name}${o.rare ? ` (${o.rare})` : ''} : ${euros(o.priceCents)} par mois. ${o.detail}\n  ${o.url}`).join('\n');
   return [
     hello, '', intro(i), '', offers, '',
     "Après le paiement, rouvrez simplement l'appli Vitrine : elle se débloque toute seule.",
@@ -60,17 +61,24 @@ export function trialEmailText(i: TrialEmailInput): string {
 /** Version mise en page (HTML simple, lisible sur téléphone, couleurs de Vitrine). */
 export function trialEmailHtml(i: TrialEmailInput): string {
   const hello = i.firstName ? `Bonjour ${esc(i.firstName)},` : 'Bonjour,';
-  const cards = i.offers.map((o) => `
+  const cards = i.offers.map((o) => {
+    const border = o.rare ? '2px solid #F2B66D' : '1px solid #DCE3DE';
+    const bg = o.rare ? '#FCEFD9' : '#FFFFFF';
+    const btn = o.rare ? '#B9711C' : '#2F7658';
+    const badge = o.rare ? `<div style="display:inline-block;background:#F2B66D;color:#5A3A0C;font-size:13px;font-weight:700;padding:5px 10px;border-radius:999px;margin-bottom:10px">${esc(o.rare)}</div>` : '';
+    return `
     <tr><td style="padding:8px 0">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:${o.highlight ? '2px solid #2F7658' : '1px solid #DCE3DE'};border-radius:14px;background:#FFFFFF">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:${border};border-radius:14px;background:${bg}">
         <tr><td style="padding:18px 20px">
+          ${badge}
           <div style="font-size:18px;font-weight:700;color:#24332B">${esc(o.name)}</div>
-          <div style="font-size:28px;font-weight:700;color:#2F7658;margin:4px 0">${euros(o.priceCents)}<span style="font-size:16px;font-weight:400;color:#758078"> par mois</span></div>
+          <div style="font-size:28px;font-weight:700;color:${o.rare ? '#8A5A12' : '#2F7658'};margin:4px 0">${euros(o.priceCents)}<span style="font-size:16px;font-weight:400;color:#758078"> par mois</span></div>
           <div style="font-size:15px;color:#758078;margin-bottom:14px">${esc(o.detail)}</div>
-          <a href="${esc(o.url)}" style="display:block;text-align:center;background:#2F7658;color:#FFFFFF;text-decoration:none;font-size:18px;font-weight:700;padding:16px;border-radius:12px">${esc(buttonLabel(o.name))}</a>
+          <a href="${esc(o.url)}" style="display:block;text-align:center;background:${btn};color:#FFFFFF;text-decoration:none;font-size:18px;font-weight:700;padding:16px;border-radius:12px">${esc(buttonLabel(o.name))}</a>
         </td></tr>
       </table>
-    </td></tr>`).join('');
+    </td></tr>`;
+  }).join('');
   return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;background:#F8FAF7;font-family:Helvetica,Arial,sans-serif;color:#24332B">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:24px 16px">

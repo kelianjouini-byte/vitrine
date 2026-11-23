@@ -6,7 +6,7 @@ const base = {
   shopName: 'Fleurs de Marie', firstName: 'Marie', trialEnd: new Date('2026-12-08T10:00:00Z'),
   offers: [
     { name: 'Mensuel', priceCents: 3900, detail: 'Sans engagement.', url: 'https://x.test/a?t=1&b=2' },
-    { name: 'Annuel', priceCents: 2900, detail: 'Engagement 1 an.', url: 'https://x.test/b', highlight: true },
+    { name: 'Annuel', priceCents: 2900, detail: 'Engagement 1 an.', url: 'https://x.test/b' },
   ],
 };
 
@@ -45,4 +45,13 @@ test("libellé des boutons", async () => {
   const { buttonLabel } = await import('../supabase/functions/_shared/trialEmail.ts');
   assert.equal(buttonLabel('Offre fondateur'), "Choisir l'offre fondateur");
   assert.equal(buttonLabel('Mensuel'), "Choisir l'offre Mensuel");
+});
+
+test("offre fondateur : carte orange avec le nombre de places", () => {
+  const offers = [{ name: 'Offre fondateur', priceCents: 2900, detail: 'Sans engagement.', url: 'https://x.test/f', rare: 'Très rare : plus que 9 places sur 15' }, ...base.offers];
+  const i = { ...base, offers, kind: 'soon' as const, now: new Date('2026-12-05T10:00:00Z') };
+  const html = trialEmailHtml(i);
+  assert.match(html, /#FCEFD9/);
+  assert.match(html, /plus que 9 places sur 15/);
+  assert.match(trialEmailText(i), /Offre fondateur \(Très rare/);
 });
