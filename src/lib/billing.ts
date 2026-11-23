@@ -9,6 +9,7 @@ export { TRIAL_DAYS } from '../../supabase/functions/_shared/billing';
 export { TRIAL_REPORT_DAYS_BEFORE, trialReminders, trialSummary, type TrialSummary } from './report';
 /** Même règle que le serveur (« abonnement en cours »). */
 export { isLive as isLiveStatus } from '../../supabase/functions/_shared/billing';
+import { isLive as isLiveStatus } from '../../supabase/functions/_shared/billing';
 
 export interface Offer {
   id: PlanId;
@@ -117,6 +118,20 @@ export function statusText(s: NonNullable<BillingStatus['subscription']>, offers
     return { tone: 'red', title: 'Le dernier paiement n\'est pas passé', text: 'Touchez « Gérer mon paiement » pour changer de carte bancaire.' };
   }
   return { tone: 'orange', title: 'Abonnement terminé', text: 'Choisissez une offre pour continuer avec Vitrine.' };
+}
+
+/**
+ * Petite phrase sous « Voir les offres » dans les Réglages : elle dit où en est le commerçant
+ * (accès offert, abonnement en cours, offre fondateur encore ouverte, ou les deux offres habituelles).
+ */
+export function subscriptionSummary(status: BillingStatus | null): string {
+  const offers = offersFrom(status);
+  const price = (id: PlanId) => euros(offers.find((o) => o.id === id)?.priceCents ?? 0);
+  if (status?.access === 'free') return 'Accès offert par Vitrine.';
+  const sub = status?.subscription;
+  if (sub && isLiveStatus(sub.status)) return statusText(sub, offers).title + '.';
+  if (status?.founder?.eligible) return `15 jours offerts, puis offre fondateur à ${price('founder')} par mois, sans engagement.`;
+  return `15 jours offerts, puis Mensuel ${price('monthly')} ou Annuel ${price('annual')} par mois.`;
 }
 
 /** L'appli est bloquée : essai terminé, pas d'abonnement, et le paiement est bien activé (sinon le commerçant ne pourrait pas payer). */

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Platform, Pressable, Text, View } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,6 +29,16 @@ import { Review } from './src/screens/Review';
 import { Team, TeamAdd, TeamMemberScreen } from './src/screens/Team';
 import { ShopAdd } from './src/screens/ShopAdd';
 import { EmployeePaused } from './src/screens/EmployeePaused';
+
+// Polices de la marque (Fraunces pour les titres, Inter pour le texte). Chargées ici, et pas dans index.html,
+// pour qu'elles soient aussi dans les applis App Store / Google Play, qui reprennent cette même appli web.
+if (Platform.OS === 'web' && typeof document !== 'undefined' && !document.getElementById('vitrine-fonts')) {
+  const link = document.createElement('link');
+  link.id = 'vitrine-fonts';
+  link.rel = 'stylesheet';
+  link.href = 'https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap';
+  document.head.appendChild(link);
+}
 
 // L'écran d'ouverture natif reste affiché jusqu'à ce que l'app soit prête.
 SplashScreen.preventAutoHideAsync().catch(() => {});

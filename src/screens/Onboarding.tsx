@@ -43,7 +43,11 @@ export function Onboarding() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const set = <K extends keyof Business>(k: K, v: Business[K]) => setForm((f) => ({ ...f, [k]: v }));
+  const set = <K extends keyof Business>(k: K, v: Business[K]) => {
+    setForm((f) => ({ ...f, [k]: v }));
+    // L'erreur d'un champ disparaît dès qu'on le corrige.
+    setErrors((e) => (e[k as string] ? { ...e, [k as string]: '' } : e));
+  };
   const [detecting, setDetecting] = useState(false);
   const [detected, setDetected] = useState(false);
   const [foundOnline, setFoundOnline] = useState(false);
@@ -191,7 +195,7 @@ export function Onboarding() {
             </View>
             <TradePicker
               value={{ businessType: form.businessType, trade: form.trade }}
-              onChange={(v) => { setForm((f) => ({ ...f, businessType: v.businessType, trade: v.trade })); setDetected(false); }}
+              onChange={(v) => { setForm((f) => ({ ...f, businessType: v.businessType, trade: v.trade })); setErrors((e) => ({ ...e, businessType: '' })); setDetected(false); }}
               detecting={detecting}
               detectedFrom={detected}
               error={errors.businessType}
@@ -222,7 +226,6 @@ export function Onboarding() {
             <Title size={30}>Vos réseaux</Title>
             <Body soft>Vous serez redirigé vers Facebook pour donner votre accord. Vitrine ne vous demandera jamais votre mot de passe.</Body>
             <NetworkCards />
-            <Button title="Continuer" onPress={() => setStep(4)} />
             <Button title="Je le ferai plus tard" kind="ghost" onPress={() => setStep(4)} />
           </>
         )}
@@ -232,7 +235,7 @@ export function Onboarding() {
             <LogoMark size={110} />
             <Title size={30} style={{ textAlign: 'center' }}>{'Votre boutique est prête\u00a0!'}</Title>
             <Body soft center>Prenez votre première photo, Vitrine s'occupe du reste.</Body>
-            {saveError ? <Body style={{ color: colors.red }} center>{saveError}</Body> : null}
+            {saveError ? <Body style={{ color: colors.redText }} center>{saveError}</Body> : null}
             <Button title="Commencer" onPress={finish} loading={saving} style={{ alignSelf: 'stretch', marginTop: 12 }} />
             <Button title="Retour" kind="ghost" onPress={() => setStep(3)} />
           </View>

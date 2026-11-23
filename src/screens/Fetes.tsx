@@ -32,7 +32,7 @@ export function Fetes() {
           <Body style={{ fontWeight: '700' }}>Rappels avant chaque fête</Body>
           <Body size={15}>On vous prévient quelques jours avant. Vous envoyez une photo, vous validez d'un geste. Rien n'est publié sans votre accord.</Body>
         </View>
-        <Switch value={prefs.enabled} onValueChange={(v) => setPrefs({ ...prefs, enabled: v })} trackColor={{ true: colors.green, false: '#D6DBD5' }} thumbColor="#fff" accessibilityLabel="Activer les rappels avant chaque fête" />
+        <Switch value={prefs.enabled} onValueChange={(v) => setPrefs({ ...prefs, enabled: v })} trackColor={{ true: colors.green, false: '#C9D1CB' }} thumbColor="#fff" {...({ activeThumbColor: '#fff' } as object)} accessibilityLabel="Activer les rappels avant chaque fête" />
       </View>
 
       {items.map(({ event: e, holiday: h }) => {
@@ -49,8 +49,10 @@ export function Fetes() {
               <View style={{ flex: 1, gap: 2 }}>
                 <Body style={{ fontWeight: '700' }}>{holidayName(e)}</Body>
                 <Body soft size={15}>{a ? `Jour férié : vous êtes ${a.open ? 'ouvert' : 'fermé'}. Prévenez vos clients la veille.` : 'Jour férié. Êtes-vous ouvert ce jour-là ?'}</Body>
+                <Body size={15} style={{ color: colors.green, fontWeight: '600' }}>{inDaysLabel(n)}</Body>
               </View>
-              <Badge text={a ? (a.open ? 'Ouvert' : 'Fermé') : 'Répondre'} tone={a ? 'green' : 'orange'} />
+              {a ? <Badge text={a.open ? 'Ouvert' : 'Fermé'} tone="green" />
+                : <Text style={{ color: colors.green, fontWeight: '700', fontSize: 16, fontFamily: fonts.body }}>Répondre ›</Text>}
             </Card>
           );
         }

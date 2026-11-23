@@ -108,7 +108,7 @@ function NativeVideo({ uri }: { uri: string }) {
 const TOOL_TONES = {
   green: { bg: colors.greenSoft, fg: colors.green },
   peach: { bg: '#FBE8CF', fg: '#9A6224' },
-  rose: { bg: '#F6DCD8', fg: '#A8524A' },
+  rose: { bg: '#E4EEF0', fg: '#3F6670' },
   sage: { bg: '#E3E9E0', fg: '#4E6B57' },
 };
 
