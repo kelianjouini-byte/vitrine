@@ -12,7 +12,6 @@
     "packageJson": {
       "dependencies": [
         "npm:@expo/metro-runtime@~58.0.16",
-        "npm:@mediabunny/aac-encoder@1.65.0",
         "npm:@react-native-async-storage/async-storage@2.2.0",
         "npm:@supabase/supabase-js@^2.118.0",
         "npm:@types/react@19.3",
@@ -29,7 +28,6 @@
         "npm:expo-video@~58.0.13",
         "npm:expo-web-browser@~58.0.7",
         "npm:expo@~58.0.22",
-        "npm:mediabunny@1.65.0",
         "npm:qrcode-generator@^2.0.4",
         "npm:react-dom@19.3.0",
         "npm:react-native-safe-area-context@~5.10.1",
