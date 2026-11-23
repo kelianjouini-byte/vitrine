@@ -710,6 +710,27 @@ export async function billingStatus(): Promise<BillingStatus> {
   return callFunction<BillingStatus>('billing', { action: 'status' });
 }
 
+/**
+ * E-mail de fin d'essai (offres + liens de paiement), utilisé par les applis App Store / Google Play
+ * qui n'affichent ni prix ni paiement. configured = false : l'envoi d'e-mails n'est pas encore branché.
+ */
+export async function trialEmailStatus(): Promise<{ configured: boolean; email: string | null }> {
+  if (!(await ensureSession())) throw new NotConfiguredError('compte');
+  return callFunction('trial-emails', { action: 'status' });
+}
+
+/** Renvoie l'e-mail de fin d'essai tout de suite. Renvoie l'adresse utilisée. */
+export async function resendTrialEmail(): Promise<string> {
+  if (!(await ensureSession())) throw new NotConfiguredError('compte');
+  try {
+    const { email } = await callFunction<{ email: string }>('trial-emails', { action: 'resend' });
+    return email;
+  } catch (e) {
+    if (e instanceof FriendlyError && /pas encore branché/.test(e.message)) throw new NotConfiguredError('serveur');
+    throw e;
+  }
+}
+
 /** Lien vers la page de paiement Stripe (la carte est enregistrée, 1er prélèvement à la fin de l'essai gratuit). */
 export async function checkoutUrl(plan: PlanId, returnUrl: string, referralCode?: string): Promise<string> {
   const { url } = await callFunction<{ url: string }>('billing', { action: 'checkout', plan, returnUrl, referralCode });

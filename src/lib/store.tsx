@@ -14,6 +14,7 @@ import type { Business, NotificationPrefs, Post, PostIdea, SocialConnection } fr
 import type { Captured, RawPhoto } from './photo';
 import type { Month } from './report';
 import type { StatsMap } from './stats';
+import { onBackButton, onResume } from './native';
 
 export type Route =
   | { name: 'home' }
@@ -117,6 +118,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!isBackendConfigured) return;
     try { setBilling(await billingStatus()); } catch { /* hors ligne : on garde le dernier état connu */ }
   }, []);
+  // Appli des stores : au retour dans Vitrine (ex. après avoir payé depuis l'e-mail), on relit l'abonnement.
+  useEffect(() => onResume(() => { refreshBilling(); }), [refreshBilling]);
 
   useEffect(() => {
     (async () => {
@@ -173,6 +176,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }), []);
   const back = useCallback(() => setStack((s) => (s.length > 1 ? s.slice(0, -1) : s)), []);
+  // Android (appli Google Play) : le bouton « retour » du téléphone revient à l'écran précédent de Vitrine.
+  const stackRef = useRef(stack);
+  stackRef.current = stack;
+  useEffect(() => onBackButton(() => {
+    if (stackRef.current.length > 1) { back(); return true; }
+    return false; // déjà sur le premier écran : le téléphone ferme l'appli
+  }), [back]);
   const replace = useCallback((r: Route) => setStack((s) => [...s.slice(0, -1), r]), []);
 
   const saveBusiness = useCallback(async (b: Business) => {

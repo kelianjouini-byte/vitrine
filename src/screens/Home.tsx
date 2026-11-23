@@ -15,6 +15,7 @@ import { PhotoButton } from '../components/PhotoButton';
 import { MediaCard } from '../components/CreateChoice';
 import { Platform } from 'react-native';
 import { PersonIcon, SendIcon } from '../components/icons';
+import { isStoreApp } from '../lib/native';
 
 export function Home() {
   const { business, posts, connections, go, billing, team, isPatron } = useApp();
@@ -188,13 +189,13 @@ export function Home() {
           <IconTile size={44} tone="orange"><ChartUpIcon size={22} color={colors.orangeText} /></IconTile>
           <View style={{ flex: 1 }}>
             <Body style={{ fontWeight: '700' }}>{trialLeft <= 1 ? 'Dernier jour de votre essai gratuit' : `Votre essai gratuit se termine dans ${trialLeft} jours`}</Body>
-            <Body soft size={15}>Voir mon bilan et choisir mon offre.</Body>
+            <Body soft size={15}>{isStoreApp ? 'Voir mon bilan et la suite.' : 'Voir mon bilan et choisir mon offre.'}</Body>
           </View>
           <Chevron />
         </Card>
       )}
 
-      {trialLeft !== null && trialLeft > TRIAL_REPORT_DAYS_BEFORE && billing?.founder?.eligible && (
+      {!isStoreApp && trialLeft !== null && trialLeft > TRIAL_REPORT_DAYS_BEFORE && billing?.founder?.eligible && (
         <Card onPress={() => go({ name: 'offers' })} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: 'rgba(252,239,217,0.8)', borderColor: colors.orange }}>
           <IconTile size={44} tone="orange"><StarIcon size={22} color={colors.orangeText} /></IconTile>
           <View style={{ flex: 1 }}>

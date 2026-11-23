@@ -8,7 +8,7 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "fr.vitrine.app"
+      "bundleIdentifier": "fr.vitrineappli.app"
     },
     "android": {
       "adaptiveIcon": {
@@ -18,7 +18,7 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "fr.vitrine.app"
+      "package": "fr.vitrineappli.app"
     },
     "web": {
       "favicon": "./assets/favicon.png",

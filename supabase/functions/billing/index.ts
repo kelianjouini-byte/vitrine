@@ -5,10 +5,10 @@
 // Les changements d'état arrivent ensuite par le webhook Stripe (fonction stripe-webhook).
 import { handler, json, HttpError, env } from '../_shared/http.ts';
 import { requireMerchant, requirePatron } from '../_shared/db.ts';
-import { accessState, founderOffer, isLive, isPlanId, PLAN_IDS, stripeTrialEnd, trialEndsAt } from '../_shared/billing.ts';
-import { extraShopPriceFor, portalConfiguration, priceFor, stripe, stripeConfigured } from '../_shared/stripe.ts';
+import { accessState, isPlanId, PLAN_IDS, trialEndsAt } from '../_shared/billing.ts';
+import { portalConfiguration, stripe, stripeConfigured } from '../_shared/stripe.ts';
+import { createCheckout, founderFor } from '../_shared/checkout.ts';
 import { companyMonthlyCents, isPatron } from '../_shared/team.ts';
-import { findReferrer, refereeCoupon } from '../_shared/referralServer.ts';
 
 /** On ne renvoie le commerçant que vers l'appli Vitrine (jamais vers une adresse donnée par un tiers). */
 function safeReturn(url: unknown): string {
@@ -27,13 +27,7 @@ Deno.serve(handler(async (req) => {
   const { data: extraShops } = await db.from('businesses').select('id, business_name, city').eq('main_business_id', business.id).order('created_at');
   const extraCount = extraShops?.length ?? 0;
 
-  /** Offre fondateur : places restantes (abonnements fondateur en cours) et droit de cette boutique à la prendre. */
-  async function founder() {
-    const { data: plan } = await db.from('plans').select('active, places').eq('id', 'founder').maybeSingle();
-    const { count } = await db.from('subscriptions').select('business_id', { count: 'exact', head: true })
-      .eq('plan', 'founder').not('stripe_subscription_id', 'is', null).in('status', ['trialing', 'active', 'past_due', 'unpaid', 'paused']);
-    return founderOffer(plan, count ?? 0, sub);
-  }
+  const founder = () => founderFor(db, sub);
 
   if (body.action === 'status') {
     const access = accessState(business.created_at, sub);
@@ -68,53 +62,11 @@ Deno.serve(handler(async (req) => {
   if (body.action === 'checkout') {
     if (!isPlanId(body.plan)) throw new HttpError(400, 'bad_plan', 'Offre inconnue.');
     if (!user.email || user.is_anonymous) throw new HttpError(400, 'account_not_protected', "Ajoutez d'abord votre e-mail pour protéger votre compte.");
-    if (sub && isLive(sub.status) && sub.stripe_subscription_id) throw new HttpError(409, 'already_subscribed', 'Vous avez déjà un abonnement.');
-    const { data: plan } = await db.from('plans').select('monthly_price_cents, extra_shop_price_cents, active').eq('id', body.plan).single();
-    if (!plan || !plan.active) throw new HttpError(400, 'bad_plan', "Cette offre n'est plus proposée.");
-    if (body.plan === 'founder' && !(await founder()).eligible) {
-      throw new HttpError(409, 'founder_full', "Les places de l'offre fondateur sont toutes prises. Choisissez l'offre Mensuel ou Annuel.");
-    }
-    const price = await priceFor(body.plan, plan.monthly_price_cents);
-    // Boutiques déjà ajoutées (ex. abonnement repris après une résiliation) : une ligne « Boutique en plus » × leur nombre.
-    const extraLine = extraCount ? [{ price: await extraShopPriceFor(body.plan, plan.extra_shop_price_cents), quantity: extraCount }] : [];
-    // Code de parrainage (facultatif) : vérifié ici, jamais cru sur parole depuis l'appli.
-    const referral = body.referralCode ? await findReferrer(db, business, body.referralCode) : null;
-    const referralMeta = referral ? { referrer_business_id: referral.referrerId, referral_code: referral.code } : {};
-
-    // Un seul client Stripe par boutique.
-    let customer = sub?.stripe_customer_id as string | undefined;
-    if (!customer) {
-      const c = await stripe<{ id: string }>('POST', 'customers', {
-        email: user.email, name: business.business_name ?? undefined, metadata: { business_id: business.id },
-        preferred_locales: ['fr'],
-      });
-      customer = c.id;
-      await db.from('subscriptions').upsert({ business_id: business.id, stripe_customer_id: customer }, { onConflict: 'business_id' });
-    }
-
-    const back = safeReturn(body.returnUrl);
-    const sep = back.includes('?') ? '&' : '?';
-    const trialEnd = stripeTrialEnd(business.created_at);
-    const session = await stripe<{ url: string }>('POST', 'checkout/sessions', {
-      mode: 'subscription',
-      customer,
-      locale: 'fr',
-      line_items: [{ price, quantity: 1 }, ...extraLine],
-      client_reference_id: business.id,
-      subscription_data: {
-        metadata: { business_id: business.id, plan: body.plan, ...referralMeta },
-        ...(trialEnd ? { trial_end: trialEnd } : {}),
-      },
-      metadata: { business_id: business.id, plan: body.plan, ...referralMeta },
-      ...(referral ? { discounts: [{ coupon: await refereeCoupon() }] } : {}),
-      payment_method_collection: 'always',
-      // Facture entre professionnels : le nom et l'adresse de la boutique doivent y figurer.
-      billing_address_collection: 'required',
-      customer_update: { address: 'auto', name: 'auto' },
-      success_url: `${back}${sep}paiement=ok`,
-      cancel_url: `${back}${sep}paiement=annule`,
+    const url = await createCheckout(db, {
+      business, email: user.email, sub, plan: body.plan, back: safeReturn(body.returnUrl),
+      referralCode: body.referralCode || undefined,
     });
-    return json({ url: session.url });
+    return json({ url });
   }
 
   if (body.action === 'portal') {

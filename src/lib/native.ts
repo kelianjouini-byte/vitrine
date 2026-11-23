@@ -55,3 +55,22 @@ export function openMetaLogin(url: string): Promise<string | null> {
     });
   });
 }
+
+/**
+ * Bouton « retour » d'Android dans l'appli Google Play. handle() renvoie true s'il a reculé d'un écran,
+ * false s'il n'y a plus rien derrière (alors l'appli se ferme, comme partout sur Android).
+ */
+export function onBackButton(handle: () => boolean): () => void {
+  if (!isStoreApp) return () => {};
+  const sub = App.addListener('backButton', () => {
+    if (!handle()) App.exitApp().catch(() => {});
+  });
+  return () => { sub.then((h) => h.remove()).catch(() => {}); };
+}
+
+/** Le commerçant revient dans l'appli (après l'avoir quittée un moment, par ex. pour payer depuis l'e-mail). */
+export function onResume(fn: () => void): () => void {
+  if (!isStoreApp) return () => {};
+  const sub = App.addListener('resume', fn);
+  return () => { sub.then((h) => h.remove()).catch(() => {}); };
+}

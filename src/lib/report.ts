@@ -207,11 +207,12 @@ export function trialSummary(posts: Post[], startIso: string, endIso: string, no
 }
 
 /** Rappels de fin d'essai : 3 jours avant (avec le bilan), puis le dernier jour. À l'heure choisie par le commerçant. */
-export function trialReminders(endIso: string, hour: number, now = new Date()): { date: Date; title: string; body: string }[] {
+/** storeApp : appli App Store / Google Play, où l'on ne parle pas d'offre ni de paiement (règles d'Apple et de Google). */
+export function trialReminders(endIso: string, hour: number, now = new Date(), storeApp = false): { date: Date; title: string; body: string }[] {
   const end = new Date(endIso);
   const at = (daysBefore: number) => new Date(end.getFullYear(), end.getMonth(), end.getDate() - daysBefore, hour, 0);
   return [
     { date: at(TRIAL_REPORT_DAYS_BEFORE), title: 'Votre essai gratuit se termine dans 3 jours', body: 'Regardez votre bilan : ce que Vitrine a fait pour vous en quelques jours.' },
-    { date: at(0), title: 'Dernier jour de votre essai gratuit', body: 'Choisissez votre offre pour continuer à publier avec Vitrine.' },
+    { date: at(0), title: 'Dernier jour de votre essai gratuit', body: storeApp ? 'Regardez vos e-mails : nous vous expliquons comment continuer avec Vitrine.' : 'Choisissez votre offre pour continuer à publier avec Vitrine.' },
   ].filter((r) => r.date > now && r.date < end);
 }

@@ -1,0 +1,137 @@
+# Fabrique les applis App Store (iPhone) et Google Play (Android) à partir de la même appli que vitrineappli.fr/app.
+# À lancer à la main : onglet « Actions » de GitHub > « Applis App Store et Google Play » > « Run workflow ».
+#  - Android : fabrique le fichier .aab signé, à télécharger en bas de la page de la fabrication puis à déposer sur Google Play.
+#  - iPhone  : fabrique l'appli et l'envoie directement sur App Store Connect (TestFlight), sans Mac ni Xcode de votre côté.
+# Secrets GitHub nécessaires (Settings > Secrets and variables > Actions) — voir docs/APPLIS-STORES.md :
+#   ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD
+#   APPLE_TEAM_ID, APPSTORE_KEY_ID, APPSTORE_ISSUER_ID, APPSTORE_KEY_P8
+name: Applis App Store et Google Play
+
+on:
+  # Vérification automatique (sans signature ni envoi) quand le code des applis change sur une branche de travail.
+  push:
+    branches-ignore: [main]
+    paths: ['ios/**', 'android/**', 'capacitor.config.json', 'package.json', 'scripts/build-store.mjs', '.github/workflows/store-apps.yml']
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: 'Quelle appli fabriquer ?'
+        type: choice
+        options: [les-deux, android, iphone]
+        default: les-deux
+      version:
+        description: 'Numéro de version affiché dans les stores (ex. 1.0.0)'
+        default: '1.0.0'
+
+permissions:
+  contents: read
+
+env:
+  # Valeurs PUBLIQUES (adresse du serveur et clé « anon ») : la sécurité repose sur la RLS.
+  EXPO_PUBLIC_SUPABASE_URL: https://fcnkaomxrmcprqrmpycu.supabase.co
+  EXPO_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZjbmthb214cm1jcHJxcm1weWN1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM1NzMwNzYsImV4cCI6MjEwOTE0OTA3Nn0.zyqASi9YUs-DJyW4TslLIxJe7XXci5Q7-6aosY3u0uQ
+  EXPO_OFFLINE: '1'
+  # Chaque envoi aux stores doit avoir un numéro plus grand que le précédent : on prend le numéro de la fabrication.
+  VITRINE_BUILD_NUMBER: ${{ github.run_number }}
+  VITRINE_VERSION: ${{ inputs.version || '1.0.0' }}
+  # Simple vérification (push) : on fabrique sans signer et sans rien envoyer.
+  CHECK_ONLY: ${{ github.event_name == 'push' }}
+
+jobs:
+  android:
+    if: github.event_name == 'push' || inputs.platform != 'iphone'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - run: npm test
+      - run: npx tsc --noEmit
+      - run: node scripts/build-store.mjs
+      - name: Clé de signature Google Play
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ "$CHECK_ONLY" = "true" ]; then echo "Vérification : pas de signature."; exit 0; fi
+          if [ -z "$KEYSTORE" ]; then echo "::error::Secret ANDROID_KEYSTORE_BASE64 manquant (voir docs/APPLIS-STORES.md)"; exit 1; fi
+          echo "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/vitrine.keystore"
+          echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/vitrine.keystore" >> "$GITHUB_ENV"
+      - name: Fabriquer le fichier pour Google Play (.aab)
+        working-directory: android
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: ./gradlew bundleRelease --no-daemon
+      - uses: actions/upload-artifact@v4
+        if: env.CHECK_ONLY != 'true'
+        with:
+          name: vitrine-android-${{ env.VITRINE_VERSION }}-${{ github.run_number }}
+          path: android/app/build/outputs/bundle/release/app-release.aab
+          retention-days: 30
+
+  iphone:
+    if: github.event_name == 'push' || inputs.platform != 'android'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node scripts/build-store.mjs
+      - name: Vérification (sans signature)
+        if: env.CHECK_ONLY == 'true'
+        run: |
+          xcodebuild build -project ios/App/App.xcodeproj -scheme App -configuration Release \
+            -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO
+      - name: Clé App Store Connect
+        if: env.CHECK_ONLY != 'true'
+        env:
+          KEY_P8: ${{ secrets.APPSTORE_KEY_P8 }}
+          TEAM: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -z "$KEY_P8" ] || [ -z "$TEAM" ]; then echo "::error::Secrets Apple manquants (voir docs/APPLIS-STORES.md)"; exit 1; fi
+          printf '%s' "$KEY_P8" > "$RUNNER_TEMP/AuthKey.p8"
+      - name: Fabriquer l'appli iPhone
+        if: env.CHECK_ONLY != 'true'
+        env:
+          TEAM: ${{ secrets.APPLE_TEAM_ID }}
+          KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+          ISSUER: ${{ secrets.APPSTORE_ISSUER_ID }}
+        run: |
+          xcodebuild archive \
+            -project ios/App/App.xcodeproj -scheme App -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/Vitrine.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/AuthKey.p8" -authenticationKeyID "$KEY_ID" -authenticationKeyIssuerID "$ISSUER" \
+            DEVELOPMENT_TEAM="$TEAM" CODE_SIGN_STYLE=Automatic \
+            MARKETING_VERSION="$VITRINE_VERSION" CURRENT_PROJECT_VERSION="$VITRINE_BUILD_NUMBER"
+      - name: Envoyer sur App Store Connect (TestFlight)
+        if: env.CHECK_ONLY != 'true'
+        env:
+          TEAM: ${{ secrets.APPLE_TEAM_ID }}
+          KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+          ISSUER: ${{ secrets.APPSTORE_ISSUER_ID }}
+        run: |
+          cat > "$RUNNER_TEMP/export.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>teamID</key><string>$TEAM</string>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+          </dict></plist>
+          PLIST
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/Vitrine.xcarchive" -exportOptionsPlist "$RUNNER_TEMP/export.plist" \
+            -exportPath "$RUNNER_TEMP/export" -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/AuthKey.p8" -authenticationKeyID "$KEY_ID" -authenticationKeyIssuerID "$ISSUER"

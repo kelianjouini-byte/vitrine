@@ -31,3 +31,8 @@ verify_jwt = false
 # La fonction vérifie elle-même le jeton pour toutes les autres actions.
 [functions.team]
 verify_jwt = false
+
+# E-mails de fin d'essai : les boutons de l'e-mail (lien signé) et la tournée du jour (en-tête x-cron-secret)
+# arrivent sans jeton utilisateur. La fonction vérifie elle-même le jeton pour « resend » et « status ».
+[functions.trial-emails]
+verify_jwt = false

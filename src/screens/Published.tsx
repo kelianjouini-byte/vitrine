@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Linking, ScrollView, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { Badge, Body, Button, Card, Label, Notice, PostThumb, Title } from '../components/ui';
 import { AlertIcon, CheckIcon, FacebookIcon, InstagramIcon, SendIcon } from '../components/icons';
 import { colors } from '../lib/theme';
@@ -7,6 +7,7 @@ import { useApp } from '../lib/store';
 import type { Post, PublicationResult } from '../lib/types';
 import { hasStats, type Stats } from '../lib/stats';
 import { StatsRow } from './Posts';
+import { openExternal } from '../lib/native';
 
 /** « Votre post », « Votre story », « Votre Reel ». */
 export const postNoun = (p: Post) => (p.kind === 'story' ? 'story' : p.mediaType === 'video' ? 'Reel' : 'post');
@@ -111,7 +112,7 @@ function PublicationRow({ p, stats }: { p: PublicationResult; stats?: Stats }) {
         <Badge text={label} tone={tone} />
       </View>
       {stats && hasStats(stats) ? <StatsRow s={stats} /> : null}
-      {p.url ? <Button title="Voir la publication" kind="ghost" onPress={() => Linking.openURL(p.url!)} /> : null}
+      {p.url ? <Button title="Voir la publication" kind="ghost" onPress={() => openExternal(p.url!)} /> : null}
     </Card>
   );
 }

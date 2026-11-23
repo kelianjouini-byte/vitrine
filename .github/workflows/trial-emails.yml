@@ -1,0 +1,25 @@
+# Tous les jours à 10 h (heure de Paris en hiver) : Vitrine envoie les e-mails de fin d'essai gratuit
+# (rappel 3 jours avant la fin, puis le jour de la fin), avec les offres et les liens de paiement.
+# Secret GitHub nécessaire : CRON_SECRET (le même que le secret CRON_SECRET de Supabase).
+name: E-mails de fin d'essai
+
+on:
+  schedule:
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Tournée du jour
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then echo "Secret CRON_SECRET pas encore posé : rien à faire."; exit 0; fi
+          curl -fsS -X POST https://fcnkaomxrmcprqrmpycu.supabase.co/functions/v1/trial-emails \
+            -H "content-type: application/json" -H "x-cron-secret: $CRON_SECRET" \
+            -d '{"action":"daily"}'
