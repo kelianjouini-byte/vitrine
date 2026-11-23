@@ -19,7 +19,7 @@ test("e-mail avant la fin : date, prix et liens", () => {
   assert.match(text, /rien avant la fin/);
   const html = trialEmailHtml(i);
   assert.match(html, /href="https:\/\/x\.test\/a\?t=1&amp;b=2"/);
-  assert.match(html, /Choisir Annuel/);
+  assert.match(html, /Choisir l&#39;offre Annuel/);
 });
 
 test("e-mail après la fin : boutique gardée", () => {
@@ -39,4 +39,10 @@ test("quel e-mail envoyer et quand", () => {
   assert.equal(dueTrialEmail(end, new Date('2026-12-05T11:00:00Z')), 'soon');
   assert.equal(dueTrialEmail(end, new Date('2026-12-08T11:00:00Z')), 'ended');
   assert.equal(dueTrialEmail(end, new Date('2026-12-30T11:00:00Z')), null);
+});
+
+test("libellé des boutons", async () => {
+  const { buttonLabel } = await import('../supabase/functions/_shared/trialEmail.ts');
+  assert.equal(buttonLabel('Offre fondateur'), "Choisir l'offre fondateur");
+  assert.equal(buttonLabel('Mensuel'), "Choisir l'offre Mensuel");
 });

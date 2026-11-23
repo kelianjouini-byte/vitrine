@@ -27,6 +27,8 @@ export interface TrialEmailInput {
 
 const euros = (cents: number) => `${(cents / 100).toLocaleString('fr-FR', { minimumFractionDigits: cents % 100 ? 2 : 0 })} €`;
 const frDate = (d: Date) => d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Paris' });
+/** « Choisir l'offre Mensuel », « Choisir l'offre fondateur ». */
+export const buttonLabel = (name: string) => /^offre /i.test(name) ? `Choisir l'${name.charAt(0).toLowerCase()}${name.slice(1)}` : `Choisir l'offre ${name}`;
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 
 export function trialEmailSubject(i: TrialEmailInput): string {
@@ -65,7 +67,7 @@ export function trialEmailHtml(i: TrialEmailInput): string {
           <div style="font-size:18px;font-weight:700;color:#24332B">${esc(o.name)}</div>
           <div style="font-size:28px;font-weight:700;color:#2F7658;margin:4px 0">${euros(o.priceCents)}<span style="font-size:16px;font-weight:400;color:#758078"> par mois</span></div>
           <div style="font-size:15px;color:#758078;margin-bottom:14px">${esc(o.detail)}</div>
-          <a href="${esc(o.url)}" style="display:block;text-align:center;background:#2F7658;color:#FFFFFF;text-decoration:none;font-size:18px;font-weight:700;padding:16px;border-radius:12px">Choisir ${esc(o.name)}</a>
+          <a href="${esc(o.url)}" style="display:block;text-align:center;background:#2F7658;color:#FFFFFF;text-decoration:none;font-size:18px;font-weight:700;padding:16px;border-radius:12px">${esc(buttonLabel(o.name))}</a>
         </td></tr>
       </table>
     </td></tr>`).join('');

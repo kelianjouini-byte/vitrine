@@ -105,7 +105,6 @@ export function StoreSubscription({ blocked }: { blocked?: boolean }) {
         <Notice tone="orange" title={ended ? "L'essai gratuit de la boutique est terminé" : `Essai gratuit : encore ${trialDays} jour${(trialDays ?? 0) > 1 ? 's' : ''}`} text="L'abonnement est géré par votre patron. Il a reçu toutes les informations par e-mail." />
       ) : (
         <>
-          {status && (ended || (trialDays ?? 99) <= TRIAL_REPORT_DAYS_BEFORE) && <TrialReportCard billing={status} ended={Boolean(ended)} />}
           {!ended && trialEnd && (
             <Card style={{ gap: 6, borderColor: colors.green }}>
               <Body style={{ fontWeight: '700' }} size={18}>Essai gratuit : encore {trialDays} jour{(trialDays ?? 0) > 1 ? 's' : ''}</Body>
@@ -131,6 +130,8 @@ export function StoreSubscription({ blocked }: { blocked?: boolean }) {
           {ended && (
             <Button title="C'est fait, actualiser" kind="secondary" icon={<RefreshIcon size={22} color={colors.green} />} loading={checking} onPress={check} />
           )}
+          {/* Le bilan des 15 jours, sous l'essentiel. */}
+          {status && (ended || (trialDays ?? 99) <= TRIAL_REPORT_DAYS_BEFORE) && <TrialReportCard billing={status} ended={Boolean(ended)} />}
         </>
       )}
 

@@ -37,6 +37,10 @@ npx expo start --web        # ou l'ouvrir dans le navigateur
 | `PUBLIC_SITE_URL` | secrets Supabase | Site public (pages légales, suivi de suppression) |
 | `PUBLIC_APP_URL` | secrets Supabase | Facultatif : adresse de la version web, seule adresse https autorisée au retour de la connexion Meta (par défaut `https://vitrineappli.fr/` ; l'ancienne adresse `https://kelianjouini-byte.github.io/vitrine/` reste acceptée) |
 | `STRIPE_SECRET_KEY` | secrets Supabase | Paiement des abonnements (clé secrète Stripe, `sk_test_…` ou `sk_live_…`) |
+| `BREVO_API_KEY`, `MAIL_FROM`, `MAIL_REPLY_TO` | secrets Supabase | E-mails de fin d'essai (offres + liens de paiement), fonction `trial-emails` |
+| `CRON_SECRET` | secrets Supabase **et** GitHub | Tournée quotidienne des e-mails de fin d'essai (`.github/workflows/trial-emails.yml`) |
+| `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD` | secrets GitHub | Signature de l'appli Google Play |
+| `APPLE_TEAM_ID`, `APPSTORE_KEY_ID`, `APPSTORE_ISSUER_ID`, `APPSTORE_KEY_P8` | secrets GitHub | Fabrication et envoi de l'appli iPhone sur App Store Connect |
 | `STRIPE_WEBHOOK_SECRET` | secrets Supabase | Vérifie que les messages du webhook viennent bien de Stripe (`whsec_…`) |
 
 **Aucune clé secrète ne doit jamais être mise dans l'app ou dans Git.**
@@ -125,3 +129,8 @@ deno check supabase/functions/*/index.ts   # Edge Functions
 - `https://vitrineappli.fr/app/` : l'appli web. Même origine que le site.
 - Pages légales : `…/conditions/`, `…/confidentialite/`, `…/suppression/`, `…/mentions-legales/` (dossier `public/`).
 - Les anciens liens (`…/vitrine/…`, `…/abonnement`, `…/meta-connected`) sont renvoyés vers `…/app/…` par `404.html` (voir `scripts/build-site.mjs`).
+
+
+## Applis App Store et Google Play
+
+La même appli que `vitrineappli.fr/app`, emballée par Capacitor (dossiers `ios/` et `android/`). Pas de paiement dans ces applis (règles d'Apple et de Google) : les offres et le lien Stripe arrivent par e-mail (`trial-emails`). Détails, fabrication et envoi aux stores : [docs/APPLIS-STORES.md](docs/APPLIS-STORES.md).
