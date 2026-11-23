@@ -126,6 +126,15 @@ export function Settings() {
           </View>
           <Switch value={prefs.monthlyReport !== false} onValueChange={(v) => setPrefs({ ...prefs, monthlyReport: v })} trackColor={{ true: colors.green, false: '#C9D1CB' }} thumbColor="#fff" {...({ activeThumbColor: '#fff' } as object)} />
         </View>
+        {people > 0 || !isPatron ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <View style={{ flex: 1 }}>
+              <Body style={{ fontWeight: '600' }}>Sons des points</Body>
+              <Body soft size={15}>Un petit « ting » quand les points de l'équipe montent.</Body>
+            </View>
+            <Switch value={prefs.sounds !== false} onValueChange={(v) => setPrefs({ ...prefs, sounds: v })} trackColor={{ true: colors.green, false: '#C9D1CB' }} thumbColor="#fff" {...({ activeThumbColor: '#fff' } as object)} accessibilityLabel="Sons des points" />
+          </View>
+        ) : null}
         {!notificationsSupported && <Notice tone="orange" title="Sur la version internet, les rappels n'arrivent pas encore" text="Ils arriveront avec l'application Vitrine à installer sur votre téléphone. En attendant, ouvrez Vitrine de temps en temps : l'accueil et le planning vous disent quoi publier." />}
       </Card>
 

@@ -15,7 +15,7 @@ import type { CommercialEvent } from './events';
 import type { RemotePost } from './sync';
 import type { BillingStatus, PlanId } from './billing';
 import type { ReferralInfo } from './referral';
-import type { PendingPost, TeamContext, TeamList } from './team';
+import type { MySentPost, PendingPost, PointsSummary, TeamContext, TeamList } from './team';
 
 export class NotConfiguredError extends Error {
   constructor(public what: 'serveur' | 'ia' | 'meta' | 'compte' | 'paiement') {
@@ -772,10 +772,36 @@ export async function pendingPosts(): Promise<PendingPost[]> {
   return Array.isArray(posts) ? posts : [];
 }
 
+/** Points gagnés par l'employé quand le patron publie son post (pour l'animation). */
+export type ApprovePoints = PointsSummary & { by: string; gained: number };
+
 /** Le patron valide : le post part sur les réseaux (texte éventuellement modifié). */
-export async function approvePost(postId: string, caption?: string): Promise<PublicationResult[]> {
-  const { publications } = await callFunction<{ publications: PublicationResult[] }>('team', { action: 'approve', post_id: postId, caption });
-  return publications;
+export async function approvePost(postId: string, caption?: string): Promise<{ publications: PublicationResult[]; points: ApprovePoints | null }> {
+  const res = await callFunction<{ publications: PublicationResult[]; points?: ApprovePoints | null }>('team', { action: 'approve', post_id: postId, caption });
+  return { publications: res.publications, points: res.points ?? null };
+}
+
+/** Mes points, l'objectif de l'équipe, et ce qu'un post m'a rapporté (après un envoi). */
+export async function teamPoints(postId?: string): Promise<{ points: PointsSummary | null; gained: number; maxPerDay: number }> {
+  return callFunction('team', { action: 'points', post_id: postId });
+}
+
+/** Employé : ses envois, relus sur le serveur. */
+export async function mySentPosts(): Promise<MySentPost[]> {
+  const { posts } = await callFunction<{ posts: MySentPost[] }>('team', { action: 'my_posts' });
+  return Array.isArray(posts) ? posts : [];
+}
+
+export async function setTeamGoal(points: number, reward: string): Promise<void> {
+  await callFunction('team', { action: 'set_goal', points, reward });
+}
+
+export async function stopTeamGoal(): Promise<void> {
+  await callFunction('team', { action: 'stop_goal' });
+}
+
+export async function setTeamNote(note: string): Promise<void> {
+  await callFunction('team', { action: 'set_note', note });
 }
 
 export async function rejectPost(postId: string, note: string): Promise<void> {

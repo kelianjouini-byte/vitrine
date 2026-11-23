@@ -116,6 +116,8 @@ export interface NotificationPrefs {
   monthlyReport?: boolean;
   /** Rappels du planning : « Votre post est prêt », « Idée de story du jour » (activé si absent). */
   planReminders?: boolean;
+  /** Petits sons des points de l'équipe (activés si absent). Le téléphone en silencieux les coupe aussi. */
+  sounds?: boolean;
 }
 
 export interface SocialConnection {

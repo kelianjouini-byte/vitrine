@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { unlockSounds } from '../lib/sfx';
 import { ActivityIndicator, Platform as RNPlatform, ScrollView, View } from 'react-native';
 import * as Crypto from 'expo-crypto';
 import { BackButton, Body, Button, Notice, PlatformPicker, defaultPlatforms, unconnectedPlatforms, Title } from '../components/ui';
@@ -142,6 +143,7 @@ export function Story({ initial }: { initial?: Captured }) {
 
   async function publish() {
     if (!media) return;
+    unlockSounds();
     if (!canPublish) return sendToPatron();
     if (blocked) return;
     setError(null);
