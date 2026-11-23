@@ -3,6 +3,7 @@ import { ActivityIndicator, Image, Pressable, StyleSheet, Text, TextInput, View,
 import { brand, colors, fonts, glass, glassSurface, greenGradient, radius } from '../lib/theme';
 import { BackIcon, CheckIcon, ChevronIcon, FacebookMark, InstagramMark, VideoIcon } from './icons';
 import type { Platform, Post, SocialConnection } from '../lib/types';
+import { isBackendConfigured } from '../lib/config';
 
 export function Title({ children, size = 26, style }: { children: React.ReactNode; size?: number; style?: StyleProp<any> }) {
   return <Text style={[{ fontFamily: fonts.title, fontSize: size, color: colors.text, fontWeight: '600' }, style]}>{children}</Text>;
@@ -164,8 +165,25 @@ const s = StyleSheet.create({
  * « Publier sur » : Instagram et/ou Facebook (au moins un reste coché). Sert aux posts et aux stories.
  * Deux grandes cartes avec le vrai logo, aux couleurs de chaque réseau adoucies pour le thème.
  */
-export function PlatformPicker({ value, onChange, connections }: { value: Platform[]; onChange: (p: Platform[]) => void; connections: SocialConnection[] }) {
+const isConnected = (p: Platform, connections: SocialConnection[]) => connections.find((c) => c.platform === p)?.status === 'connected';
+const NET_NAME: Record<Platform, string> = { instagram: 'Instagram', facebook: 'Facebook' };
+
+/** Réseaux cochés au départ : ceux qui sont connectés (les deux si aucun ne l'est encore). */
+export function defaultPlatforms(connections: SocialConnection[]): Platform[] {
+  const on = (['instagram', 'facebook'] as Platform[]).filter((p) => isConnected(p, connections));
+  return on.length ? on : ['instagram', 'facebook'];
+}
+
+/** Réseaux cochés mais pas connectés : tant qu'il y en a, on ne laisse pas publier (sinon faux « envoyé » puis échec). */
+export function unconnectedPlatforms(value: Platform[], connections: SocialConnection[]): Platform[] {
+  return isBackendConfigured ? value.filter((p) => !isConnected(p, connections)) : [];
+}
+
+export function PlatformPicker({ value, onChange, connections, onConnect }: { value: Platform[]; onChange: (p: Platform[]) => void; connections: SocialConnection[]; onConnect?: () => void }) {
   const toggle = (p: Platform) => onChange(value.includes(p) ? (value.length > 1 ? value.filter((x) => x !== p) : value) : [...value, p]);
+  // onConnect n'est donné qu'à celui qui publie lui-même (le patron) : un employé envoie au patron, qui publie.
+  const missing = onConnect ? unconnectedPlatforms(value, connections) : [];
+  const all = missing.length === value.length;
   return (
     <View style={{ gap: 10 }}>
       <Body style={{ fontWeight: '600' }}>Publier sur</Body>
@@ -190,6 +208,15 @@ export function PlatformPicker({ value, onChange, connections }: { value: Platfo
           );
         })}
       </View>
+      {missing.length > 0 && (
+        <View style={{ gap: 10 }}>
+          <Notice tone="orange"
+            title={all ? (value.length > 1 ? 'Instagram et Facebook ne sont pas encore connectés' : `${NET_NAME[value[0]]} n'est pas encore connecté`) : `${NET_NAME[missing[0]]} n'est pas connecté`}
+            text={all ? 'Sans eux, rien ne peut partir. Connectez-les d\'abord, ça prend une minute.' : `Décochez ${NET_NAME[missing[0]]} pour publier seulement sur ${NET_NAME[value.find((p) => !missing.includes(p))!]}, ou connectez-le.`} />
+          <Button title="Connecter mes réseaux" kind="secondary" onPress={onConnect!} />
+          {all && <Body soft size={14} center>Il faudra reprendre la photo après. On ne le fait qu'une fois.</Body>}
+        </View>
+      )}
     </View>
   );
 }

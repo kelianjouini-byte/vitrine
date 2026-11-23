@@ -254,7 +254,7 @@ export function TeamMemberScreen({ id, code: freshCode }: { id: string; code?: s
         </View>
       </View>
 
-      {freshCode && <Notice tone="green" title={`${m.firstName} fait partie de l'équipe`} text="Donnez-lui son code. Il ouvre Vitrine, touche « J'ai déjà un compte », puis tape son e-mail et ce code." />}
+      {freshCode && <Notice tone="green" title={`${m.firstName} fait partie de l'équipe`} text="Donnez-lui son code. Sur son téléphone : ouvrir Vitrine, toucher « J'ai déjà un compte », puis taper son e-mail et ce code." />}
 
       <Card style={{ gap: 10 }}>
         <Body soft size={14} style={{ fontWeight: '700' }}>Son code de connexion</Body>

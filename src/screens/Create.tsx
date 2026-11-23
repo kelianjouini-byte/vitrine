@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Platform as RNPlatform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import * as Crypto from 'expo-crypto';
-import { Body, Button, Chip, Field, Notice, PlatformPicker, Title, BackButton } from '../components/ui';
+import { Body, Button, Chip, Field, Notice, PlatformPicker, defaultPlatforms, unconnectedPlatforms, Title, BackButton } from '../components/ui';
 import { CameraIcon, CheckIcon, CropIcon, ImageIcon, PencilIcon, RefreshIcon, SparkIcon, TrashIcon, SendIcon } from '../components/icons';
 import { colors, fonts, glassSurface, radius } from '../lib/theme';
 import { useApp } from '../lib/store';
@@ -52,7 +52,9 @@ export function Create({ occasionId, initialPhoto, idea, plannedFor, note, alsoS
   const [caption, setCaption] = useState('');
   const [hashtags, setHashtags] = useState('');
   const [editing, setEditing] = useState(false);
-  const [platforms, setPlatforms] = useState<Platform[]>(['instagram', 'facebook']);
+  const [platforms, setPlatforms] = useState<Platform[]>(() => defaultPlatforms(connections));
+  // Le patron ne peut pas publier vers un réseau pas connecté : on le dit avant, plutôt qu'un faux « envoyé ».
+  const blocked = canPublish && unconnectedPlatforms(platforms, connections).length > 0;
   const [error, setError] = useState<string | null>(null);
   const [aiNotice, setAiNotice] = useState<string | null>(null);
   const [retryNotice, setRetryNotice] = useState<string | null>(null);
@@ -276,6 +278,7 @@ export function Create({ occasionId, initialPhoto, idea, plannedFor, note, alsoS
       return;
     }
     if (!canPublish) return sendToPatron(tags);
+    if (blocked) return;
     setPhase('publishing');
     setPublishStep(0);
     setError(null);
@@ -603,17 +606,17 @@ export function Create({ occasionId, initialPhoto, idea, plannedFor, note, alsoS
         </View>
       )}
 
-      <PlatformPicker value={platforms} onChange={setPlatforms} connections={connections} />
+      <PlatformPicker value={platforms} onChange={setPlatforms} connections={connections} onConnect={canPublish ? () => go({ name: 'settings' }) : undefined} />
 
       {error && <Notice tone="red" title="Nous avons besoin de votre attention" text={error} />}
 
       {plannedLabel ? (
         <>
           <Button title={`Prévoir pour ${DAY_NAMES[weekday(parseDayKey(plannedFor!))].toLowerCase()}`} icon={<CheckIcon size={20} />} loading={busy} onPress={keepForLater} style={{ minHeight: 64 }} />
-          <Button title={canPublish ? 'Publier maintenant' : 'Envoyer au patron maintenant'} kind="secondary" disabled={busy} onPress={publish} />
+          <Button title={canPublish ? 'Publier maintenant' : 'Envoyer au patron maintenant'} kind="secondary" disabled={busy || blocked} onPress={publish} />
         </>
       ) : canPublish ? (
-        <Button title={alsoStory ? 'Publier le post et la story' : 'Publier maintenant'} onPress={publish} style={{ minHeight: 64 }} />
+        <Button title={alsoStory ? 'Publier le post et la story' : 'Publier maintenant'} disabled={blocked} onPress={publish} style={{ minHeight: 64 }} />
       ) : (
         <>
           <Button title="Envoyer au patron" icon={<SendIcon size={22} color={colors.white} />} loading={busy} onPress={publish} style={{ minHeight: 64 }} />

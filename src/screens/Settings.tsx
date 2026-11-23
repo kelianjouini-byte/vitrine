@@ -6,6 +6,7 @@ import { NetworkCards } from '../components/NetworkCards';
 import { IdentityFields, type Identity } from '../components/IdentityFields';
 import { colors } from '../lib/theme';
 import { useApp } from '../lib/store';
+import { subscriptionSummary } from '../lib/billing';
 import { toneLabel, tradeLabel } from '../lib/business';
 import { isBackendConfigured } from '../lib/config';
 import { notificationsSupported } from '../lib/notifications';
@@ -17,7 +18,7 @@ import { DeleteAccount } from '../components/DeleteAccount';
 const LEGAL_SITE = 'https://vitrineappli.fr';
 
 export function Settings() {
-  const { business, prefs, setPrefs, back, go, saveBusiness, refreshConnections, isPatron, team } = useApp();
+  const { business, prefs, setPrefs, back, go, saveBusiness, refreshConnections, isPatron, team, billing } = useApp();
   const b = business!;
   const people = team?.teamSize ?? 0;
 
@@ -64,7 +65,7 @@ export function Settings() {
       <Card onPress={() => go({ name: 'offers' })} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         <View style={{ flex: 1, gap: 2 }}>
           <Body style={{ fontWeight: '700' }}>Voir les offres</Body>
-          <Body soft size={15}>15 jours offerts, puis Mensuel 39 € ou Annuel 29 € par mois.</Body>
+          <Body soft size={15}>{subscriptionSummary(billing)}</Body>
         </View>
         <Chevron />
       </Card>
