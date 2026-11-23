@@ -23,7 +23,8 @@ export function Label({ children }: { children: React.ReactNode }) {
 type BtnKind = 'primary' | 'secondary' | 'ghost' | 'danger';
 export function Button({ title, onPress, kind = 'primary', loading, disabled, icon, style }: { title: string; onPress?: () => void; kind?: BtnKind; loading?: boolean; disabled?: boolean; icon?: React.ReactNode; style?: StyleProp<ViewStyle> }) {
   const bg = { primary: colors.green, secondary: glass.bgStrong, ghost: 'transparent', danger: glass.bgStrong }[kind];
-  const fg = { primary: colors.white, secondary: colors.green, ghost: colors.textSoft, danger: colors.red }[kind];
+  const off = Boolean(disabled) && !loading;
+  const fg = off && kind === 'primary' ? colors.textSoft : { primary: colors.white, secondary: colors.green, ghost: colors.textSoft, danger: colors.redText }[kind];
   return (
     <Pressable
       accessibilityRole="button"
@@ -31,9 +32,9 @@ export function Button({ title, onPress, kind = 'primary', loading, disabled, ic
       disabled={disabled || loading}
       style={({ pressed }) => [
         s.btn,
-        kind === 'primary' && s.btnPrimary,
+        kind === 'primary' && (off ? s.btnOff : s.btnPrimary),
         kind !== 'primary' && { backgroundColor: bg },
-        { opacity: disabled ? 0.45 : pressed ? 0.85 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] },
+        { opacity: off && kind !== 'primary' ? 0.55 : pressed ? 0.85 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] },
         kind === 'secondary' && { borderWidth: 1.5, borderColor: colors.green },
         kind === 'danger' && { borderWidth: 1.5, borderColor: colors.red },
         kind === 'ghost' && { minHeight: 44 },
@@ -60,7 +61,7 @@ const BADGES = {
   orange: [colors.orangeSoft, colors.orangeText],
   sand: [colors.sandSoft, colors.sandText],
   grey: ['#EEF1ED', colors.textSoft],
-  red: [colors.redSoft, colors.red],
+  red: [colors.redSoft, colors.redText],
 } as const;
 export function Badge({ text, tone = 'grey' }: { text: string; tone?: keyof typeof BADGES }) {
   const [bg, fg] = BADGES[tone];
@@ -83,15 +84,18 @@ export function DateTile({ date, tone = 'orange' }: { date: Date; tone?: keyof t
 }
 
 export function Field({ label, hint, error, ...props }: TextInputProps & { label: string; hint?: string; error?: string }) {
+  const [focused, setFocused] = React.useState(false);
   return (
     <View style={{ gap: 6 }}>
       <Text style={{ fontSize: 16, fontWeight: '600', color: colors.text, fontFamily: fonts.body }}>{label}</Text>
       <TextInput
-        placeholderTextColor="#9AA39D"
+        placeholderTextColor={colors.placeholder}
         {...props}
-        style={[s.input, error ? { borderColor: colors.red } : null, props.multiline ? { minHeight: 96, textAlignVertical: 'top', paddingTop: 14 } : null]}
+        onFocus={(e) => { setFocused(true); props.onFocus?.(e); }}
+        onBlur={(e) => { setFocused(false); props.onBlur?.(e); }}
+        style={[s.input, focused ? s.inputFocus : null, error ? { borderColor: colors.red } : null, props.multiline ? { minHeight: 96, textAlignVertical: 'top', paddingTop: 14 } : null]}
       />
-      {error ? <Text style={{ color: colors.red, fontSize: 15 }}>{error}</Text> : hint ? <Text style={{ color: colors.textSoft, fontSize: 15, lineHeight: 21 }}>{hint}</Text> : null}
+      {error ? <Text style={{ color: colors.redText, fontSize: 15, fontWeight: '600', fontFamily: fonts.body }}>{error}</Text> : hint ? <Text style={{ color: colors.textSoft, fontSize: 15, lineHeight: 21 }}>{hint}</Text> : null}
     </View>
   );
 }
@@ -102,7 +106,7 @@ export function Chip({ label, selected, onPress }: { label: string; selected: bo
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={{ selected }}
-      style={{ paddingHorizontal: 16, paddingVertical: 12, borderRadius: 999, borderWidth: 1.5, borderColor: selected ? colors.green : glass.line, backgroundColor: selected ? colors.greenSoft : glass.bgStrong }}
+      style={{ paddingHorizontal: 16, paddingVertical: 12, borderRadius: 999, borderWidth: 1.5, borderColor: selected ? colors.green : 'rgba(36,51,43,0.28)', backgroundColor: selected ? colors.greenSoft : glass.bgStrong }}
     >
       <Text style={{ fontSize: 16, color: selected ? colors.green : colors.text, fontWeight: selected ? '700' : '500', fontFamily: fonts.body }}>{label}</Text>
     </Pressable>
@@ -112,7 +116,7 @@ export function Chip({ label, selected, onPress }: { label: string; selected: bo
 /** Bandeau d'information honnête : fonctionnalité pas encore branchée, erreur, etc. */
 export function Notice({ tone = 'orange', title, text }: { tone?: 'orange' | 'red' | 'green'; title: string; text?: string }) {
   const bg = { orange: colors.orangeSoft, red: colors.redSoft, green: colors.greenSoft }[tone];
-  const fg = { orange: colors.orangeText, red: colors.red, green: colors.green }[tone];
+  const fg = { orange: colors.orangeText, red: colors.redText, green: colors.green }[tone];
   return (
     <View style={{ backgroundColor: bg, borderRadius: radius.md, padding: 14, gap: 4 }}>
       <Text style={{ color: fg, fontWeight: '700', fontSize: 16, fontFamily: fonts.body }}>{title}</Text>
@@ -146,12 +150,14 @@ const s = StyleSheet.create({
   round: { ...glassSurface, width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   label: { fontSize: 14, fontWeight: '700', letterSpacing: 1, color: colors.textSoft, textTransform: 'uppercase', fontFamily: fonts.body },
   btn: { minHeight: 58, borderRadius: radius.md + 2, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 },
+  btnOff: { backgroundColor: colors.greenSoft, borderWidth: 1.5, borderColor: 'rgba(47,118,88,0.25)' },
   btnPrimary: { ...greenGradient, boxShadow: '0px 12px 24px -12px rgba(31,95,69,0.6)' },
   card: { ...glassSurface, borderRadius: radius.lg - 2, padding: 16 },
   netCard: { ...glassSurface, flex: 1, minHeight: 150, borderRadius: radius.lg - 4, borderWidth: 2, borderColor: glass.edge, alignItems: 'center', justifyContent: 'center', paddingVertical: 16, paddingHorizontal: 8, gap: 4 },
   netLogo: { width: 60, height: 60, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
   netCheck: { position: 'absolute', top: 10, right: 10, width: 26, height: 26, borderRadius: 13, borderWidth: 2, borderColor: 'rgba(36,51,43,0.18)', backgroundColor: 'rgba(255,255,255,0.7)', alignItems: 'center', justifyContent: 'center' },
-  input: { minHeight: 54, borderRadius: 14, borderWidth: 1.5, borderColor: glass.line, backgroundColor: glass.bgStrong, paddingHorizontal: 16, fontSize: 17, color: colors.text, fontFamily: fonts.body },
+  inputFocus: { borderColor: colors.green, borderWidth: 2, outlineStyle: 'none' } as any,
+  input: { minHeight: 54, borderRadius: 14, borderWidth: 1.5, borderColor: colors.fieldLine, backgroundColor: glass.bgStrong, paddingHorizontal: 16, fontSize: 17, color: colors.text, fontFamily: fonts.body },
 });
 
 /**

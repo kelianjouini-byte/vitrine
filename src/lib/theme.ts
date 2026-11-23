@@ -15,6 +15,12 @@ export const colors = {
   /** Orange plus vif pour un chiffre à remarquer (gras uniquement, lisible sur fond clair). */
   orangeStrong: '#B0661A',
   red: '#D96B61',
+  /** Rouge foncé pour les TEXTES d'erreur (lisible : 5:1 et plus). #D96B61 reste pour les bordures et icônes. */
+  redText: '#A8433A',
+  /** Exemples dans les champs (« Ex. : Lyon ») : assez foncé pour être lu. */
+  placeholder: '#6B756E',
+  /** Contour des champs : visible sans être dur. */
+  fieldLine: 'rgba(36,51,43,0.32)',
   redSoft: '#FBE7E5',
   sandSoft: '#F1EBE2',
   sandText: '#6A5841',

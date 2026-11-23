@@ -111,8 +111,9 @@ export function Team() {
                         value={m.canPublish}
                         disabled={saving === m.id}
                         onValueChange={(v) => toggle(m, v)}
-                        trackColor={{ true: colors.green, false: '#D6DBD5' }}
+                        trackColor={{ true: colors.green, false: '#C9D1CB' }}
                         thumbColor="#fff"
+                        {...({ activeThumbColor: '#fff' } as object)}
                         accessibilityLabel={`${m.firstName} publie seul, sans attendre votre accord`}
                       />
                       <Text style={{ color: colors.textSoft, fontSize: 12, fontFamily: fonts.body }}>Publie seul</Text>

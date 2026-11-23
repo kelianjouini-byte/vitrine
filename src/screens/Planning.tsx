@@ -51,7 +51,7 @@ export function Planning() {
 
       <View style={{ flexDirection: 'row', gap: 10 }}>
         <Counter value={count.post} goal={WEEK_GOAL.post} one="post" many="posts" />
-        <Counter value={count.story} goal={WEEK_GOAL.story} one="story" many="stories" />
+        <Counter value={count.story} goal={WEEK_GOAL.story} one="story" many="stories" feminine />
       </View>
 
       {days.map((d) => (
@@ -90,10 +90,11 @@ function WeekArrow({ dir, disabled, onPress }: { dir: 'prev' | 'next'; disabled:
  * Objectif de la semaine, dit de façon encourageante : jamais de « 0 / 3 » mis en avant.
  * Rien de fait : « 3 posts conseillés ». En cours : « 1 sur 3 ». Atteint : « 3 sur 3, bravo ».
  */
-function Counter({ value, goal, one, many }: { value: number; goal: number; one: string; many: string }) {
+function Counter({ value, goal, one, many, feminine }: { value: number; goal: number; one: string; many: string; feminine?: boolean }) {
   const done = value >= goal;
   const big = value === 0 ? `${goal} ${goal > 1 ? many : one}` : `${value} sur ${goal}`;
-  const small = value === 0 ? 'conseillés cette semaine' : done ? 'Bravo, objectif atteint' : `${many} faits cette semaine`;
+  const e = feminine ? 'es' : 's';
+  const small = value === 0 ? `conseillé${e} cette semaine` : done ? 'Bravo, objectif atteint' : `${many} fait${e} cette semaine`;
   return (
     <View style={{ ...glassSurface, flex: 1, borderRadius: radius.md, padding: 12, gap: 2 }}>
       <Text style={{ fontFamily: fonts.title, fontSize: 20, fontWeight: '700', color: done ? colors.green : colors.text }}>{big}</Text>

@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react';
-import { ScrollView, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 import { Badge, Body, Button, Card, IconTile, PostThumb, Title } from '../components/ui';
 import { CameraIcon, EyeIcon, ImageIcon, MessageIcon, ThumbUpIcon } from '../components/icons';
-import { colors } from '../lib/theme';
+import { colors, fonts } from '../lib/theme';
 import { useApp } from '../lib/store';
 import type { PostStatus } from '../lib/types';
 import { formatCount, hasStats, totalOf, type Stats } from '../lib/stats';
@@ -37,17 +37,20 @@ export function Posts() {
         posts.map((p) => (
           <Card key={p.id} onPress={() => go({ name: 'published', postId: p.id })} style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
             <PostThumb post={p} width={64} height={80} />
-            <View style={{ flex: 1, gap: 4 }}>
-              <Body size={15} style={{ fontWeight: '600' }}>{p.caption.split('\n')[0].slice(0, 60)}</Body>
+            <View style={{ flex: 1, gap: 6 }}>
+              {/* Le statut en premier, à gauche : la carte garde toute sa largeur pour le texte, même sur un petit téléphone. */}
+              <View style={{ alignSelf: 'flex-start' }}>
+                {p.reviewState === 'pending'
+                  ? <Badge text="Chez le patron" tone="orange" />
+                  : p.reviewState === 'rejected'
+                    ? <Badge text="Refusé" tone="red" />
+                    : <Badge text={STATUS[p.status].label} tone={STATUS[p.status].tone} />}
+              </View>
+              <Text numberOfLines={2} style={{ fontSize: 15, lineHeight: 21, fontWeight: '600', color: colors.text, fontFamily: fonts.body }}>{p.caption.split('\n')[0]}</Text>
               <Body soft size={15}>{new Date(p.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })} · {p.platforms.map((x) => (x === 'instagram' ? 'Instagram' : 'Facebook')).join(' + ')}</Body>
               {hasStats(totalOf(stats[p.id])) ? <StatsRow s={totalOf(stats[p.id])} /> : null}
               {p.reviewState === 'rejected' && p.reviewNote ? <Body size={15} style={{ color: colors.orangeText }}>« {p.reviewNote} »</Body> : null}
             </View>
-            {p.reviewState === 'pending'
-              ? <Badge text="Chez le patron" tone="orange" />
-              : p.reviewState === 'rejected'
-                ? <Badge text="Refusé" tone="red" />
-                : <Badge text={STATUS[p.status].label} tone={STATUS[p.status].tone} />}
           </Card>
         ))
       )}
