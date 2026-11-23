@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TextInput, View } from 'react-native';
 import * as Crypto from 'expo-crypto';
-import { BackButton, Body, Button, Notice, PlatformPicker, Title } from '../components/ui';
+import { BackButton, Body, Button, Notice, PlatformPicker, defaultPlatforms, unconnectedPlatforms, Title } from '../components/ui';
 import { CheckIcon, PencilIcon, RefreshIcon, SendIcon, SparkIcon } from '../components/icons';
 import { MusicChooser } from '../components/MusicPicker';
 import { MakingVideo, MusicLine, OverlayEditor, OverlayStage, OverlayStatus, OverlayTools, useOverlayText } from '../components/TextOverlay';
@@ -49,7 +49,9 @@ export function Reel({ video, alsoStory }: { video: Video; alsoStory?: boolean }
   const [hashtags, setHashtags] = useState('');
   const [editing, setEditing] = useState(false);
   const [aiNotice, setAiNotice] = useState<string | null>(null);
-  const [platforms, setPlatforms] = useState<Platform[]>(['instagram', 'facebook']);
+  const [platforms, setPlatforms] = useState<Platform[]>(() => defaultPlatforms(connections));
+  // Le patron ne peut pas publier vers un réseau pas connecté : on le dit avant, plutôt qu'un faux « envoyé ».
+  const blocked = canPublish && unconnectedPlatforms(platforms, connections).length > 0;
   const [error, setError] = useState<string | null>(null);
   const [making, setMaking] = useState<number | null>(null);
   const [sending, setSending] = useState(false);
@@ -152,6 +154,7 @@ export function Reel({ video, alsoStory }: { video: Video; alsoStory?: boolean }
     setError(null);
     audioContext();
     if (!canPublish) return sendToPatron();
+    if (blocked) return;
     let reel: PublicationResult[];
     let story: PublicationResult[] = [];
     let file: { path: string; blob?: Blob } | null = null;
@@ -273,13 +276,13 @@ export function Reel({ video, alsoStory }: { video: Video; alsoStory?: boolean }
         </View>
       )}
 
-      <PlatformPicker value={platforms} onChange={setPlatforms} connections={connections} />
+      <PlatformPicker value={platforms} onChange={setPlatforms} connections={connections} onConnect={canPublish ? () => go({ name: 'settings' }) : undefined} />
       {alsoStory && <Body soft size={15} center>La même vidéo, avec son petit texte, part aussi en story.</Body>}
 
       {error && <Notice tone="red" title="Nous avons besoin de votre attention" text={error} />}
 
       {canPublish ? (
-        <Button title={alsoStory ? 'Publier le Reel et la story' : 'Publier le Reel'} disabled={writing} onPress={publish} style={{ minHeight: 64 }} />
+        <Button title={alsoStory ? 'Publier le Reel et la story' : 'Publier le Reel'} disabled={writing || blocked} onPress={publish} style={{ minHeight: 64 }} />
       ) : (
         <>
           <Button title="Envoyer au patron" icon={<SendIcon size={22} color={colors.white} />} disabled={writing} onPress={publish} style={{ minHeight: 64 }} />

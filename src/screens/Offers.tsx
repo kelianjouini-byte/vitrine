@@ -279,9 +279,14 @@ function OfferCard({ offer, selected, saving, founder, normalCents, onPress }: {
             {selected && <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: colors.green }} />}
           </View>
           <Body style={{ fontWeight: '700', flex: 1 }} size={20}>{offerTitle(offer)}</Body>
-          {saving > 0 && <Badge tone="orange" text={`${euros(saving)} d'économie par an`} />}
-          {founder && <Badge tone="orange" text={placesLeftText(founder.left)} />}
         </View>
+        {/* Badge sous le titre (plus à côté) : il ne déborde plus de la carte sur un petit téléphone. */}
+        {(saving > 0 || founder) && (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingLeft: 34 }}>
+            {saving > 0 && <Badge tone="orange" text={`${euros(saving)} d'économie par an`} />}
+            {founder && <Badge tone="orange" text={placesLeftText(founder.left)} />}
+          </View>
+        )}
         <Text style={{ fontFamily: fonts.title, fontSize: 32, fontWeight: '600', color: colors.text }}>
           {euros(offer.priceCents)}<Text style={{ fontFamily: fonts.body, fontSize: 17, fontWeight: '500', color: colors.textSoft }}> par mois</Text>
           {founder && normalCents > offer.priceCents && (

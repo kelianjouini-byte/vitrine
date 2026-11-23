@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, ScrollView, Text, View, type ScrollViewInstance } from 'react-native';
 import { Body, Button, Card, Chevron, DateTile, IconTile, Label, Notice, Title } from '../components/ui';
 import { takePhoto, takePhotos, takeVideo } from '../lib/photo';
 import { accountState, FriendlyError } from '../lib/api';
@@ -45,6 +45,10 @@ export function Home() {
   useEffect(() => { accountState().then((a) => setGuest(a.kind === 'guest')).catch(() => {}); }, [posts.length]);
   const pending = isPatron ? team?.pending ?? 0 : 0;
   const mine = !isPatron ? team?.mine : undefined;
+  // Petit téléphone : quand les choix Photo / Vidéo s'ouvrent, on les fait remonter à l'écran.
+  const scroll = useRef<ScrollViewInstance>(null);
+  const [publishY, setPublishY] = useState(0);
+  useEffect(() => { if (choosing) setTimeout(() => scroll.current?.scrollTo({ y: Math.max(0, publishY - 8), animated: true }), 60); }, [choosing, publishY]);
 
   // Photo : l'appareil photo s'ouvre tout de suite ; ensuite « Où la publier ? » (post, story ou les deux).
   /** La carte touchée passe en couleur pleine un instant : on voit bien qu'elle a été choisie. */
@@ -103,12 +107,15 @@ export function Home() {
   }
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 24 }}>
+    <ScrollView ref={scroll} contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 24 }}>
       <ShopSwitcher />
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <View style={{ flex: 1 }}>
           <Body size={17} style={{ color: colors.greenDark, fontWeight: '600' }}>Bonjour {team?.firstName ?? b.ownerFirstName}</Body>
           <Title size={30}>{b.businessName}</Title>
+          {trialLeft !== null && trialLeft > TRIAL_REPORT_DAYS_BEFORE && (
+            <Body soft size={15} style={{ marginTop: 2 }}>{`Essai gratuit : encore ${trialLeft} jours`}</Body>
+          )}
         </View>
         <Pressable onPress={() => go({ name: 'settings' })} accessibilityRole="button" accessibilityLabel="Réglages"
           style={({ pressed }) => ({ alignItems: 'center', gap: 4, transform: [{ scale: pressed ? 0.95 : 1 }] })}>
@@ -145,6 +152,20 @@ export function Home() {
         </Card>
       )}
 
+      {/* Rien n'est connecté : sans Instagram ni Facebook, Vitrine ne peut rien publier. C'est donc la 1re chose à faire. */}
+      {isPatron && connected === 0 && (
+        <Card style={{ gap: 12, backgroundColor: 'rgba(252,239,217,0.9)', borderColor: colors.orange, borderWidth: 1.5 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+            <IconTile size={48} tone="orange"><LinkIcon size={24} color={colors.orangeText} /></IconTile>
+            <View style={{ flex: 1 }}>
+              <Body style={{ fontWeight: '700' }} size={18}>Première étape</Body>
+              <Body size={15}>Connectez Instagram et Facebook. Sans eux, Vitrine ne peut rien publier pour vous.</Body>
+            </View>
+          </View>
+          <Button title="Connecter mes réseaux" onPress={() => go({ name: 'settings' })} style={{ minHeight: 52 }} />
+        </Card>
+      )}
+
       {/* Le geste principal : un gros bouton rond, au centre, avec des ondes orange autour. */}
       <Pressable onPress={() => setChoosing((c) => !c)} accessibilityRole="button" accessibilityLabel="Publier : une photo ou une vidéo" accessibilityState={{ expanded: choosing }}
         style={({ pressed }) => ({ alignItems: 'center', gap: 8, paddingVertical: 14, transform: [{ scale: pressed ? 0.97 : 1 }] })}>
@@ -154,7 +175,7 @@ export function Home() {
       </Pressable>
 
       {choosing && (
-        <View style={{ gap: 10 }}>
+        <View style={{ gap: 10 }} onLayout={(e) => setPublishY(e.nativeEvent.layout.y)}>
           <View style={{ flexDirection: 'row', gap: 12 }}>
             <MediaCard kind="photo" active={opening === 'photo'} onPress={shootPhoto} />
             <MediaCard kind="video" active={opening === 'video'} onPress={shootVideo} delay={120} />
@@ -242,7 +263,7 @@ export function Home() {
         <Label>Ce mois-ci</Label>
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <View style={{ flex: 1 }}><MonthReportCard /></View>
-          {isPatron && <View style={{ flex: 1 }}>
+          {isPatron && connected > 0 && <View style={{ flex: 1 }}>
             {/* Pas de « 0/2 » décourageant : tant que tout n'est pas connecté, on propose de le faire. */}
             <Card onPress={() => go({ name: 'settings' })} style={{ gap: 6 }}>
               {connected >= 2 ? (

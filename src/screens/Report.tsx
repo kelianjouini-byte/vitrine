@@ -42,6 +42,8 @@ export function Report({ initialMonth }: { initialMonth?: Month }) {
   const monthPosts = useMemo(() => [...s.posts, ...s.stories], [s.posts, s.stories]);
   const likes = useMemo(() => sumOf(monthPosts, stats, 'likes'), [monthPosts, stats]);
   const comments = useMemo(() => sumOf(monthPosts, stats, 'comments'), [monthPosts, stats]);
+  // Nouveau client : rien encore publié avec Vitrine. Plutôt que des zéros et des « Bientôt », on explique ce qui arrive.
+  const firstTime = !posts.some((p) => p.status === 'published' || p.status === 'partially_published');
   const canGoBack = compareMonths(month, oldest) > 0;
   const canGoNext = compareMonths(month, current) < 0;
 
@@ -81,6 +83,7 @@ export function Report({ initialMonth }: { initialMonth?: Month }) {
         <ChartUpIcon size={26} color={colors.green} />
       </View>
 
+      {firstTime ? <FirstReport onPublish={() => go({ name: 'home' })} connected={connected} onConnect={() => go({ name: 'settings' })} /> : <>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         <MonthArrow label="‹" a11y="Mois précédent" enabled={canGoBack} onPress={() => setMonth(addMonths(month, -1))} />
         <View style={{ flex: 1, alignItems: 'center', gap: 4 }}>
@@ -227,8 +230,43 @@ export function Report({ initialMonth }: { initialMonth?: Month }) {
       )}
 
       <Body soft size={15} center>Ces chiffres viennent de vos vrais posts et stories publiés avec Vitrine. Le temps gagné est une estimation.</Body>
-      {!isStoreApp && <ReferralAsk monthKey={monthKey(month)} eligible={!s.inProgress && s.count > 0 && compareMonths(month, addMonths(current, -1)) === 0} onSend={() => go({ name: 'referral' })} />}
+      </>}
+      {!firstTime && !isStoreApp && <ReferralAsk monthKey={monthKey(month)} eligible={!s.inProgress && s.count > 0 && compareMonths(month, addMonths(current, -1)) === 0} onSend={() => go({ name: 'referral' })} />}
     </ScrollView>
+  );
+}
+
+/** Bilan d'un nouveau client : ce qu'il verra ici dès son premier post, sans chiffres vides. */
+function FirstReport({ onPublish, connected, onConnect }: { onPublish: () => void; connected: boolean; onConnect: () => void }) {
+  const items: [React.ReactNode, string, string][] = [
+    [<CameraIcon key="c" size={22} color={colors.green} />, 'Vos posts et stories du mois', 'Tout ce que vous avez publié, en un coup d\'œil.'],
+    [<HeartIcon key="h" size={22} color={colors.orangeText} fill={colors.orange} />, 'Ce que vos clients ont aimé', 'Les j\'aime, les commentaires et votre meilleur post.'],
+    [<EyeIcon key="e" size={22} color={colors.orangeText} />, 'Les clients touchés', 'Combien de personnes ont vu vos publications.'],
+    [<ClockIcon key="t" size={22} color={colors.green} />, 'Le temps gagné', 'Et un conseil pour le mois suivant.'],
+  ];
+  return (
+    <>
+      <Card style={{ gap: 14, alignItems: 'center', paddingVertical: 24 }}>
+        <IconTile size={64}><ChartUpIcon size={32} color={colors.green} /></IconTile>
+        <Title size={24} style={{ textAlign: 'center' }}>Votre bilan arrive bientôt</Title>
+        <Body soft center>Dès votre premier post, vous verrez ici ce que Vitrine fait pour votre boutique.</Body>
+        {connected
+          ? <Button title="Publier ma première photo" onPress={onPublish} style={{ alignSelf: 'stretch' }} />
+          : <Button title="Connecter mes réseaux" onPress={onConnect} style={{ alignSelf: 'stretch' }} />}
+      </Card>
+      <Label>Ce que vous trouverez ici</Label>
+      <Card style={{ gap: 14 }}>
+        {items.map(([icon, title, text]) => (
+          <View key={title} style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+            <IconTile size={44} tone="green">{icon}</IconTile>
+            <View style={{ flex: 1 }}>
+              <Body style={{ fontWeight: '700' }} size={16}>{title}</Body>
+              <Body soft size={15}>{text}</Body>
+            </View>
+          </View>
+        ))}
+      </Card>
+    </>
   );
 }
 
@@ -255,9 +293,9 @@ function MonthArrow({ label, a11y, enabled, onPress }: { label: string; a11y: st
 /** Un total de réactions du mois (j'aime ou commentaires), en orange. */
 function Reaction({ icon, value, label, connected }: { icon: React.ReactNode; value: number | null; label: string; connected: boolean }) {
   return (
-    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.orangeSoft, borderRadius: radius.sm + 2, padding: 12 }}>
+    <View style={{ flex: 1, gap: 6, backgroundColor: colors.orangeSoft, borderRadius: radius.sm + 2, padding: 12 }}>
       {icon}
-      <View style={{ flex: 1 }}>
+      <View>
         {value !== null
           ? <Title size={28} style={{ color: colors.orangeText }}>{formatCount(value)}</Title>
           : <Text style={{ color: colors.orangeText, fontSize: 22, fontWeight: '700', fontFamily: fonts.body }}>{connected ? '—' : 'Bientôt'}</Text>}

@@ -34,7 +34,7 @@ export const OVERLAY_PLACES: { id: OverlayPlace; label: string }[] = [
 /** Emojis proposés si l'IA n'en a pas donné (ou n'est pas branchée). */
 export const DEFAULT_EMOJIS = ['✨', '❤️', '☀️', '🌿'];
 
-export const emptyOverlay = (): Overlay => ({ text: '', emoji: null, style: 'elegant', place: 'haut' });
+export const emptyOverlay = (): Overlay => ({ text: '', emoji: null, style: 'elegant', place: 'bas' });
 
 /** Police de chaque style (CSS). La 2e police sert si la 1re n'a pas pu être chargée. */
 export const STYLE_FONTS: Record<OverlayStyle, { family: string; weight: number; size: number; upper: boolean; lineHeight: number }> = {
@@ -168,6 +168,15 @@ export function drawOverlay(g: Ctx2D, o: Overlay, W: number, H: number, t: numbe
     g.fillStyle = '#1F2B24';
     for (const l of layout.lines) g.fillText(l.text, layout.x, l.y + layout.fontSize * 0.04);
   } else {
+    // Voile sombre très doux derrière le texte blanc : il se lit même sur une photo claire.
+    const first = layout.lines[0].y - layout.lineHeight * 1.4 - (layout.emoji ? layout.emoji.size : 0);
+    const last = layout.lines[layout.lines.length - 1].y + layout.lineHeight * 1.4;
+    const veil = g.createLinearGradient(0, first, 0, last);
+    veil.addColorStop(0, 'rgba(0,0,0,0)');
+    veil.addColorStop(0.5, 'rgba(0,0,0,0.32)');
+    veil.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = veil;
+    g.fillRect(0, first, W, last - first);
     g.fillStyle = '#FFFFFF';
     g.shadowColor = 'rgba(0,0,0,0.55)';
     g.shadowBlur = 22 * k;

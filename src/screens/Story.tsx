@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Platform as RNPlatform, ScrollView, View } from 'react-native';
 import * as Crypto from 'expo-crypto';
-import { BackButton, Body, Button, Notice, PlatformPicker, Title } from '../components/ui';
+import { BackButton, Body, Button, Notice, PlatformPicker, defaultPlatforms, unconnectedPlatforms, Title } from '../components/ui';
 import { CameraIcon, DownloadIcon, ImageIcon, VideoIcon } from '../components/icons';
 import { MusicChooser } from '../components/MusicPicker';
 import { MakingVideo, MusicLine, OverlayEditor, OverlayStage, OverlayStatus, OverlayTools, useOverlayText } from '../components/TextOverlay';
@@ -31,7 +31,9 @@ export function Story({ initial }: { initial?: Captured }) {
   const [recording, setRecording] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [platforms, setPlatforms] = useState<Platform[]>(['instagram', 'facebook']);
+  const [platforms, setPlatforms] = useState<Platform[]>(() => defaultPlatforms(connections));
+  // Le patron ne peut pas publier vers un réseau pas connecté : on le dit avant, plutôt qu'un faux « envoyé ».
+  const blocked = canPublish && unconnectedPlatforms(platforms, connections).length > 0;
   const idempotencyKey = useRef<string>(Crypto.randomUUID());
   const occasion = useMemo(() => (business ? upcomingEvents(business, new Date(), 1, business.postalCode)[0] ?? null : null), [business]);
   // Musique (vidéos, version web) : proposée d'office selon la prochaine fête, modifiable, ou aucune.
@@ -141,6 +143,7 @@ export function Story({ initial }: { initial?: Captured }) {
   async function publish() {
     if (!media) return;
     if (!canPublish) return sendToPatron();
+    if (blocked) return;
     setError(null);
     let publications: PublicationResult[];
     try {
@@ -249,11 +252,11 @@ export function Story({ initial }: { initial?: Captured }) {
       )}
       {media.kind === 'video' && media.seconds ? <Body soft size={15} center>Vidéo de {media.seconds} secondes</Body> : null}
 
-      <PlatformPicker value={platforms} onChange={setPlatforms} connections={connections} />
+      <PlatformPicker value={platforms} onChange={setPlatforms} connections={connections} onConnect={canPublish ? () => go({ name: 'settings' }) : undefined} />
 
       {error && <Notice tone="red" title="Nous avons besoin de votre attention" text={error} />}
 
-      <Button title={canPublish ? 'Publier la story' : 'Envoyer au patron'} onPress={publish} style={{ minHeight: 64 }} />
+      <Button title={canPublish ? 'Publier la story' : 'Envoyer au patron'} disabled={blocked} onPress={publish} style={{ minHeight: 64 }} />
       {media.kind === 'video' && edited && text.supported && (
         <Button title={saved ? 'Vidéo enregistrée' : 'Enregistrer la vidéo sur mon téléphone'} kind="secondary" icon={<DownloadIcon size={20} color={colors.green} />} onPress={saveEdited} />
       )}
