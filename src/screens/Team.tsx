@@ -4,7 +4,9 @@ import { BackButton, Body, Button, Card, Chevron, Chip, Field, IconTile, Label, 
 import { PersonIcon, PlusIcon } from '../components/icons';
 import { colors, fonts } from '../lib/theme';
 import { useApp } from '../lib/store';
-import { addTeamMember, FriendlyError, newTeamCode, NotConfiguredError, removeTeamMember, teamMembers, updateTeamMember } from '../lib/api';
+import { addTeamMember, FriendlyError, newTeamCode, NotConfiguredError, removeTeamMember, setTeamGoal, setTeamNote, stopTeamGoal, teamMembers, updateTeamMember } from '../lib/api';
+import { Bar } from '../components/PointsScene';
+import { frNumber, GOAL_CHOICES, levelOf, MAX_SENT_PER_DAY, POINTS, postsLeft } from '../lib/points';
 import { shopsLabel, type TeamList, type TeamMember } from '../lib/team';
 import type { Business } from '../lib/types';
 
@@ -75,6 +77,12 @@ export function Team() {
 
   const patrons = list?.members.filter((m) => m.role === 'patron') ?? [];
   const employees = list?.members.filter((m) => m.role === 'employe') ?? [];
+  // Points installés sur le serveur ? (sinon, on n'affiche ni objectif ni récap)
+  const withPoints = Boolean(team?.points) && employees.some((m) => m.stats);
+  const month = employees.reduce((a, m) => ({ prepared: a.prepared + (m.stats?.prepared ?? 0), published: a.published + (m.stats?.published ?? 0) }), { prepared: 0, published: 0 });
+  // Temps gagné : environ 20 minutes par post publié (photo, texte, publication), à la louche et dit comme tel.
+  const minutes = month.published * 20;
+  const goal = team?.points?.goal ?? null;
 
   return (
     <ScrollView contentContainerStyle={{ padding: 20, gap: 14, paddingBottom: 48 }}>
@@ -87,6 +95,34 @@ export function Team() {
 
       {list && (
         <>
+          {withPoints && (
+            <>
+              <Card style={{ gap: 10 }}>
+                <Text style={{ color: colors.textSoft, fontWeight: '700', fontSize: 12, letterSpacing: 1, fontFamily: fonts.body }}>{new Date().toLocaleDateString('fr-FR', { month: 'long' }).toUpperCase()}</Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <Stat value={String(month.prepared)} label={month.prepared > 1 ? 'posts préparés' : 'post préparé'} />
+                  <Stat value={String(month.published)} label={month.published > 1 ? 'publiés' : 'publié'} />
+                  <Stat value={minutes >= 60 ? `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, '0')}` : `${minutes} min`} label="gagnées (environ)" orange />
+                </View>
+              </Card>
+
+              <Card onPress={() => go({ name: 'teamGoal' })} style={{ gap: 8, backgroundColor: 'rgba(253,243,226,0.9)', borderColor: 'rgba(242,182,109,0.6)', borderWidth: 1.5 }}>
+                <Text style={{ color: colors.orangeText, fontWeight: '700', fontSize: 12, letterSpacing: 1, fontFamily: fonts.body }}>OBJECTIF DE L'ÉQUIPE</Text>
+                {goal ? (
+                  <>
+                    <Body style={{ fontWeight: '700' }}>{goal.reachedAt ? `Atteint : ${goal.reward}` : `${frNumber(goal.points)} points : ${goal.reward}`}</Body>
+                    <Bar value={goal.progress / goal.points} />
+                    <Body soft size={14}>{goal.reachedAt ? 'Bravo à toute l\'équipe. Touchez pour en fixer un nouveau.' : `${frNumber(goal.progress)} / ${frNumber(goal.points)} · encore environ ${postsLeft(goal.points, goal.progress)} posts publiés`}</Body>
+                  </>
+                ) : (
+                  <Body soft size={15}>Une récompense pour toute l'équipe quand elle atteint un nombre de points. Touchez pour en fixer un.</Body>
+                )}
+              </Card>
+
+              <NoteBox initial={team?.note?.text ?? ''} onSaved={refreshTeam} />
+            </>
+          )}
+
           <Label>Patrons</Label>
           <Card style={{ paddingVertical: 4 }}>
             <PersonRow first name={list.owner.isMe ? `${list.owner.firstName} (vous)` : list.owner.firstName} sub="Paie l'abonnement" />
@@ -103,7 +139,9 @@ export function Team() {
                   key={m.id}
                   first={i === 0}
                   name={m.firstName}
-                  sub={shopsLabel(m.shopIds, shops)}
+                  sub={m.stats && withPoints
+                    ? `Niveau ${levelOf(m.stats.totalPoints).number} · ${m.stats.prepared} préparé${m.stats.prepared > 1 ? 's' : ''} · ${m.stats.published} publié${m.stats.published > 1 ? 's' : ''} ce mois · ${frNumber(m.stats.totalPoints)} pts${shops.length > 1 ? ` · ${shopsLabel(m.shopIds, shops)}` : ''}`
+                    : shopsLabel(m.shopIds, shops)}
                   onPress={() => go({ name: 'teamMember', id: m.id })}
                   right={(
                     <View style={{ alignItems: 'center', gap: 2 }}>
@@ -131,8 +169,110 @@ export function Team() {
           <Button title="Ajouter un employé" icon={<PlusIcon size={22} color={colors.white} />} onPress={() => go({ name: 'teamAdd' })} style={{ minHeight: 60 }} />
           <View style={{ height: 4 }} />
           <Body soft size={14} center>Les employés sont gratuits, autant qu'il en faut.</Body>
+          {withPoints && <Body soft size={14} center>Vos employés voient leurs propres points et la barre de l'équipe, jamais ceux des collègues. Ils savent que vous voyez ce détail.</Body>}
         </>
       )}
+    </ScrollView>
+  );
+}
+
+function Stat({ value, label, orange }: { value: string; label: string; orange?: boolean }) {
+  return (
+    <View style={{ flex: 1, gap: 2 }}>
+      <Text style={{ fontFamily: fonts.title, fontSize: 26, fontWeight: '600', color: orange ? colors.orangeText : colors.text }}>{value}</Text>
+      <Body soft size={14}>{label}</Body>
+    </View>
+  );
+}
+
+/** Le petit mot du patron, affiché en haut de l'accueil de ses employés. */
+function NoteBox({ initial, onSaved }: { initial: string; onSaved: () => void }) {
+  const [note, setNote] = useState(initial);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  async function save() {
+    setBusy(true);
+    setMsg(null);
+    try {
+      await setTeamNote(note.trim());
+      setMsg({ ok: true, text: note.trim() ? 'Vos employés le verront sur leur accueil.' : 'Message retiré.' });
+      onSaved();
+    } catch (e) {
+      setMsg({ ok: false, text: errorText(e) });
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Card style={{ gap: 10 }}>
+      <Field label="Un mot pour l'équipe (facultatif)" value={note} onChangeText={setNote} maxLength={160} placeholder="Ex. : Cette semaine, nos couronnes de Noël, de près." />
+      {msg && <Notice tone={msg.ok ? 'green' : 'red'} title={msg.text} />}
+      <Button title="Enregistrer le message" kind="secondary" loading={busy} disabled={note.trim() === initial.trim()} onPress={save} />
+    </Card>
+  );
+}
+
+/** Fixer l'objectif de l'équipe : les points, la récompense. Pour toute l'équipe, sans date (décisions de Kelian). */
+export function TeamGoalScreen() {
+  const { back, team, refreshTeam } = useApp();
+  const current = team?.points?.goal ?? null;
+  const open = current && !current.reachedAt ? current : null;
+  const [points, setPoints] = useState<number>(open?.points ?? 1000);
+  const [reward, setReward] = useState(open?.reward ?? '');
+  const [busy, setBusy] = useState<'save' | 'stop' | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save() {
+    setBusy('save');
+    setError(null);
+    try {
+      await setTeamGoal(points, reward.trim());
+      await refreshTeam();
+      back();
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(null);
+    }
+  }
+  async function stop() {
+    setBusy('stop');
+    setError(null);
+    try {
+      await stopTeamGoal();
+      await refreshTeam();
+      back();
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <ScrollView contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 48 }} keyboardShouldPersistTaps="handled">
+      <Header title={open ? "Changer l'objectif" : 'Fixer un objectif'} />
+      <Body soft>Une récompense pour toute l'équipe quand elle atteint un nombre de points. Pas de date limite, pas de classement : tout le monde avance ensemble. C'est vous qui choisissez la récompense, Vitrine ne gère pas d'argent.</Body>
+
+      <Body style={{ fontWeight: '700' }}>Combien de points ?</Body>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+        {GOAL_CHOICES.map((n) => <Chip key={n} label={frNumber(n)} selected={points === n} onPress={() => setPoints(n)} />)}
+      </View>
+      <Body soft size={14}>{`Environ ${postsLeft(points, 0)} posts publiés.`}</Body>
+
+      <Field label="La récompense" value={reward} onChangeText={setReward} maxLength={80} placeholder="Ex. : Un resto offert" />
+
+      <Card style={{ gap: 6 }}>
+        <Text style={{ color: colors.textSoft, fontWeight: '700', fontSize: 12, letterSpacing: 1, fontFamily: fonts.body }}>COMMENT ON GAGNE DES POINTS</Text>
+        <Body size={15}>{`Envoyer un post : +${POINTS.sent} (${MAX_SENT_PER_DAY} par jour au plus)`}</Body>
+        <Body size={15}>{`Post publié : +${POINTS.published}`}</Body>
+        <Body size={15}>Post refusé : 0</Body>
+      </Card>
+
+      {open && <Body soft size={14}>{`Le nouvel objectif repart de zéro (l'équipe en est à ${frNumber(open.progress)} points).`}</Body>}
+      {error && <Notice tone="red" title={error} />}
+      <Button title="Enregistrer l'objectif" loading={busy === 'save'} disabled={!reward.trim()} onPress={save} style={{ minHeight: 60 }} />
+      {current && <Button title="Arrêter l'objectif" kind="ghost" loading={busy === 'stop'} onPress={stop} />}
     </ScrollView>
   );
 }

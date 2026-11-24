@@ -9,6 +9,7 @@ import { upcomingEvents, upcomingHolidays } from '../lib/events';
 import { HolidayCard } from '../components/HolidayCard';
 import { isBackendConfigured } from '../lib/config';
 import { FriendlyError, NotConfiguredError, publishPost, submitPost } from '../lib/api';
+import { unlockSounds } from '../lib/sfx';
 import { notificationsSupported } from '../lib/notifications';
 import { announceDate, buildWeek, dayKey, dayLabel, DAY_NAMES, holidayAnswer, holidayNote, parseDayKey, postsOfDay, statusAfterPublish, weekday, weekStart, type DayKind } from '../lib/planning';
 import { KIND_BADGE } from './Planning';
@@ -36,6 +37,7 @@ export function PlanDay({ day: key }: { day: string }) {
 
   /** Employé : le post préparé part chez le patron, qui le publie. */
   async function sendReady(p: Post) {
+    unlockSounds();
     setPublishing(true);
     setError(null);
     try {

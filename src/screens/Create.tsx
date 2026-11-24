@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { unlockSounds } from '../lib/sfx';
 import { ActivityIndicator, Image, Platform as RNPlatform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import * as Crypto from 'expo-crypto';
 import { Body, Button, Chip, Field, Notice, PlatformPicker, defaultPlatforms, unconnectedPlatforms, Title, BackButton } from '../components/ui';
@@ -277,6 +278,7 @@ export function Create({ occasionId, initialPhoto, idea, plannedFor, note, alsoS
       setError('Le texte est vide. Écrivez quelques mots ou demandez un nouveau texte.');
       return;
     }
+    unlockSounds();
     if (!canPublish) return sendToPatron(tags);
     if (blocked) return;
     setPhase('publishing');

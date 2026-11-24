@@ -4,13 +4,16 @@ import { BackButton, Badge, Body, Button, Card, Field, IconTile, Notice, Title }
 import { CheckIcon, PencilIcon, PersonIcon, VideoIcon } from '../components/icons';
 import { colors, fonts } from '../lib/theme';
 import { useApp } from '../lib/store';
-import { approvePost, FriendlyError, NotConfiguredError, pendingPosts, rejectPost } from '../lib/api';
+import { approvePost, FriendlyError, NotConfiguredError, pendingPosts, rejectPost, type ApprovePoints } from '../lib/api';
+import { PointsScene } from '../components/PointsScene';
+import { unlockSounds } from '../lib/sfx';
 import type { PendingPost } from '../lib/team';
-import type { PublicationResult } from '../lib/types';
 
 /** Les posts préparés par les employés : le patron publie, modifie le texte, ou refuse avec un petit mot. */
 export function Review() {
-  const { back, refreshTeam } = useApp();
+  const { back, refreshTeam, prefs } = useApp();
+  // Le patron vient de publier le post d'un employé : les points de cette personne et de l'équipe montent.
+  const [celebrate, setCelebrate] = useState<ApprovePoints | null>(null);
   const [posts, setPosts] = useState<PendingPost[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<{ title: string; text?: string; tone: 'green' | 'orange' | 'red' } | null>(null);
@@ -28,6 +31,32 @@ export function Review() {
   useEffect(() => () => { refreshTeam(); }, [refreshTeam]);
 
   const removeFromList = (id: string) => setPosts((l) => (l ? l.filter((p) => p.id !== id) : l));
+
+  if (celebrate) {
+    return (
+      <ScrollView contentContainerStyle={{ padding: 20, gap: 16, paddingTop: 48, paddingBottom: 48 }}>
+        <PointsScene
+          who={{ name: celebrate.by }}
+          before={celebrate.mine - celebrate.gained}
+          gained={celebrate.gained}
+          goal={celebrate.goal}
+          sound={prefs.sounds !== false}
+          header={(
+            <View style={{ alignItems: 'center', gap: 12 }}>
+              <View style={{ width: 92, height: 92, borderRadius: 46, backgroundColor: colors.greenSoft, alignItems: 'center', justifyContent: 'center' }}>
+                <View style={{ width: 68, height: 68, borderRadius: 34, backgroundColor: colors.greenDark, alignItems: 'center', justifyContent: 'center' }}>
+                  <CheckIcon size={36} />
+                </View>
+              </View>
+              <Title size={28} style={{ textAlign: 'center' }}>C'est publié !</Title>
+              <Body soft center>{`Le post de ${celebrate.by} est en ligne. ${celebrate.gained ? `+${celebrate.gained} points pour ${celebrate.by} et pour l'équipe.` : ''}`}</Body>
+            </View>
+          )}
+          footer={<Button title={posts && posts.length ? 'Voir le post suivant' : 'Continuer'} onPress={() => setCelebrate(null)} style={{ minHeight: 60, marginTop: 8 }} />}
+        />
+      </ScrollView>
+    );
+  }
 
   return (
     <ScrollView contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 48 }} keyboardShouldPersistTaps="handled">
@@ -51,14 +80,14 @@ export function Review() {
         <ReviewCard
           key={p.id}
           post={p}
-          onDone={(result) => { setDone(result); removeFromList(p.id); }}
+          onDone={(result, points) => { setDone(result); removeFromList(p.id); if (points?.gained) setCelebrate(points); }}
         />
       ))}
     </ScrollView>
   );
 }
 
-function ReviewCard({ post, onDone }: { post: PendingPost; onDone: (r: { title: string; text?: string; tone: 'green' | 'orange' | 'red' }) => void }) {
+function ReviewCard({ post, onDone }: { post: PendingPost; onDone: (r: { title: string; text?: string; tone: 'green' | 'orange' | 'red' }, points?: ApprovePoints | null) => void }) {
   const [caption, setCaption] = useState(post.caption);
   const [editing, setEditing] = useState(false);
   const [refusing, setRefusing] = useState(false);
@@ -70,8 +99,9 @@ function ReviewCard({ post, onDone }: { post: PendingPost; onDone: (r: { title: 
   async function publish() {
     setBusy('publish');
     setError(null);
+    unlockSounds();
     try {
-      const pubs: PublicationResult[] = await approvePost(post.id, story ? undefined : caption.trim());
+      const { publications: pubs, points } = await approvePost(post.id, story ? undefined : caption.trim());
       const ok = pubs.filter((x) => x.status === 'published').length;
       if (!ok) {
         setError(pubs.find((x) => x.error)?.error ?? "La publication n'a pas pu partir. Le post reste à valider.");
@@ -79,7 +109,7 @@ function ReviewCard({ post, onDone }: { post: PendingPost; onDone: (r: { title: 
       }
       onDone(ok === pubs.length
         ? { tone: 'green', title: `Publié ! Le post de ${post.by} est en ligne.` }
-        : { tone: 'orange', title: 'Publié en partie', text: pubs.filter((x) => x.status !== 'published').map((x) => x.error).filter(Boolean).join(' ') });
+        : { tone: 'orange', title: 'Publié en partie', text: pubs.filter((x) => x.status !== 'published').map((x) => x.error).filter(Boolean).join(' ') }, points);
     } catch (e) {
       setError(e instanceof NotConfiguredError
         ? "La publication sur Instagram et Facebook n'est pas encore branchée. Le post reste ici, à valider."

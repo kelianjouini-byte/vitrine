@@ -23,6 +23,50 @@ export interface TeamContext {
   /** Employé : ses posts en attente, et refusés ces 7 derniers jours. */
   mine: { pending: number; rejected: number };
   teamSize: number;
+  /** Mes points et l'objectif de l'équipe (null tant que les points ne sont pas installés sur le serveur). */
+  points?: PointsSummary | null;
+  /** Le petit mot du patron, affiché sur l'accueil des employés. */
+  note?: { text: string; by: string | null } | null;
+}
+
+/** L'objectif commun de l'équipe (sans date, pour tout le monde). */
+export interface TeamGoal {
+  id: string;
+  points: number;
+  reward: string;
+  reachedAt: string | null;
+  /** Points de l'équipe depuis que l'objectif est fixé (au plus `points`). */
+  progress: number;
+}
+
+export interface PointsSummary {
+  /** Mes points depuis le début (pour mon niveau). */
+  mine: number;
+  goal: TeamGoal | null;
+}
+
+/** Ce que le patron voit pour chaque personne : ce mois-ci et depuis le début. */
+export interface MemberStats {
+  prepared: number;
+  published: number;
+  monthPoints: number;
+  totalPoints: number;
+}
+
+/** Un envoi de l'employé, relu sur le serveur (le même sur tous ses téléphones). */
+export interface MySentPost {
+  id: string;
+  kind: 'post' | 'story';
+  mediaType: 'photo' | 'video';
+  caption: string;
+  reviewState: 'pending' | 'approved' | 'rejected';
+  reviewNote: string | null;
+  status: string;
+  submittedAt: string | null;
+  publishedAt: string | null;
+  shopId: string;
+  points: number;
+  thumbUrl: string | null;
 }
 
 export interface TeamMember {
@@ -36,6 +80,8 @@ export interface TeamMember {
   /** Code de connexion (null s'il n'est plus lisible : en faire un nouveau). */
   code: string | null;
   isMe: boolean;
+  /** null tant que les points ne sont pas installés sur le serveur. */
+  stats?: MemberStats | null;
 }
 
 export interface TeamList {

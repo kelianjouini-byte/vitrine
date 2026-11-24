@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { unlockSounds } from '../lib/sfx';
 import { ActivityIndicator, ScrollView, Text, TextInput, View } from 'react-native';
 import * as Crypto from 'expo-crypto';
 import { BackButton, Body, Button, Notice, PlatformPicker, defaultPlatforms, unconnectedPlatforms, Title } from '../components/ui';
@@ -152,6 +153,7 @@ export function Reel({ video, alsoStory }: { video: Video; alsoStory?: boolean }
   async function publish() {
     if (!caption.trim()) return setError('La légende est vide. Écrivez quelques mots ou demandez un autre texte.');
     setError(null);
+    unlockSounds();
     audioContext();
     if (!canPublish) return sendToPatron();
     if (blocked) return;

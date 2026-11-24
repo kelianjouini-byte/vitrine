@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { Linking, ScrollView, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Linking, ScrollView, View } from 'react-native';
 import { Badge, Body, Button, Card, Label, Notice, PostThumb, Title } from '../components/ui';
 import { AlertIcon, CheckIcon, FacebookIcon, InstagramIcon, SendIcon } from '../components/icons';
 import { colors } from '../lib/theme';
@@ -7,6 +7,9 @@ import { useApp } from '../lib/store';
 import type { Post, PublicationResult } from '../lib/types';
 import { hasStats, type Stats } from '../lib/stats';
 import { StatsRow } from './Posts';
+import { PointsScene } from '../components/PointsScene';
+import { teamPoints } from '../lib/api';
+import type { PointsSummary } from '../lib/team';
 
 /** « Votre post », « Votre story », « Votre Reel ». */
 export const postNoun = (p: Post) => (p.kind === 'story' ? 'story' : p.mediaType === 'video' ? 'Reel' : 'post');
@@ -148,29 +151,60 @@ function Sending({ postId, also }: { postId: string; also?: Post }) {
   );
 }
 
-/** Employé : le post est parti chez le patron. Il sera prévenu de la réponse (dans l'accueil et « Mes posts »). */
+/** Employé : le post est parti chez le patron. +10 points qui s'envolent (s'il y en a), puis sa réponse dans « Mes envois ». */
 function SentToPatron({ postId, patron }: { postId: string; patron?: string }) {
-  const { posts, go } = useApp();
+  const { posts, go, prefs, refreshTeam } = useApp();
   const post = posts.find((p) => p.id === postId)!;
   const story = post.kind === 'story';
-  return (
-    <ScrollView contentContainerStyle={{ padding: 24, gap: 18, alignItems: 'stretch', paddingTop: 64 }}>
-      <View style={{ alignItems: 'center', gap: 16 }}>
-        <View style={{ width: 120, height: 120, borderRadius: 60, backgroundColor: colors.greenSoft, alignItems: 'center', justifyContent: 'center' }}>
-          <SendIcon size={52} color={colors.green} />
+  // Les points sont relus sur le serveur : undefined = en cours, null = pas de points (pas encore installés, ou erreur).
+  const [res, setRes] = useState<{ points: PointsSummary; gained: number; maxPerDay: number } | null | undefined>(undefined);
+  useEffect(() => {
+    let alive = true;
+    teamPoints(postId)
+      .then((r) => { if (alive) setRes(r.points ? { points: r.points, gained: r.gained, maxPerDay: r.maxPerDay } : null); })
+      .catch(() => { if (alive) setRes(null); })
+      .finally(() => { refreshTeam(); });
+    return () => { alive = false; };
+  }, [postId, refreshTeam]);
+
+  const header = (
+    <View style={{ alignItems: 'center', gap: 14 }}>
+      <View style={{ width: 92, height: 92, borderRadius: 46, backgroundColor: colors.greenSoft, alignItems: 'center', justifyContent: 'center' }}>
+        <View style={{ width: 68, height: 68, borderRadius: 34, backgroundColor: colors.greenDark, alignItems: 'center', justifyContent: 'center' }}>
+          <SendIcon size={32} color="#fff" />
         </View>
-        <Title size={32} style={{ textAlign: 'center' }}>{patron ? `Envoyé à ${patron}` : 'Envoyé au patron'}</Title>
-        <Body soft center>Vous verrez sa réponse sur l'accueil et dans « Mes posts ».</Body>
       </View>
+      <Title size={30} style={{ textAlign: 'center' }}>{patron ? `Envoyé à ${patron}` : 'Envoyé au patron'}</Title>
+      <Body soft center>
+        {res && !res.gained
+          ? `Merci ! Vous avez déjà ${res.maxPerDay} envois comptés aujourd'hui : celui-ci ne rapporte pas de points, mais il compte quand même.`
+          : `${patron ?? 'Votre patron'} le relit et le publie. Vous verrez sa réponse dans « Mes envois ».`}
+      </Body>
+    </View>
+  );
+  const footer = (
+    <View style={{ gap: 10, marginTop: 4 }}>
       <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        <PostThumb post={post} width={64} height={64} />
+        <PostThumb post={post} width={56} height={56} />
         <View style={{ flex: 1 }}>
           <Body style={{ fontWeight: '700' }} size={15}>{story ? 'Votre story' : post.caption.length > 60 ? `${post.caption.slice(0, 60)}…` : post.caption}</Body>
-          {post.mediaType === 'video' && !story ? <Body soft size={13}>Reel</Body> : null}
+          {res?.gained ? <Body soft size={13}>{`+${res.gained} points · +50 de plus s'il est publié`}</Body> : null}
         </View>
         <Badge text="En attente" tone="orange" />
       </Card>
-      <Button title="Retour à l'accueil" kind="secondary" onPress={() => go({ name: 'home' })} />
+      <Button title="Retour à l'accueil" onPress={() => go({ name: 'home' })} style={{ minHeight: 60 }} />
+    </View>
+  );
+
+  return (
+    <ScrollView contentContainerStyle={{ padding: 20, gap: 18, alignItems: 'stretch', paddingTop: 24, paddingBottom: 40 }}>
+      {res === undefined ? (
+        <View style={{ gap: 18, paddingTop: 40 }}>{header}<ActivityIndicator color={colors.green} /></View>
+      ) : res ? (
+        <PointsScene who="me" before={res.points.mine - res.gained} gained={res.gained} goal={res.points.goal} sound={prefs.sounds !== false} header={header} footer={footer} />
+      ) : (
+        <View style={{ gap: 18, paddingTop: 40 }}>{header}{footer}</View>
+      )}
     </ScrollView>
   );
 }

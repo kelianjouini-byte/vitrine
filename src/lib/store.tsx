@@ -22,6 +22,7 @@ export type Route =
   | { name: 'planning' }
   | { name: 'planDay'; day: string }
   | { name: 'settings' }
+  | { name: 'teamGoal' }
   | { name: 'ideas' }
   | { name: 'report'; month?: Month }
   | { name: 'create'; occasionId?: string; photo?: RawPhoto; idea?: PostIdea; plannedFor?: string; note?: string; alsoStory?: boolean }
