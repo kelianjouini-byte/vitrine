@@ -40,7 +40,7 @@ test('bestPost : le plus de likes + commentaires, puis le plus de vues', () => {
 });
 
 test('statsLine : seulement les chiffres connus, accords', () => {
-  assert.equal(statsLine({ likes: 3, comments: 1, views: 1200, reach: null }), "3 j'aime · 1 commentaire · 1 200 vues");
+  assert.equal(statsLine({ likes: 3, comments: 1, views: 1200, reach: null }), "3 j'aime · 1 commentaire · 1 200 vues");
   assert.equal(statsLine({ likes: null, comments: 2, views: 1, reach: 1 }), '2 commentaires · 1 vue');
   assert.equal(statsLine({ likes: null, comments: null, views: null, reach: 5 }), '');
 });

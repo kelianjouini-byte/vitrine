@@ -64,7 +64,8 @@ export function bestPost(posts: Post[], stats: StatsMap): { post: Post; stats: S
 }
 
 /** « 1 234 » (espace fine des milliers, à la française). */
-export const formatCount = (n: number) => n.toLocaleString('fr-FR');
+// Espace insécable normale : l'espace fine de toLocaleString (U+202F) n'existe pas dans nos polices et disparaît (« 1604 »).
+export const formatCount = (n: number) => n.toLocaleString('fr-FR').replace(/\u202f/g, '\u00a0');
 
 /** « 3 j'aime · 1 commentaire · 42 vues » — seulement les chiffres connus. */
 export function statsLine(s: Stats): string {
