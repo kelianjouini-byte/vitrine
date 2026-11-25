@@ -68,10 +68,7 @@ export function WebVideoRecorder({ maxSeconds, onDone, onCancel, onError, onLibr
     (async () => {
       try {
         if (!navigator.mediaDevices?.getUserMedia || !recordingMimeType()) throw new Error('unsupported');
-        const s = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: facing, width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } },
-          audio: true,
-        });
+        const s = await openCamera(facing);
         if (cancelled) return s.getTracks().forEach((t) => t.stop());
         stream.current = s;
         v.srcObject = s;
@@ -132,8 +129,8 @@ export function WebVideoRecorder({ maxSeconds, onDone, onCancel, onError, onLibr
     const mimeType = recordingMimeType();
     if (!s || !mimeType || recRef.current || full) return;
     const chunks: Blob[] = [];
-    // 8 Mbit/s : la qualité d'une vidéo de téléphone.
-    const r = new MediaRecorder(s, { mimeType, videoBitsPerSecond: 8_000_000 });
+    // 12 Mbit/s : la qualité d'une vidéo filmée avec l'appareil photo du téléphone.
+    const r = new MediaRecorder(s, { mimeType, videoBitsPerSecond: 12_000_000 });
     r.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
     r.onstop = () => {
       const seconds = Math.min(((stoppedAt.current || Date.now()) - startedAt.current) / 1000, maxSeconds - usedSeconds(clipsRef.current));
@@ -377,6 +374,34 @@ export function WebVideoRecorder({ maxSeconds, onDone, onCancel, onError, onLibr
       </View>
     </View>
   );
+}
+
+/**
+ * Ouvre la caméra en haute définition. Téléphone tenu debout : il faut une image DEBOUT (1080 x 1920).
+ * Une image couchée (1920 x 1080) serait coupée sur les côtés pour faire du vertical, et deviendrait floue.
+ * Si le navigateur donne une image couchée, on redemande une image debout.
+ */
+async function openCamera(facing: 'environment' | 'user'): Promise<MediaStream> {
+  const s = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: facing, width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } },
+    audio: true,
+  });
+  const portraitScreen = typeof window !== 'undefined' && window.innerHeight > window.innerWidth;
+  const set = s.getVideoTracks()[0]?.getSettings?.() ?? {};
+  if (!portraitScreen || !set.width || !set.height || set.height >= set.width) return s;
+  try {
+    const tall = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: facing, width: { ideal: 1080 }, height: { ideal: 1920 }, aspectRatio: { ideal: 9 / 16 }, frameRate: { ideal: 30 } },
+      audio: true,
+    });
+    const t = tall.getVideoTracks()[0]?.getSettings?.() ?? {};
+    if (t.width && t.height && t.height > t.width) {
+      s.getTracks().forEach((x) => x.stop());
+      return tall;
+    }
+    tall.getTracks().forEach((x) => x.stop());
+  } catch { /* on garde la première image */ }
+  return s;
 }
 
 const glassDark = { backgroundColor: 'rgba(20,40,30,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)', backdropFilter: 'blur(14px)' } as object;

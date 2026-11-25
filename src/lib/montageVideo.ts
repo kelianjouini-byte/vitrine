@@ -52,7 +52,10 @@ export async function makeMontage(uris: string[], onProgress: (p: number) => voi
   canvas.width = W;
   canvas.height = H;
   const g = canvas.getContext('2d')!;
-  const bitrate = Math.max(4_000_000, Math.min(12_000_000, Math.floor((44 * 8 * 1024 * 1024) / plan.total) - 200_000));
+  g.imageSmoothingQuality = 'high';
+  // Étape intermédiaire : qualité très haute (20 Mbit/s), pour que la vidéo reste aussi nette qu'au tournage.
+  // La taille finale à envoyer est réglée plus tard, quand le texte est posé. Au plus ~200 Mo en mémoire.
+  const bitrate = Math.max(8_000_000, Math.min(20_000_000, Math.floor((200 * 8 * 1024 * 1024) / plan.total)));
   const output = new Output({ format: new Mp4OutputFormat({ fastStart: 'in-memory' }), target: new BufferTarget() });
   const video = new CanvasSource(canvas, { codec: 'avc', bitrate });
   output.addVideoTrack(video, { frameRate: FPS });
