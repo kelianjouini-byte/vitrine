@@ -29,6 +29,8 @@ export type Route =
   | { name: 'story'; media?: Captured }
   /** Caméra vidéo de l'appli (version web), ouverte par le bouton « Vidéo » de l'accueil. */
   | { name: 'capture' }
+  /** Reel en plusieurs bouts : Vitrine colle les vidéos ensemble, puis « Où la publier ? ». */
+  | { name: 'montage'; clips: { uri: string; thumb?: string | null }[] }
   /** Après la photo ou la vidéo : « Où la publier ? » (Post / Reel, Story, ou les deux). */
   | { name: 'choose'; media: Captured }
   | { name: 'reel'; video: Extract<Captured, { kind: 'video' }>; alsoStory?: boolean }
