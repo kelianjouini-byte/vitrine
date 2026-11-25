@@ -146,3 +146,7 @@ export const ReelIcon = ({ size, color = '#fff' }: P) => (
 export const PostIcon = ({ size, color = '#fff' }: P) => (
   <S size={size}><Rect x={4.5} y={3} width={15} height={18} rx={3} {...st(color)} /><Path d="M8 15h8M8 18h5M8 7.5h8v4H8z" {...st(color)} /></S>
 );
+/** Effacer le dernier : une flèche qui revient en arrière. */
+export const UndoIcon = ({ size, color = '#000' }: P) => (
+  <S size={size}><Path d="M9 14 4 9l5-5" {...st(color)} /><Path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" {...st(color)} /></S>
+);

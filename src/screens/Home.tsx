@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View, type ScrollViewInstance } from 'react-native';
 import { Body, Button, Card, Chevron, DateTile, IconTile, Label, Notice, Title } from '../components/ui';
-import { takePhoto, takePhotos, takeVideo } from '../lib/photo';
+import { takePhoto, takePhotos, takeVideo, takeVideos } from '../lib/photo';
 import { accountState, FriendlyError } from '../lib/api';
 import { BulbIcon, ChartUpIcon, CheckIcon, GearIcon, ImageIcon, LinkIcon, StarIcon, StoreIcon } from '../components/icons';
 import { daysLeft, euros, isLiveStatus, offersFrom, placesLeftText, TRIAL_REPORT_DAYS_BEFORE } from '../lib/billing';
@@ -100,9 +100,15 @@ export function Home() {
   async function fromGallery(kind: 'photo' | 'video') {
     setPhotoError(null);
     try {
-      const media = kind === 'photo'
-        ? await takePhotos('library', 1).then(([raw]) => (raw ? { kind: 'photo' as const, raw } : null))
-        : await takeVideo('library');
+      if (kind === 'video') {
+        // Plusieurs vidéos choisies : Vitrine les monte ensemble en un seul Reel.
+        const vs = await takeVideos();
+        if (vs.length) setChoosing(false);
+        if (vs.length === 1) go({ name: 'choose', media: vs[0] });
+        else if (vs.length > 1) go({ name: 'montage', clips: vs.map((v) => ({ uri: v.uri })) });
+        return;
+      }
+      const media = await takePhotos('library', 1).then(([raw]) => (raw ? { kind: 'photo' as const, raw } : null));
       if (media) {
         setChoosing(false);
         go({ name: 'choose', media });

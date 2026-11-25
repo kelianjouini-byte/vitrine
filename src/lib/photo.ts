@@ -117,6 +117,28 @@ function pickFileWeb(accept: string): Promise<File | null> {
   });
 }
 
+/** Plusieurs fichiers d'un coup (vidéos de la galerie, pour un Reel en plusieurs bouts). */
+function pickFilesWeb(accept: string): Promise<File[]> {
+  return new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = accept;
+    input.multiple = true;
+    input.style.display = 'none';
+    document.body.appendChild(input);
+    let done = false;
+    const finish = (f: File[]) => {
+      if (done) return;
+      done = true;
+      input.remove();
+      resolve(f);
+    };
+    input.addEventListener('change', () => finish(Array.from(input.files ?? [])));
+    input.addEventListener('cancel', () => finish([]));
+    input.click();
+  });
+}
+
 const isVideoFile = (f: File) => f.type.startsWith('video/') || /\.(mov|mp4|m4v|webm)$/i.test(f.name);
 
 // ---------------------------------------------------------------- story
@@ -200,6 +222,30 @@ export async function takeStoryMedia(source: 'photo' | 'video' | 'library'): Pro
  * La version web filme avec sa propre caméra (WebVideoRecorder) ; elle utilise ceci pour la galerie.
  * Retourne null si la personne annule.
  */
+/**
+ * Une ou plusieurs vidéos de la galerie (version web : plusieurs d'un coup, elles seront montées ensemble).
+ * Sur l'appli installée, une seule vidéo.
+ */
+export async function takeVideos(): Promise<Extract<Captured, { kind: 'video' }>[]> {
+  if (Platform.OS !== 'web') {
+    const v = await takeVideo('library');
+    return v ? [v] : [];
+  }
+  const files = (await pickFilesWeb('video/*')).filter(isVideoFile).slice(0, 10);
+  if (files.some((f) => f.size > 300 * 1024 * 1024)) throw new FriendlyError('Une de ces vidéos est trop lourde. Choisissez des vidéos plus courtes.');
+  if (files.length < 2) return files.map((f) => ({ kind: 'video' as const, uri: URL.createObjectURL(f), seconds: null }));
+  const videos = await Promise.all(files.map(async (f) => {
+    const uri = URL.createObjectURL(f);
+    const d = await Promise.race([videoDuration(uri), new Promise<null>((ok) => setTimeout(() => ok(null), 4000))]);
+    return { kind: 'video' as const, uri, seconds: d };
+  }));
+  const total = videos.reduce((s, v) => s + (v.seconds ?? 0), 0);
+  if (total > REEL_MAX_SECONDS + 0.5) {
+    throw new FriendlyError(`Ces vidéos durent ${Math.round(total)} secondes en tout. Un Reel dure ${REEL_MAX_SECONDS} secondes au maximum : choisissez-en moins, ou des plus courtes.`);
+  }
+  return videos;
+}
+
 export async function takeVideo(source: 'camera' | 'library', maxSeconds = REEL_MAX_SECONDS): Promise<Extract<Captured, { kind: 'video' }> | null> {
   if (source === 'library' && Platform.OS === 'web') {
     const f = await pickFileWeb('video/*');
