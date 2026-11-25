@@ -1,5 +1,4 @@
 // Moteur IA : analyse de la photo + rédaction. Sortie JSON stricte, validée ici.
-import Anthropic from 'npm:@anthropic-ai/sdk@1.8.0';
 import { env, HttpError } from './http.ts';
 import { containsInventedFacts } from './guard.ts';
 import { buildReportPrompt, parseAdvice, REPORT_SYSTEM_PROMPT, type ReportContext } from './report.ts';
@@ -34,27 +33,23 @@ type Message = { role: 'system' | 'user'; content: unknown };
 type Usage = { prompt_tokens: number; completion_tokens: number };
 
 /** Un « chemin » vers une IA : une adresse, une clé, un modèle. */
-type Route = { label: string; baseUrl: string; apiKey: string; model: string; gemini: boolean; claude?: boolean; extra?: Record<string, unknown> };
+type Route = { label: string; baseUrl: string; apiKey: string; model: string; gemini: boolean; extra?: Record<string, unknown> };
 
 /**
  * Réglages des IA, lus dans les secrets du serveur. Plusieurs IA peuvent être branchées :
  * elles sont essayées dans l'ordre (la suivante démarre si la précédente échoue ou tarde).
- * - ANTHROPIC_API_KEY (payant, choix de Kelian le 25 nov. 2026) : Claude en premier, la meilleure en français.
- *   Modèle : CLAUDE_MODEL (claude-sonnet-5-5 par défaut). Crédit épuisé ou panne : Groq et Gemini prennent le relais.
- * - GROQ_API_KEY (facultatif, gratuit) : Groq en premier, très rapide. Modèle : GROQ_MODEL.
- * - AI_API_KEY : Google Gemini (clé qui ne commence pas par « sk- ») ou OpenAI (« sk- »),
+ * - AI_API_KEY (en premier) : Google Gemini, payant depuis le 25 nov. 2026 (clé qui ne commence pas par « sk- ») ou OpenAI (« sk- »),
  *   ou tout service « compatible OpenAI » via AI_BASE_URL + AI_MODEL.
+ * - GROQ_API_KEY (facultatif, gratuit) : secours si l'IA principale échoue ou tarde. Modèle : GROQ_MODEL.
  */
 function aiConfig() {
   const routes: Route[] = [];
-  const claudeKey = env('ANTHROPIC_API_KEY');
-  if (claudeKey) routes.push({ label: 'claude', baseUrl: 'https://api.anthropic.com', apiKey: claudeKey, model: env('CLAUDE_MODEL') ?? 'claude-sonnet-5-5', gemini: false, claude: true });
   const groqKey = env('GROQ_API_KEY');
-  if (groqKey) {
-    routes.push({ label: 'groq', baseUrl: 'https://api.groq.com/openai/v1', apiKey: groqKey, model: env('GROQ_MODEL') ?? 'qwen/qwen3.8-27b', gemini: false,
+  const groq: Route | null = groqKey
+    ? { label: 'groq', baseUrl: 'https://api.groq.com/openai/v1', apiKey: groqKey, model: env('GROQ_MODEL') ?? 'qwen/qwen3.8-27b', gemini: false,
       // Le modèle Qwen « réfléchit » avant d'écrire : on cache cette réflexion (réponse JSON propre).
-      extra: { reasoning_format: 'hidden' } });
-  }
+      extra: { reasoning_format: 'hidden' } }
+    : null;
   const apiKey = env('AI_API_KEY') ?? env('OPENAI_API_KEY');
   // Les clés OpenAI commencent par « sk- ». Toute autre clé est traitée comme une clé Google Gemini.
   const isGeminiKey = !!apiKey && !apiKey.startsWith('sk-');
@@ -62,10 +57,14 @@ function aiConfig() {
     const baseUrl = (env('AI_BASE_URL') ?? (isGeminiKey ? 'https://generativelanguage.googleapis.com/v1beta/openai' : 'https://api.openai.com/v1')).replace(/\/$/, '');
     const gemini = baseUrl.includes('generativelanguage.googleapis.com');
     const model = env('AI_MODEL') ?? env('OPENAI_MODEL') ?? (gemini ? 'gemini-3.8-flash' : 'gpt-4.1-mini');
+    // L'IA principale (payante) passe en premier ; Groq (gratuit) ne sert plus que de secours (choix de Kelian, 25 nov. 2026).
     routes.push({ label: 'principal', baseUrl, apiKey, model, gemini });
+    if (groq) routes.push(groq);
     // Modèle de secours du même fournisseur (AI_FALLBACK_MODEL ; Gemini : gemini-3.5-flash-lite par défaut).
     const fallback = env('AI_FALLBACK_MODEL') ?? (gemini && !env('AI_MODEL') && !env('OPENAI_MODEL') ? 'gemini-3.5-flash-lite' : undefined);
     if (fallback && fallback !== model) routes.push({ label: 'secours', baseUrl, apiKey, model: fallback, gemini });
+  } else if (groq) {
+    routes.push(groq);
   }
   if (!routes.length) throw new HttpError(503, 'openai_not_configured', "L'écriture par l'IA n'est pas encore configurée.");
   // json_schema n'est compris que par OpenAI : ailleurs, JSON simple validé ici (AI_JSON_MODE=object pour forcer).
@@ -83,7 +82,7 @@ type Attempt = { ok: true; content: string; usage?: Usage } | { ok: false; statu
 
 /**
  * Appel « chat » rapide et fiable :
- * - on interroge la première IA branchée (Groq si sa clé existe, sinon Gemini) ;
+ * - on interroge la première IA branchée (Gemini, sinon Groq) ;
  * - s'il échoue (saturé, réponse illisible...) ou n'a pas répondu après 7 s, on interroge aussi la suivante, et ainsi de suite ;
  * - la première réponse VALIDE est gardée, l'autre appel est annulé.
  * `valid` vérifie la réponse : une réponse incomplète compte comme un échec (on passe au modèle suivant).
@@ -97,7 +96,6 @@ async function chatCompletion(
   const t0 = Date.now();
 
   const call = async (i: number): Promise<Attempt> => {
-    if (routes[i].claude) return callClaude(routes[i], messages, opts, controllers[i], t0);
     const { baseUrl, apiKey, model: m, gemini, label, extra } = routes[i];
     const timer = setTimeout(() => controllers[i].abort(), MODEL_TIMEOUT_MS);
     const send = (withExtra: boolean) => fetch(`${baseUrl}/chat/completions`, {
@@ -177,63 +175,6 @@ async function chatCompletion(
     };
     startNext();
   });
-}
-
-type Part = { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } };
-const CLAUDE_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const;
-
-/** Nos messages (format « chat ») traduits pour Claude : consignes à part, photos en base64. */
-export function toClaudeRequest(messages: Message[]): { system: string; messages: Anthropic.MessageParam[] } {
-  const system = messages.filter((m) => m.role === 'system').map((m) => String(m.content)).join('\n\n')
-    + '\n\nRéponds uniquement avec le JSON demandé, sans aucun texte avant ou après.';
-  const toBlock = (p: Part): Anthropic.ContentBlockParam => {
-    if (p.type === 'text') return { type: 'text', text: p.text };
-    const m = /^data:([^;]+);base64,(.*)$/s.exec(p.image_url.url);
-    if (!m) return { type: 'image', source: { type: 'url', url: p.image_url.url } };
-    const type = (CLAUDE_IMAGE_TYPES as readonly string[]).includes(m[1]) ? m[1] as typeof CLAUDE_IMAGE_TYPES[number] : 'image/jpeg';
-    return { type: 'image', source: { type: 'base64', media_type: type, data: m[2] } };
-  };
-  return {
-    system,
-    messages: messages.filter((m) => m.role === 'user').map((m) => ({
-      role: 'user' as const,
-      content: typeof m.content === 'string' ? m.content : (m.content as Part[]).map(toBlock),
-    })),
-  };
-}
-
-/** Appel à Claude avec le SDK officiel. Un échec (crédit épuisé, panne, refus) passe la main à l'IA suivante. */
-async function callClaude(
-  route: Route, messages: Message[], opts: { maxTokens: number; valid?: (content: string) => boolean }, controller: AbortController, t0: number,
-): Promise<Attempt> {
-  const client = new Anthropic({ apiKey: route.apiKey, maxRetries: 0, timeout: MODEL_TIMEOUT_MS });
-  const { system, messages: claudeMessages } = toClaudeRequest(messages);
-  try {
-    const res = await client.messages.create({
-      model: route.model,
-      max_tokens: Math.max(opts.maxTokens, 2000),
-      // Pas de réflexion préalable : un texte court, il faut aller vite.
-      thinking: { type: 'between_tools' },
-      output_config: { effort: 'medium' },
-      system,
-      messages: claudeMessages,
-    }, { signal: controller.signal });
-    const content = res.content.map((b) => (b.type === 'text' ? b.text : '')).join('').trim();
-    if (res.stop_reason === 'refusal' || res.stop_reason === 'max_tokens' || !content || (opts.valid && !opts.valid(content))) {
-      console.error('[vitrine] ia réponse inutilisable', route.label, route.model, res.stop_reason, `${Date.now() - t0} ms`, content.slice(0, 200));
-      return { ok: false, status: 502 };
-    }
-    console.log('[vitrine] ia ok', route.label, route.model, `${Date.now() - t0} ms`);
-    return { ok: true, content, usage: { prompt_tokens: res.usage.input_tokens, completion_tokens: res.usage.output_tokens } };
-  } catch (e) {
-    if (e instanceof Anthropic.APIError && typeof e.status === 'number') {
-      // 400 « credit balance too low » : crédit épuisé. 529 : Claude surchargé. Dans tous les cas, l'IA suivante prend le relais.
-      console.error('[vitrine] ia', route.label, route.model, e.status, `${Date.now() - t0} ms`, String(e.message).slice(0, 200));
-      return { ok: false, status: e.status === 529 ? 503 : e.status };
-    }
-    console.error('[vitrine] ia délai dépassé ou réseau', route.label, route.model, `${Date.now() - t0} ms`, e instanceof Error ? e.name : '');
-    return { ok: false, status: 'timeout' };
-  }
 }
 
 function parseJson<T>(content: string): T {

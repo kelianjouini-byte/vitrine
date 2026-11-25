@@ -9,13 +9,15 @@ import { requireMerchant, rateLimit } from '../_shared/db.ts';
 import { generate, PROMPT_VERSION, containsInventedCommercialInfo, writeOverlay } from '../_shared/openai.ts';
 import { readImagePaths } from '../_shared/photos.ts';
 import { findAdWords, toTone } from '../_shared/prompts.ts';
+import { parisDayStart } from '../_shared/points.ts';
+import { overTrialLimit, TRIAL_LIMIT_MESSAGE } from '../_shared/trialLimit.ts';
 
 /** Nombre de photos envoyées à l'IA (les suivantes sont publiées mais pas analysées). */
 const AI_MAX_IMAGES = 3;
 
 Deno.serve(handler(async (req) => {
   const { db, userId, business, company } = await requireMerchant(req);
-  await requireAccess(db, company);
+  const access = await requireAccess(db, company);
   const body = await req.json().catch(() => ({}));
   // Photos du carrousel, dans l'ordre (une seule pour un post classique).
   const imagePaths = readImagePaths(body, userId);
@@ -32,6 +34,12 @@ Deno.serve(handler(async (req) => {
 
   // Limitation des coûts : 40 appels à l'IA / heure / boutique (texte du post + petit texte sur l'image).
   await rateLimit(db, 'ai_generations', business.id, 40, 60);
+  // Essai gratuit : 3 posts par jour au plus (l'IA est payante). Les textes ratés ne comptent pas.
+  if (access === 'trial') {
+    const { data: today } = await db.from('ai_generations').select('post_id').eq('business_id', business.id).is('error', null).gte('created_at', parisDayStart(new Date()).toISOString());
+    const asked = body.mode === 'overlay' ? null : String(body.post_id ?? '') || 'nouveau';
+    if (overTrialLimit(today ?? [], asked)) throw new HttpError(429, 'trial_daily_limit', TRIAL_LIMIT_MESSAGE);
+  }
 
   if (body.mode === 'overlay') {
     const { data: signed } = await db.storage.from('post-images').createSignedUrl(imagePath, 600);
