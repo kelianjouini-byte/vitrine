@@ -32,7 +32,6 @@ verify_jwt = false
 [functions.team]
 verify_jwt = false
 
-# E-mails de fin d'essai : les boutons de l'e-mail (lien signé) et la tournée du jour (en-tête x-cron-secret)
-# arrivent sans jeton utilisateur. La fonction vérifie elle-même le jeton pour « resend » et « status ».
+# Appelée par pg_cron (pas par l'app) une fois par jour : vérifie elle-même l'en-tête x-cron-secret.
 [functions.trial-emails]
 verify_jwt = false

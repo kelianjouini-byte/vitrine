@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { Badge, Body, Button, Card, IconTile, Label, Notice, PostThumb, Title, BackButton } from '../components/ui';
 import { ReferralAsk } from '../components/ReferralAsk';
-import { BulbIcon, CameraIcon, ChartUpIcon, ClockIcon, EyeIcon, HeartIcon, MessageIcon, RefreshIcon, StarIcon, StoryIcon, VideoIcon } from '../components/icons';
+import { BulbIcon, CameraIcon, ChartUpIcon, ClockIcon, EyeIcon, HeartIcon, MessageIcon, RefreshIcon, StarIcon, VideoIcon } from '../components/icons';
 import { colors, fonts, glass, greenGradient, radius } from '../lib/theme';
 import type { Post } from '../lib/types';
 import { useApp } from '../lib/store';
@@ -11,7 +11,7 @@ import { tradeById } from '../lib/trades';
 import { isBackendConfigured } from '../lib/config';
 import { fetchMonthlyAdvice, FriendlyError, NotConfiguredError } from '../lib/api';
 import {
-  addMonths, basicAdvice, compareMonths, comparisonText, durationLabel, firstMonth, MINUTES_SAVED_PER_POST, MINUTES_SAVED_PER_STORY,
+  addMonths, basicAdvice, compareMonths, comparisonText, durationLabel, firstMonth,
   monthKey, monthLabel, monthName, monthOf, ofMonth, summarize, type Month,
 } from '../lib/report';
 import { bestPost, formatCount, statsLine, sumOf, totalOf, viewsOf, type StatsMap } from '../lib/stats';
@@ -93,112 +93,84 @@ export function Report({ initialMonth }: { initialMonth?: Month }) {
         <MonthArrow label="›" a11y="Mois suivant" enabled={canGoNext} onPress={() => setMonth(addMonths(month, 1))} />
       </View>
 
-      <View style={{ flexDirection: 'row', gap: 12 }}>
-        <Tile icon={<CameraIcon size={22} color={colors.green} />} value={String(s.count)} label={s.count > 1 ? 'posts publiés' : 'post publié'} />
-        <Tile icon={<StoryIcon size={22} color={colors.green} />} value={String(s.storyCount)} label={s.storyCount > 1 ? 'stories publiées' : 'story publiée'} />
+      {/* 1. Le chiffre qui compte le plus pour le commerçant (choix de Kelian) : combien de clients l'ont vu. Jamais estimé. */}
+      <View style={{ ...greenGradient, borderRadius: radius.lg, padding: 20, gap: 14 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <EyeIcon size={26} color={colors.white} />
+          <Text style={{ color: colors.white, fontSize: 20, fontWeight: '700', fontFamily: fonts.body, flex: 1 }}>Clients touchés</Text>
+        </View>
+        {viewsTotal !== null ? (
+          <>
+            <View>
+              <Text style={{ color: colors.white, fontSize: 52, lineHeight: 58, fontWeight: '700', fontFamily: fonts.title }}>{formatCount(viewsTotal)}</Text>
+              <Text style={{ color: colors.white, fontSize: 17, fontFamily: fonts.body, opacity: 0.92 }}>
+                {viewsTotal > 1 ? 'vues' : 'vue'} de vos publications {ofMonth(month)}
+              </Text>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <HeroPart label="Posts" value={viewsPosts} />
+              <HeroPart label="Stories" value={viewsStories} />
+            </View>
+          </>
+        ) : (
+          <View style={{ gap: 12 }}>
+            <Text style={{ color: colors.white, fontSize: 17, fontFamily: fonts.body }}>
+              {connected ? 'Instagram et Facebook n\'ont pas encore donné de chiffre pour ce mois.' : 'Connectez Instagram et Facebook pour voir combien de clients voient vos publications.'}
+            </Text>
+            {!connected && <Button title="Connecter mes réseaux" kind="secondary" onPress={() => go({ name: 'settings' })} />}
+          </View>
+        )}
       </View>
-      {/* Les réactions des clients : très parlant pour le commerçant, donc juste sous le nombre de posts. */}
+
+      {/* 2. Ce que Vitrine a fait ce mois-ci, en trois chiffres. */}
       <Card style={{ gap: 12 }}>
-        <View style={{ gap: 2 }}>
-          <Title size={20}>Vos clients ont aimé</Title>
-          <Body soft size={15}>Sur vos posts et stories {ofMonth(month)}, Instagram et Facebook réunis</Body>
+        <View style={{ flexDirection: 'row' }}>
+          <MiniStat value={String(s.count)} label={s.count > 1 ? 'posts' : 'post'} />
+          <MiniStat value={String(s.storyCount)} label={s.storyCount > 1 ? 'stories' : 'story'} divider />
+          <MiniStat value={durationLabel(s.minutesSaved)} label="gagnées" divider />
         </View>
-        <View style={{ flexDirection: 'row', gap: 10 }}>
-          <Reaction icon={<HeartIcon size={30} color={colors.orangeText} fill={colors.orange} />} value={likes} label="j'aime" connected={connected} />
-          <Reaction icon={<MessageIcon size={30} color={colors.orangeText} />} value={comments} label={comments !== null && comments > 1 ? 'commentaires' : 'commentaire'} connected={connected} />
-        </View>
+        <Body soft size={15} center>{comparisonText(s)}</Body>
       </Card>
 
-      {best ? (
-        <Card onPress={() => go({ name: 'published', postId: best.post.id })}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-            <PostThumb post={best.post} width={64} height={64} />
-            <View style={{ flex: 1, gap: 4 }}>
+      {/* 3. Les réactions des clients et le post qu'ils ont préféré, dans la même carte. */}
+      <Card style={{ gap: 12 }}>
+        <Title size={20}>Vos clients ont aimé</Title>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <Reaction icon={<HeartIcon size={26} color={colors.orangeText} fill={colors.orange} />} value={likes} label="j'aime" connected={connected} />
+          <Reaction icon={<MessageIcon size={26} color={colors.orangeText} />} value={comments} label={comments !== null && comments > 1 ? 'commentaires' : 'commentaire'} connected={connected} />
+        </View>
+        {best && (
+          <Pressable onPress={() => go({ name: 'published', postId: best.post.id })} accessibilityRole="button" accessibilityLabel="Voir votre meilleur post"
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 12, borderTopWidth: 1, borderTopColor: glass.line, paddingTop: 12 }}>
+            <PostThumb post={best.post} width={56} height={56} />
+            <View style={{ flex: 1, gap: 2 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <StarIcon size={18} color={colors.orangeText} />
                 <Body style={{ fontWeight: '700' }} size={16}>Votre meilleur post</Body>
               </View>
               <Text style={{ color: colors.orangeStrong, fontSize: 15, fontWeight: '700', fontFamily: fonts.body }}>{statsLine(best.stats)}</Text>
             </View>
-          </View>
-        </Card>
-      ) : (
-        <Card>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-            <IconTile size={48} tone="orange"><StarIcon size={24} color={colors.orangeText} /></IconTile>
-            <View style={{ flex: 1, gap: 2 }}>
-              <Body style={{ fontWeight: '700' }} size={16}>Votre meilleur post</Body>
-              <Body soft size={15}>{connected ? 'Pas encore de réactions sur vos posts de ce mois.' : 'Connectez Instagram et Facebook pour savoir quel post vos clients préfèrent.'}</Body>
-            </View>
-          </View>
-        </Card>
-      )}
-
-      <Card>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-          <IconTile size={48}><ClockIcon size={24} color={colors.green} /></IconTile>
-          <View style={{ flex: 1, gap: 2 }}>
-            <Body style={{ fontWeight: '700' }} size={16}>{durationLabel(s.minutesSaved)} de temps gagné</Body>
-            <Body soft size={15}>environ {MINUTES_SAVED_PER_POST} min par post, {MINUTES_SAVED_PER_STORY} min par story</Body>
-          </View>
-        </View>
+            <Text style={{ color: colors.textSoft, fontSize: 24 }}>›</Text>
+          </Pressable>
+        )}
       </Card>
 
-      {/* Le chiffre qui fait plaisir : toutes les vues, posts et stories, Instagram et Facebook réunis. Jamais estimé. */}
-      <Card style={{ gap: 12 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <IconTile size={48} tone="orange"><EyeIcon size={26} color={colors.orangeText} /></IconTile>
-          <View style={{ flex: 1, gap: 2 }}>
-            <Text style={{ color: colors.text, fontSize: 20, fontWeight: '700', fontFamily: fonts.body }}>Clients touchés</Text>
-            <Body soft size={15}>Le nombre de vues de vos posts et de vos stories {ofMonth(month)}, Instagram et Facebook réunis.</Body>
-          </View>
-          {viewsTotal !== null
-            ? <View style={{ alignItems: 'flex-end' }}><Title size={30}>{formatCount(viewsTotal)}</Title><Body soft size={14}>{viewsTotal > 1 ? 'vues' : 'vue'}</Body></View>
-            : <Badge text={connected ? '—' : 'Bientôt'} tone="orange" />}
-        </View>
-        <View style={{ flexDirection: 'row', gap: 10 }}>
-          <ViewsPart icon={<CameraIcon size={18} color={colors.green} />} label="Posts" value={viewsPosts} connected={connected} />
-          <ViewsPart icon={<StoryIcon size={18} color={colors.green} />} label="Stories" value={viewsStories} connected={connected} />
-        </View>
-        <Body soft size={15}>{connected
-          ? 'Chiffres donnés par Instagram et Facebook. Une même personne peut regarder plusieurs fois. Mis à jour toutes les 30 minutes.'
-          : 'Les vrais chiffres arriveront dès qu\'Instagram et Facebook seront connectés.'}</Body>
-      </Card>
-
-      {s.posts.length > 0 && (
+      {/* 4. Les publications du mois, posts et stories dans une seule ligne. */}
+      {s.posts.length + s.stories.length > 0 ? (
         <View style={{ gap: 10 }}>
-          <Label>Vos posts {ofMonth(month)}</Label>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
-            {s.posts.map((p) => (
-              <Pressable key={p.id} onPress={() => go({ name: 'published', postId: p.id })} accessibilityRole="button" accessibilityLabel={`Voir le post du ${new Date(p.publishedAt ?? p.createdAt).toLocaleDateString('fr-FR')}`}>
-                <PostThumb post={p} width={84} height={84} />
-              </Pressable>
+          <Label>Vos publications {ofMonth(month)}</Label>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingVertical: 2, alignItems: 'flex-start' }}>
+            {[...s.posts, ...s.stories].sort((a, b) => (a.publishedAt ?? a.createdAt).localeCompare(b.publishedAt ?? b.createdAt)).map((p) => (
+              <Publication key={p.id} post={p} stats={stats} onPress={() => go({ name: 'published', postId: p.id })} />
             ))}
           </ScrollView>
         </View>
+      ) : (
+        <Card style={{ gap: 10, alignItems: 'center' }}>
+          <Body soft center>{s.inProgress ? 'Pas encore de publication ce mois-ci. Une photo suffit pour commencer.' : `Aucune publication en ${monthName(month)}.`}</Body>
+          {s.inProgress && <Button title="Publier une photo" kind="secondary" icon={<CameraIcon size={20} color={colors.green} />} onPress={() => go({ name: 'home' })} />}
+        </Card>
       )}
-      {s.count === 0 && (
-        <Body soft center>{s.inProgress ? "Pas encore de post publié ce mois-ci. Une photo suffit pour commencer !" : `Aucun post publié en ${monthName(month)}.`}</Body>
-      )}
-
-      <View style={{ gap: 10 }}>
-        <Label>Vos stories {ofMonth(month)}</Label>
-        {s.stories.length > 0 ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 14, paddingVertical: 2 }}>
-            {s.stories.map((p) => <StoryRing key={p.id} post={p} stats={stats} onPress={() => go({ name: 'published', postId: p.id })} />)}
-          </ScrollView>
-        ) : (
-          <Card style={{ gap: 10, alignItems: 'center' }}>
-            <Body soft center>{s.inProgress ? 'Pas encore de story ce mois-ci. Une photo ou une petite vidéo suffit.' : `Aucune story publiée en ${monthName(month)}.`}</Body>
-            {s.inProgress && <Button title="Faire une story" kind="secondary" icon={<StoryIcon size={20} color={colors.green} />} onPress={() => go({ name: 'story' })} />}
-          </Card>
-        )}
-      </View>
-
-      <Card style={{ gap: 8 }}>
-        <Label>Par rapport à {monthName(s.previous)}</Label>
-        <Body>{comparisonText(s)}</Body>
-      </Card>
 
       {advice.kind !== 'none' && (
         <View style={{ backgroundColor: 'rgba(220,239,227,0.8)', borderWidth: 1, borderColor: glass.edge, borderRadius: radius.lg - 2, padding: 16, gap: 10 }}>
@@ -239,9 +211,9 @@ export function Report({ initialMonth }: { initialMonth?: Month }) {
 /** Bilan d'un nouveau client : ce qu'il verra ici dès son premier post, sans chiffres vides. */
 function FirstReport({ onPublish, connected, onConnect }: { onPublish: () => void; connected: boolean; onConnect: () => void }) {
   const items: [React.ReactNode, string, string][] = [
+    [<EyeIcon key="e" size={22} color={colors.orangeText} />, 'Les clients touchés', 'Combien de personnes ont vu vos publications.'],
     [<CameraIcon key="c" size={22} color={colors.green} />, 'Vos posts et stories du mois', 'Tout ce que vous avez publié, en un coup d\'œil.'],
     [<HeartIcon key="h" size={22} color={colors.orangeText} fill={colors.orange} />, 'Ce que vos clients ont aimé', 'Les j\'aime, les commentaires et votre meilleur post.'],
-    [<EyeIcon key="e" size={22} color={colors.orangeText} />, 'Les clients touchés', 'Combien de personnes ont vu vos publications.'],
     [<ClockIcon key="t" size={22} color={colors.green} />, 'Le temps gagné', 'Et un conseil pour le mois suivant.'],
   ];
   return (
@@ -270,14 +242,13 @@ function FirstReport({ onPublish, connected, onConnect }: { onPublish: () => voi
   );
 }
 
-function Tile({ icon, tone, value, label, hint, soon }: { icon: React.ReactNode; tone?: 'green' | 'orange'; value?: string; label: string; hint?: string; soon?: boolean }) {
+/** Un chiffre du mois (posts, stories, temps gagné), côte à côte sur une ligne. */
+function MiniStat({ value, label, divider }: { value: string; label: string; divider?: boolean }) {
   return (
-    <Card style={{ flex: 1, gap: 6, minHeight: 150 }}>
-      <IconTile size={42} tone={tone}>{icon}</IconTile>
-      {soon ? <View style={{ alignSelf: 'flex-start' }}><Badge text="Bientôt" tone="orange" /></View> : <Title size={30}>{value}</Title>}
-      <Body style={{ fontWeight: '700' }} size={15}>{label}</Body>
-      {hint ? <Body soft size={15}>{hint}</Body> : null}
-    </Card>
+    <View style={{ flex: 1, alignItems: 'center', gap: 2, borderLeftWidth: divider ? 1 : 0, borderLeftColor: glass.line }}>
+      <Title size={26}>{value}</Title>
+      <Body soft size={15}>{label}</Body>
+    </View>
   );
 }
 
@@ -305,36 +276,34 @@ function Reaction({ icon, value, label, connected }: { icon: React.ReactNode; va
   );
 }
 
-/** Une part des « clients touchés » : posts ou stories. */
-function ViewsPart({ icon, label, value, connected }: { icon: React.ReactNode; label: string; value: number | null; connected: boolean }) {
+/** Une part des « clients touchés » (posts ou stories), sur le fond vert. */
+function HeroPart({ label, value }: { label: string; value: number | null }) {
   return (
-    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: glass.bgStrong, borderRadius: radius.sm + 2, borderWidth: 1, borderColor: glass.line, padding: 10 }}>
-      {icon}
-      <View style={{ flex: 1 }}>
-        <Text style={{ color: colors.text, fontSize: 15, fontWeight: '600', fontFamily: fonts.body }}>{label}</Text>
-        {value !== null
-          ? <Text style={{ color: colors.text, fontSize: 18, fontWeight: '700', fontFamily: fonts.body }}>{formatCount(value)} {value > 1 ? 'vues' : 'vue'}</Text>
-          : <Text style={{ color: colors.orangeText, fontSize: 14, fontFamily: fonts.body }}>{connected ? 'pas encore de chiffre' : 'bientôt'}</Text>}
-      </View>
+    <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: radius.sm + 2, paddingVertical: 10, paddingHorizontal: 12 }}>
+      <Text style={{ color: colors.white, fontSize: 15, fontFamily: fonts.body, opacity: 0.9 }}>{label}</Text>
+      <Text style={{ color: colors.white, fontSize: 19, fontWeight: '700', fontFamily: fonts.body }}>{value !== null ? formatCount(value) : '—'}</Text>
     </View>
   );
 }
 
-/** Une story du mois, en rond comme sur Instagram, avec ses vues en dessous. */
-function StoryRing({ post, stats, onPress }: { post: Post; stats: StatsMap; onPress: () => void }) {
+/** Une publication du mois (post en carré, story en rond comme sur Instagram), avec sa date et ses vues. */
+function Publication({ post, stats, onPress }: { post: Post; stats: StatsMap; onPress: () => void }) {
   const day = new Date(post.publishedAt ?? post.createdAt);
   const views = totalOf(stats[post.id]).views;
+  const story = post.kind === 'story';
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`Voir la story du ${day.toLocaleDateString('fr-FR')}`} style={{ alignItems: 'center', gap: 6, width: 76 }}>
-      <View style={{ ...greenGradient, width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center' }}>
-        <View style={{ width: 64, height: 64, borderRadius: 32, borderWidth: 2.5, borderColor: colors.white, overflow: 'hidden', backgroundColor: colors.greenSoft, alignItems: 'center', justifyContent: 'center' }}>
-          {post.imageUri ? <Image source={{ uri: post.imageUri }} style={{ width: 64, height: 64 }} /> : <VideoIcon size={24} color={colors.green} />}
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`Voir ${story ? 'la story' : 'le post'} du ${day.toLocaleDateString('fr-FR')}`} style={{ alignItems: 'center', gap: 6, width: 76 }}>
+      {story ? (
+        <View style={{ ...greenGradient, width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center' }}>
+          <View style={{ width: 64, height: 64, borderRadius: 32, borderWidth: 2.5, borderColor: colors.white, overflow: 'hidden', backgroundColor: colors.greenSoft, alignItems: 'center', justifyContent: 'center' }}>
+            {post.imageUri ? <Image source={{ uri: post.imageUri }} style={{ width: 64, height: 64 }} /> : <VideoIcon size={24} color={colors.green} />}
+          </View>
         </View>
-      </View>
-      <Text style={{ color: colors.text, fontSize: 13, fontWeight: '600', fontFamily: fonts.body }}>{day.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</Text>
+      ) : <PostThumb post={post} width={72} height={72} />}
+      <Text style={{ color: colors.text, fontSize: 14, fontWeight: '600', fontFamily: fonts.body }}>{day.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</Text>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
         <EyeIcon size={14} color={colors.orangeText} />
-        <Text style={{ color: views !== null ? colors.text : colors.orangeText, fontSize: 12, fontFamily: fonts.body }}>{views !== null ? `${formatCount(views)} vues` : '—'}</Text>
+        <Text style={{ color: views !== null ? colors.text : colors.orangeText, fontSize: 14, fontFamily: fonts.body }}>{views !== null ? formatCount(views) : '—'}</Text>
       </View>
     </Pressable>
   );

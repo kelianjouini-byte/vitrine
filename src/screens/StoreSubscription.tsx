@@ -7,7 +7,7 @@ import { TrialReportCard } from '../components/TrialReportCard';
 import { colors } from '../lib/theme';
 import { useApp } from '../lib/store';
 import { isBackendConfigured } from '../lib/config';
-import { billingStatus, FriendlyError, NotConfiguredError, resendTrialEmail, trialEmailStatus } from '../lib/api';
+import { accountState, AlreadySubscribedError, billingStatus, FriendlyError, NotConfiguredError, resendTrialEmail } from '../lib/api';
 import { daysLeft, frenchDate, isLiveStatus, TRIAL_REPORT_DAYS_BEFORE, type BillingStatus } from '../lib/billing';
 import { openExternal } from '../lib/native';
 
@@ -23,7 +23,7 @@ const CONTACT = 'contact@vitrineappli.fr';
 export function StoreSubscription({ blocked }: { blocked?: boolean }) {
   const { back, refreshBilling, isPatron } = useApp();
   const [status, setStatus] = useState<BillingStatus | null>(null);
-  const [mail, setMail] = useState<{ configured: boolean; email: string | null } | null>(null);
+  const [email, setEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
@@ -34,9 +34,9 @@ export function StoreSubscription({ blocked }: { blocked?: boolean }) {
   const refresh = useCallback(async () => {
     setLoadError(null);
     try {
-      const [s, m] = await Promise.all([billingStatus(), trialEmailStatus().catch(() => ({ configured: false, email: null }))]);
+      const [s, a] = await Promise.all([billingStatus(), accountState().catch(() => null)]);
       setStatus(s);
-      setMail(m);
+      setEmail(a?.kind === 'email' ? a.email : null);
     } catch (e) {
       setLoadError(e instanceof NotConfiguredError ? 'Le serveur de Vitrine n\'est pas encore branché.' : e instanceof FriendlyError ? e.message : 'Réessayez dans un instant.');
     } finally {
@@ -56,6 +56,8 @@ export function StoreSubscription({ blocked }: { blocked?: boolean }) {
     try {
       setSent(await resendTrialEmail());
     } catch (e) {
+      // Déjà payé (par exemple depuis l'e-mail) : on relit l'abonnement, l'appli se rouvre.
+      if (e instanceof AlreadySubscribedError) { await check(); return; }
       setError(e instanceof NotConfiguredError ? "L'envoi d'e-mails n'est pas encore branché. Écrivez-nous à " + CONTACT + '.' : e instanceof FriendlyError ? e.message : 'Réessayez dans un instant.');
     } finally {
       setSending(false);
@@ -75,7 +77,6 @@ export function StoreSubscription({ blocked }: { blocked?: boolean }) {
   const trialEnd = status?.trialEndsAt ?? null;
   const trialDays = trialEnd ? daysLeft(trialEnd) : null;
   const ended = blocked || status?.access === 'expired';
-  const email = mail?.email ?? null;
 
   return (
     <ScrollView contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 48 }}>

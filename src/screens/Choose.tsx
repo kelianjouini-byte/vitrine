@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Image, Platform as RNPlatform, Pressable, ScrollView, Text, View } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { BackButton, Button } from '../components/ui';
-import { PostIcon, ReelIcon, StoryIcon } from '../components/icons';
+import { BackIcon, PlayIcon, PostIcon, ReelIcon, StoryIcon } from '../components/icons';
 import { ToggleCard } from '../components/CreateChoice';
 import { colors, fonts } from '../lib/theme';
 import { useApp } from '../lib/store';
@@ -19,6 +19,7 @@ export function Choose({ media }: { media: Captured }) {
   const [main, setMain] = useState(true);
   const [story, setStory] = useState(false);
   const [seconds, setSeconds] = useState<number | null>(video ? media.seconds : null);
+  const [viewing, setViewing] = useState(false);
 
   // Une vidéo choisie dans la galerie n'annonce pas toujours sa durée : on la mesure.
   useEffect(() => {
@@ -58,6 +59,12 @@ export function Choose({ media }: { media: Captured }) {
           ? <Image source={{ uri: media.raw.uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" accessibilityLabel="Votre photo" />
           : <Preview uri={media.uri} />}
         <View style={{ position: 'absolute', top: 16, left: 16 }}><BackButton onPress={back} /></View>
+        {/* Revoir le résultat en grand (vidéo : avec le son) avant de choisir. */}
+        <Pressable onPress={() => setViewing(true)} accessibilityRole="button" accessibilityLabel={video ? 'Voir ma vidéo en grand, avec le son' : 'Voir ma photo en grand'}
+          style={({ pressed }) => ({ position: 'absolute', bottom: 40, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(20,40,30,0.55)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)', borderRadius: 999, paddingLeft: 14, paddingRight: 18, minHeight: 48, transform: [{ scale: pressed ? 0.96 : 1 }], ...(RNPlatform.OS === 'web' ? { backdropFilter: 'blur(14px)' } : null) } as object)}>
+          <PlayIcon size={20} color="#fff" />
+          <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700', fontFamily: fonts.body }}>{video ? 'Voir ma vidéo' : 'Voir ma photo'}</Text>
+        </Pressable>
         <View style={{ position: 'absolute', top: 24, alignSelf: 'center', backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 16, paddingHorizontal: 12, paddingVertical: 5 }}>
           <Text style={{ color: '#fff', fontSize: 14, fontWeight: '600', fontFamily: fonts.body }}>{video ? `Votre vidéo${seconds ? ` · ${seconds} s` : ''}` : 'Votre photo'}</Text>
         </View>
@@ -93,8 +100,36 @@ export function Choose({ media }: { media: Captured }) {
           <Text style={{ color: colors.textSoft, fontSize: 16, fontWeight: '600', fontFamily: fonts.body }}>{video ? 'Refaire la vidéo' : 'Reprendre la photo'}</Text>
         </Pressable>
       </ScrollView>
+
+      {viewing && (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#000' }}>
+          {media.kind === 'photo'
+            ? <Image source={{ uri: media.raw.uri }} style={{ width: '100%', height: '100%' }} resizeMode="contain" accessibilityLabel="Votre photo en grand" />
+            : <FullPlayer uri={media.uri} />}
+          <View style={{ position: 'absolute', top: 16, left: 16 }}>
+            <Pressable onPress={() => setViewing(false)} accessibilityRole="button" accessibilityLabel="Fermer"
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 24, height: 48, paddingLeft: 12, paddingRight: 16 }}>
+              <BackIcon size={22} color="#fff" />
+              <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700', fontFamily: fonts.body }}>Fermer</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
     </View>
   );
+}
+
+/** Lecture en grand, avec le son et les commandes (pause, avancer). */
+function FullPlayer({ uri }: { uri: string }) {
+  if (RNPlatform.OS === 'web') {
+    return React.createElement('video', { src: uri, autoPlay: true, controls: true, playsInline: true, style: { width: '100%', height: '100%', objectFit: 'contain', background: '#000' } });
+  }
+  return <NativeFullPlayer uri={uri} />;
+}
+
+function NativeFullPlayer({ uri }: { uri: string }) {
+  const player = useVideoPlayer(uri, (p) => { p.muted = false; p.play(); });
+  return <VideoView player={player} style={{ width: '100%', height: '100%' }} contentFit="contain" nativeControls />;
 }
 
 function Preview({ uri }: { uri: string }) {

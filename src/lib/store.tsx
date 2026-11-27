@@ -23,12 +23,15 @@ export type Route =
   | { name: 'planning' }
   | { name: 'planDay'; day: string }
   | { name: 'settings' }
+  | { name: 'teamGoal' }
   | { name: 'ideas' }
   | { name: 'report'; month?: Month }
   | { name: 'create'; occasionId?: string; photo?: RawPhoto; idea?: PostIdea; plannedFor?: string; note?: string; alsoStory?: boolean }
   | { name: 'story'; media?: Captured }
   /** Caméra vidéo de l'appli (version web), ouverte par le bouton « Vidéo » de l'accueil. */
   | { name: 'capture' }
+  /** Reel en plusieurs bouts : Vitrine colle les vidéos ensemble, puis « Où la publier ? ». */
+  | { name: 'montage'; clips: { uri: string; thumb?: string | null }[] }
   /** Après la photo ou la vidéo : « Où la publier ? » (Post / Reel, Story, ou les deux). */
   | { name: 'choose'; media: Captured }
   | { name: 'reel'; video: Extract<Captured, { kind: 'video' }>; alsoStory?: boolean }

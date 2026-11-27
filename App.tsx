@@ -6,12 +6,13 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 import { AppProvider, TAB_ROUTES, useApp } from './src/lib/store';
 import { colors, fonts, glassSurface } from './src/lib/theme';
 import { GlassBackground } from './src/components/GlassBackground';
-import { CalendarIcon, GridIcon, HomeIcon, LogoMark, PlanningIcon } from './src/components/icons';
+import { CalendarIcon, GridIcon, HomeIcon, LogoMark, PlanningIcon, SendIcon } from './src/components/icons';
 import { Onboarding } from './src/screens/Onboarding';
 import { Home } from './src/screens/Home';
 import { Create } from './src/screens/Create';
 import { Story } from './src/screens/Story';
 import { Capture } from './src/screens/Capture';
+import { Montage } from './src/screens/Montage';
 import { Choose } from './src/screens/Choose';
 import { Reel } from './src/screens/Reel';
 import { Published } from './src/screens/Published';
@@ -19,6 +20,7 @@ import { Offers } from './src/screens/Offers';
 import { isBlocked } from './src/lib/billing';
 import { Fetes } from './src/screens/Fetes';
 import { Posts } from './src/screens/Posts';
+import { MySent } from './src/screens/MySent';
 import { Settings } from './src/screens/Settings';
 import { Ideas } from './src/screens/Ideas';
 import { Report } from './src/screens/Report';
@@ -26,7 +28,7 @@ import { Planning } from './src/screens/Planning';
 import { PlanDay } from './src/screens/PlanDay';
 import { Referral } from './src/screens/Referral';
 import { Review } from './src/screens/Review';
-import { Team, TeamAdd, TeamMemberScreen } from './src/screens/Team';
+import { Team, TeamAdd, TeamGoalScreen, TeamMemberScreen } from './src/screens/Team';
 import { ShopAdd } from './src/screens/ShopAdd';
 import { EmployeePaused } from './src/screens/EmployeePaused';
 
@@ -55,7 +57,9 @@ export default function App() {
 }
 
 function Root() {
-  const { ready, business, route, billing, isPatron } = useApp();
+  const { ready, business, route, billing, isPatron, canPublish } = useApp();
+  // Un employé qui envoie ses posts au patron a « Mes envois » à la place de « Mes posts ».
+  const sendsToPatron = !isPatron && !canPublish;
   const insets = useSafeAreaInsets();
   // Écran d'ouverture court : le temps de charger, avec un minimum pour ne pas « clignoter ».
   const [minDone, setMinDone] = useState(false);
@@ -89,13 +93,14 @@ function Root() {
         {route.name === 'planning' && <Planning />}
         {route.name === 'planDay' && <PlanDay key={route.day} day={route.day} />}
         {route.name === 'fetes' && <Fetes />}
-        {route.name === 'posts' && <Posts />}
+        {route.name === 'posts' && (sendsToPatron ? <MySent /> : <Posts />)}
         {route.name === 'settings' && <Settings />}
         {route.name === 'ideas' && <Ideas />}
         {route.name === 'report' && <Report key={route.month ? `${route.month.year}-${route.month.month}` : 'now'} initialMonth={route.month} />}
         {route.name === 'create' && <Create key={(route.plannedFor ?? '') + (route.occasionId ?? route.idea?.title ?? 'new')} occasionId={route.occasionId} initialPhoto={route.photo} idea={route.idea} plannedFor={route.plannedFor} note={route.note} alsoStory={route.alsoStory} />}
         {route.name === 'story' && <Story initial={route.media} />}
         {route.name === 'capture' && <Capture />}
+        {route.name === 'montage' && <Montage clips={route.clips} />}
         {route.name === 'choose' && <Choose media={route.media} />}
         {route.name === 'reel' && <Reel video={route.video} alsoStory={route.alsoStory} />}
         {route.name === 'published' && <Published postId={route.postId} alsoId={route.alsoId} />}
@@ -106,6 +111,7 @@ function Root() {
         {route.name === 'teamAdd' && <TeamAdd initialRole={route.role} />}
         {route.name === 'teamMember' && <TeamMemberScreen key={route.id} id={route.id} code={route.code} />}
         {route.name === 'shopAdd' && <ShopAdd />}
+        {route.name === 'teamGoal' && <TeamGoalScreen />}
       </View>
       {isTab && <TabBar />}
     </View>
@@ -123,13 +129,14 @@ function Splash() {
 }
 
 function TabBar() {
-  const { route, go } = useApp();
+  const { route, go, isPatron, canPublish } = useApp();
+  const sendsToPatron = !isPatron && !canPublish;
   const insets = useSafeAreaInsets();
   const tabs = [
     { name: 'home' as const, label: 'Accueil', Icon: HomeIcon },
     { name: 'planning' as const, label: 'Planning', Icon: PlanningIcon },
     { name: 'fetes' as const, label: 'Fêtes', Icon: CalendarIcon },
-    { name: 'posts' as const, label: 'Mes posts', Icon: GridIcon },
+    sendsToPatron ? { name: 'posts' as const, label: 'Mes envois', Icon: SendIcon } : { name: 'posts' as const, label: 'Mes posts', Icon: GridIcon },
   ];
   return (
     // Barre d'onglets « flottante » en verre, posée au-dessus du fond.

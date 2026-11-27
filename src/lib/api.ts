@@ -15,7 +15,8 @@ import type { CommercialEvent } from './events';
 import type { RemotePost } from './sync';
 import type { BillingStatus, PlanId } from './billing';
 import type { ReferralInfo } from './referral';
-import type { PendingPost, TeamContext, TeamList } from './team';
+import type { MySentPost, PendingPost, PointsSummary, TeamContext, TeamList } from './team';
+import { parseShopResults, shopSearchUrl, type ShopMatch } from './shopLookup';
 
 export class NotConfiguredError extends Error {
   constructor(public what: 'serveur' | 'ia' | 'meta' | 'compte' | 'paiement') {
@@ -27,6 +28,9 @@ export class FriendlyError extends Error {}
 
 /** Le compte n'a pas encore d'e-mail : il faut le protéger avant de s'abonner. */
 export class AccountNotProtectedError extends FriendlyError {}
+
+/** Le bouton « Renvoyer l'e-mail » alors que l'abonnement est déjà payé (l'appli va se rouvrir). */
+export class AlreadySubscribedError extends FriendlyError {}
 
 /** L'essai gratuit est terminé et il n'y a pas d'abonnement. */
 export class TrialOverError extends FriendlyError {}
@@ -241,6 +245,7 @@ export function toBusiness(data: BusinessRow): Business {
     description: data.description ?? undefined,
     specialties: data.specialties ?? undefined,
     strengths: data.strengths ?? undefined,
+    employeeCount: data.employee_count ?? undefined,
   };
 }
 
@@ -326,16 +331,22 @@ export async function saveBusinessRemote(b: Business): Promise<string | undefine
     description: b.description ?? null,
     specialties: b.specialties ?? null,
     strengths: b.strengths?.trim() || null,
+    ...(b.employeeCount ? { employee_count: b.employeeCount } : {}),
   };
+  // Colonne employee_count pas encore créée dans la base : on enregistre le reste sans bloquer.
+  const missingColumn = (e: { message?: string; code?: string } | null) => Boolean(e && 'employee_count' in fields && (e.code === 'PGRST204' || /employee_count/.test(e.message ?? '')));
+  const lean = () => { const { employee_count: _drop, ...rest } = fields as typeof fields & { employee_count?: string }; return rest; };
   // Boutique déjà enregistrée (principale ou ajoutée) : on la met à jour par son id.
   // Un patron ajouté à l'équipe modifie ainsi la boutique de l'entreprise, sans s'en créer une.
   if (b.id) {
-    const { data, error } = await supabase.from('businesses').update(fields).eq('id', b.id).select('id').maybeSingle();
+    let { data, error } = await supabase.from('businesses').update(fields).eq('id', b.id).select('id').maybeSingle();
+    if (missingColumn(error)) ({ data, error } = await supabase.from('businesses').update(lean()).eq('id', b.id).select('id').maybeSingle());
     if (!error && data) return data.id as string;
     if (b.mainBusinessId) throw new FriendlyError("La boutique n'a pas pu être enregistrée. Réessayez.");
   }
-  const { data, error } = await supabase.from('businesses').upsert({ owner_id: userId, ...fields }, { onConflict: 'owner_id' }).select('id').single();
-  if (error) throw new FriendlyError("Votre boutique n'a pas pu être enregistrée. Réessayez.");
+  let { data, error } = await supabase.from('businesses').upsert({ owner_id: userId, ...fields }, { onConflict: 'owner_id' }).select('id').single();
+  if (missingColumn(error)) ({ data, error } = await supabase.from('businesses').upsert({ owner_id: userId, ...lean() }, { onConflict: 'owner_id' }).select('id').single());
+  if (error || !data) throw new FriendlyError("Votre boutique n'a pas pu être enregistrée. Réessayez.");
   return data.id as string;
 }
 
@@ -450,6 +461,16 @@ export async function detectBusiness(input: { businessName: string; city: string
   });
   if (!res?.trade) return null;
   return { trade: res.trade, products: res.products ?? null, strengths: res.strengths ?? null, audience: res.audience ?? null };
+}
+
+/**
+ * Cherche la boutique dans l'annuaire public des entreprises (gratuit, sans clé, sans compte Vitrine).
+ * Fonctionne même sans serveur Vitrine. Rien trouvé ou pas de réseau : liste vide, le commerçant tape lui-même.
+ */
+export async function findShops(input: { name: string; postalCode?: string; city?: string }, signal?: AbortSignal): Promise<ShopMatch[]> {
+  const res = await fetch(shopSearchUrl(input), { signal, headers: { Accept: 'application/json' } });
+  if (!res.ok) return [];
+  return parseShopResults(await res.json(), input.postalCode);
 }
 
 /** Pour un métier hors liste : l'IA choisit les occasions qui lui conviennent. */
@@ -710,15 +731,6 @@ export async function billingStatus(): Promise<BillingStatus> {
   return callFunction<BillingStatus>('billing', { action: 'status' });
 }
 
-/**
- * E-mail de fin d'essai (offres + liens de paiement), utilisé par les applis App Store / Google Play
- * qui n'affichent ni prix ni paiement. configured = false : l'envoi d'e-mails n'est pas encore branché.
- */
-export async function trialEmailStatus(): Promise<{ configured: boolean; email: string | null }> {
-  if (!(await ensureSession())) throw new NotConfiguredError('compte');
-  return callFunction('trial-emails', { action: 'status' });
-}
-
 /** Renvoie l'e-mail de fin d'essai tout de suite. Renvoie l'adresse utilisée. */
 export async function resendTrialEmail(): Promise<string> {
   if (!(await ensureSession())) throw new NotConfiguredError('compte');
@@ -727,6 +739,7 @@ export async function resendTrialEmail(): Promise<string> {
     return email;
   } catch (e) {
     if (e instanceof FriendlyError && /pas encore branché/.test(e.message)) throw new NotConfiguredError('serveur');
+    if (e instanceof FriendlyError && /déjà en place/.test(e.message)) throw new AlreadySubscribedError(e.message);
     throw e;
   }
 }
@@ -793,10 +806,36 @@ export async function pendingPosts(): Promise<PendingPost[]> {
   return Array.isArray(posts) ? posts : [];
 }
 
+/** Points gagnés par l'employé quand le patron publie son post (pour l'animation). */
+export type ApprovePoints = PointsSummary & { by: string; gained: number };
+
 /** Le patron valide : le post part sur les réseaux (texte éventuellement modifié). */
-export async function approvePost(postId: string, caption?: string): Promise<PublicationResult[]> {
-  const { publications } = await callFunction<{ publications: PublicationResult[] }>('team', { action: 'approve', post_id: postId, caption });
-  return publications;
+export async function approvePost(postId: string, caption?: string): Promise<{ publications: PublicationResult[]; points: ApprovePoints | null }> {
+  const res = await callFunction<{ publications: PublicationResult[]; points?: ApprovePoints | null }>('team', { action: 'approve', post_id: postId, caption });
+  return { publications: res.publications, points: res.points ?? null };
+}
+
+/** Mes points, l'objectif de l'équipe, et ce qu'un post m'a rapporté (après un envoi). */
+export async function teamPoints(postId?: string): Promise<{ points: PointsSummary | null; gained: number; maxPerDay: number }> {
+  return callFunction('team', { action: 'points', post_id: postId });
+}
+
+/** Employé : ses envois, relus sur le serveur. */
+export async function mySentPosts(): Promise<MySentPost[]> {
+  const { posts } = await callFunction<{ posts: MySentPost[] }>('team', { action: 'my_posts' });
+  return Array.isArray(posts) ? posts : [];
+}
+
+export async function setTeamGoal(points: number, reward: string): Promise<void> {
+  await callFunction('team', { action: 'set_goal', points, reward });
+}
+
+export async function stopTeamGoal(): Promise<void> {
+  await callFunction('team', { action: 'stop_goal' });
+}
+
+export async function setTeamNote(note: string): Promise<void> {
+  await callFunction('team', { action: 'set_note', note });
 }
 
 export async function rejectPost(postId: string, note: string): Promise<void> {

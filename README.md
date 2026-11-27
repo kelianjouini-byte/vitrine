@@ -37,11 +37,10 @@ npx expo start --web        # ou l'ouvrir dans le navigateur
 | `PUBLIC_SITE_URL` | secrets Supabase | Site public (pages légales, suivi de suppression) |
 | `PUBLIC_APP_URL` | secrets Supabase | Facultatif : adresse de la version web, seule adresse https autorisée au retour de la connexion Meta (par défaut `https://vitrineappli.fr/` ; l'ancienne adresse `https://kelianjouini-byte.github.io/vitrine/` reste acceptée) |
 | `STRIPE_SECRET_KEY` | secrets Supabase | Paiement des abonnements (clé secrète Stripe, `sk_test_…` ou `sk_live_…`) |
-| `BREVO_API_KEY`, `MAIL_FROM`, `MAIL_REPLY_TO` | secrets Supabase | E-mails de fin d'essai (offres + liens de paiement), fonction `trial-emails` |
-| `CRON_SECRET` | secrets Supabase **et** GitHub | Tournée quotidienne des e-mails de fin d'essai (`.github/workflows/trial-emails.yml`) |
 | `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD` | secrets GitHub | Signature de l'appli Google Play |
 | `APPLE_TEAM_ID`, `APPSTORE_KEY_ID`, `APPSTORE_ISSUER_ID`, `APPSTORE_KEY_P8` | secrets GitHub | Fabrication et envoi de l'appli iPhone sur App Store Connect |
 | `STRIPE_WEBHOOK_SECRET` | secrets Supabase | Vérifie que les messages du webhook viennent bien de Stripe (`whsec_…`) |
+| `BREVO_API_KEY` | secrets Supabase | Envoie les e-mails de fin d'essai par Brevo (`xkeysib-…`) |
 
 **Aucune clé secrète ne doit jamais être mise dans l'app ou dans Git.**
 

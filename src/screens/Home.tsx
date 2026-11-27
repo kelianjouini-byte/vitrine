@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View, type ScrollViewInstance } from 'react-native';
 import { Body, Button, Card, Chevron, DateTile, IconTile, Label, Notice, Title } from '../components/ui';
-import { takePhoto, takePhotos, takeVideo } from '../lib/photo';
+import { takePhoto, takePhotos, takeVideo, takeVideos } from '../lib/photo';
 import { accountState, FriendlyError } from '../lib/api';
 import { BulbIcon, ChartUpIcon, CheckIcon, GearIcon, ImageIcon, LinkIcon, StarIcon, StoreIcon } from '../components/icons';
 import { daysLeft, euros, isLiveStatus, offersFrom, placesLeftText, TRIAL_REPORT_DAYS_BEFORE } from '../lib/billing';
@@ -16,6 +16,8 @@ import { MediaCard } from '../components/CreateChoice';
 import { Platform } from 'react-native';
 import { PersonIcon, SendIcon } from '../components/icons';
 import { isStoreApp } from '../lib/native';
+import { Bar, PointsPill } from '../components/PointsScene';
+import { frNumber, levelOf, postsLeft } from '../lib/points';
 
 export function Home() {
   const { business, posts, connections, go, billing, team, isPatron } = useApp();
@@ -45,6 +47,11 @@ export function Home() {
   useEffect(() => { accountState().then((a) => setGuest(a.kind === 'guest')).catch(() => {}); }, [posts.length]);
   const pending = isPatron ? team?.pending ?? 0 : 0;
   const mine = !isPatron ? team?.mine : undefined;
+  // Points de l'équipe (null tant qu'ils ne sont pas installés sur le serveur) et petit mot du patron.
+  const points = team?.points ?? null;
+  const goal = points?.goal ?? null;
+  const note = !isPatron ? team?.note : null;
+  const level = points ? levelOf(points.mine) : null;
   // Petit téléphone : quand les choix Photo / Vidéo s'ouvrent, on les fait remonter à l'écran.
   const scroll = useRef<ScrollViewInstance>(null);
   const [publishY, setPublishY] = useState(0);
@@ -94,9 +101,15 @@ export function Home() {
   async function fromGallery(kind: 'photo' | 'video') {
     setPhotoError(null);
     try {
-      const media = kind === 'photo'
-        ? await takePhotos('library', 1).then(([raw]) => (raw ? { kind: 'photo' as const, raw } : null))
-        : await takeVideo('library');
+      if (kind === 'video') {
+        // Plusieurs vidéos choisies : Vitrine les monte ensemble en un seul Reel.
+        const vs = await takeVideos();
+        if (vs.length) setChoosing(false);
+        if (vs.length === 1) go({ name: 'choose', media: vs[0] });
+        else if (vs.length > 1) go({ name: 'montage', clips: vs.map((v) => ({ uri: v.uri })) });
+        return;
+      }
+      const media = await takePhotos('library', 1).then(([raw]) => (raw ? { kind: 'photo' as const, raw } : null));
       if (media) {
         setChoosing(false);
         go({ name: 'choose', media });
@@ -117,6 +130,7 @@ export function Home() {
             <Body soft size={15} style={{ marginTop: 2 }}>{`Essai gratuit : encore ${trialLeft} jours`}</Body>
           )}
         </View>
+        {!isPatron && points && <PointsPill points={points.mine} />}
         <Pressable onPress={() => go({ name: 'settings' })} accessibilityRole="button" accessibilityLabel="Réglages"
           style={({ pressed }) => ({ alignItems: 'center', gap: 4, transform: [{ scale: pressed ? 0.95 : 1 }] })}>
           <View style={{ ...glassSurface, width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' }}>
@@ -149,6 +163,14 @@ export function Home() {
             <Body soft size={15}>{mine.rejected ? 'Voir le message du patron' : 'En attente de la réponse du patron'}</Body>
           </View>
           <Chevron />
+        </Card>
+      )}
+
+      {/* Employé : le petit mot du patron. */}
+      {note && (
+        <Card style={{ gap: 4, backgroundColor: 'rgba(253,243,226,0.9)', borderColor: 'rgba(242,182,109,0.6)', borderWidth: 1.5 }}>
+          <Text style={{ color: colors.orangeText, fontWeight: '700', fontSize: 15, fontFamily: fonts.body }}>Le mot de {note.by ?? team?.ownerFirstName}</Text>
+          <Body size={18} style={{ fontWeight: '600' }}>« {note.text} »</Body>
         </Card>
       )}
 
@@ -185,6 +207,30 @@ export function Home() {
             <Button title="Ma galerie" kind="secondary" icon={<ImageIcon size={20} color={colors.green} />} onPress={() => fromGallery('video')} style={{ flex: 1, paddingHorizontal: 8 }} />
           </View>
         </View>
+      )}
+
+      {/* Employé : son niveau. Tout le monde : l'objectif commun de l'équipe (pas de classement). */}
+      {!isPatron && level && points && (
+        <Card style={{ gap: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <Body style={{ fontWeight: '700', flex: 1 }}>Niveau {level.number} : {level.name}</Body>
+            <StarIcon size={22} color={colors.orangeText} />
+          </View>
+          <Body soft size={15}>{level.next ? `Encore ${frNumber(level.next - points.mine)} points pour « ${level.nextName} »` : 'Vous êtes au plus haut niveau. Bravo !'}</Body>
+          <Bar value={level.progress} />
+        </Card>
+      )}
+      {goal && (isPatron ? (team?.teamSize ?? 0) > 0 : true) && (
+        <Card onPress={isPatron ? () => go({ name: 'team' }) : undefined} style={{ gap: 8, backgroundColor: 'rgba(253,243,226,0.9)', borderColor: 'rgba(242,182,109,0.6)', borderWidth: 1.5 }}>
+          <Text style={{ color: colors.orangeText, fontWeight: '700', fontSize: 12, letterSpacing: 1, fontFamily: fonts.body }}>OBJECTIF DE L'ÉQUIPE</Text>
+          <Body style={{ fontWeight: '700' }}>{goal.reachedAt ? `Objectif atteint : ${goal.reward} !` : goal.reward}</Body>
+          <Bar value={goal.progress / goal.points} />
+          <Body soft size={14}>
+            {goal.reachedAt
+              ? (isPatron ? 'Bravo à toute l\'équipe. Touchez pour fixer un nouvel objectif.' : 'Bravo à toute l\'équipe !')
+              : `${frNumber(goal.progress)} / ${frNumber(goal.points)} points · encore environ ${postsLeft(goal.points, goal.progress)} posts publiés`}
+          </Body>
+        </Card>
       )}
 
       <Card onPress={() => go({ name: 'ideas' })} style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>

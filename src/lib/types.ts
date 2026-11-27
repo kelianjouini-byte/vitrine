@@ -4,7 +4,14 @@ export type BusinessType =
   | 'restaurant' | 'vetements' | 'epicerie' | 'boucherie' | 'poissonnerie' | 'fromagerie' | 'primeur'
   | 'bar' | 'barbier' | 'bijouterie' | 'opticien' | 'librairie' | 'cadeaux' | 'jouets' | 'chaussures'
   | 'toilettage' | 'jardinerie' | 'onglerie' | 'tatoueur' | 'cordonnerie' | 'pressing' | 'artisan'
-  | 'traiteur' | 'autre';
+  | 'traiteur' | 'glacier' | 'creperie' | 'pizzeria' | 'snack' | 'asiatique' | 'foodtruck' | 'salondethe'
+  | 'torrefacteur' | 'bio' | 'tabac' | 'parfumerie' | 'spa' | 'pharmacie' | 'fitness' | 'yoga' | 'lingerie'
+  | 'modeenfant' | 'friperie' | 'mariage' | 'mercerie' | 'papeterie' | 'disquaire' | 'quincaillerie' | 'sport'
+  | 'telephonie' | 'electromenager' | 'meubles' | 'artsdelatable' | 'antiquaire' | 'galerie' | 'photographe'
+  | 'hotel' | 'garage' | 'autoecole' | 'immobilier' | 'batiment' | 'paysagiste' | 'autre';
+
+/** Taille de l'équipe, en tranches simples. */
+export type EmployeeCount = 'seul' | '2-5' | '6-10' | '11+';
 
 export type Tone = 'chaleureux' | 'elegant' | 'dynamique' | 'humoristique' | 'premium' | 'familial' | 'traditionnel';
 
@@ -30,6 +37,8 @@ export interface Business {
   specialties?: string;
   /** Ce qui rend la boutique unique : « fait maison », « bio », « 3e génération »... */
   strengths?: string;
+  /** Personnes qui travaillent dans la boutique, patron compris (pour adapter l'offre). */
+  employeeCount?: EmployeeCount;
   /** Jours de fermeture (0 = lundi ... 6 = dimanche) : le planning y met « Repos ». */
   closedDays?: number[];
   /** Réponses aux jours fériés (« ferie-11-novembre-2026 ») : ouvert ou fermé, et horaires si le commerçant les a écrits. */
@@ -116,6 +125,8 @@ export interface NotificationPrefs {
   monthlyReport?: boolean;
   /** Rappels du planning : « Votre post est prêt », « Idée de story du jour » (activé si absent). */
   planReminders?: boolean;
+  /** Petits sons des points de l'équipe (activés si absent). Le téléphone en silencieux les coupe aussi. */
+  sounds?: boolean;
 }
 
 export interface SocialConnection {

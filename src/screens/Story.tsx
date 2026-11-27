@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { unlockSounds } from '../lib/sfx';
 import { ActivityIndicator, Platform as RNPlatform, ScrollView, View } from 'react-native';
 import * as Crypto from 'expo-crypto';
 import { BackButton, Body, Button, Notice, PlatformPicker, defaultPlatforms, unconnectedPlatforms, Title } from '../components/ui';
@@ -24,7 +25,7 @@ import type { Platform, Post, PublicationResult } from '../lib/types';
  * `initial` : photo ou vidéo déjà prise avec les boutons de l'accueil.
  */
 export function Story({ initial }: { initial?: Captured }) {
-  const { back, go, upsertPost, connections, business, canPublish, refreshTeam } = useApp();
+  const { back, go, replace, upsertPost, connections, business, canPublish, refreshTeam } = useApp();
   const [media, setMedia] = useState<StoryMedia | null>(null);
   const [busy, setBusy] = useState(!!initial);
   // Version web : on filme avec notre propre caméra (celle du navigateur filme en basse qualité sur iPhone).
@@ -142,6 +143,7 @@ export function Story({ initial }: { initial?: Captured }) {
 
   async function publish() {
     if (!media) return;
+    unlockSounds();
     if (!canPublish) return sendToPatron();
     if (blocked) return;
     setError(null);
@@ -211,7 +213,12 @@ export function Story({ initial }: { initial?: Captured }) {
     return (
       <WebVideoRecorder
         maxSeconds={STORY_MAX_SECONDS}
-        onDone={(v) => { setRecording(false); show({ kind: 'video', uri: v.uri, seconds: v.seconds }); }}
+        onDone={(clips) => {
+          setRecording(false);
+          // Plusieurs bouts : Vitrine les monte d'abord ensemble.
+          if (clips.length > 1) return replace({ name: 'montage', clips: clips.map((c) => ({ uri: c.uri, thumb: c.thumb })) });
+          show({ kind: 'video', uri: clips[0].uri, seconds: Math.round(clips[0].seconds) });
+        }}
         onCancel={() => setRecording(false)}
         onError={(message) => { setRecording(false); setError(message); }}
       />

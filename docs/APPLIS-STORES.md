@@ -17,12 +17,9 @@
 | Rappels (fêtes, planning, idées du lundi, bilan, fin d'essai) | Non | Notifications locales (`@capacitor/local-notifications`) |
 | Bouton retour Android | — | Revient à l'écran précédent |
 
-## E-mails de fin d'essai (`supabase/functions/trial-emails`)
-- Tous les jours à 10 h (GitHub Actions `trial-emails.yml`) : rappel 3 jours avant la fin, puis e-mail le jour de la fin. Une seule fois chacun (table `trial_emails`).
-- Bouton « Renvoyer l'e-mail » de l'appli : 3 fois par heure au plus.
-- Chaque bouton de l'e-mail est un lien signé (30 jours) qui ouvre directement la page Stripe de l'offre, sans se reconnecter. Retour sur `/app/merci/`.
-- Secrets Supabase : `BREVO_API_KEY`, `CRON_SECRET` (+ facultatifs `MAIL_FROM`, `MAIL_REPLY_TO`). Déployer avec `verify_jwt = false`.
-- Base : `supabase/migrations/20261123150000_trial_emails.sql`.
+## E-mails de fin d'essai (`supabase/functions/trial-emails`, PR #60)
+- Tous les jours (pg_cron) : rappel 3 jours avant la fin, puis « essai terminé ». Offres listées, l'offre fondateur dans un encadré orange « Très rare » ; le bouton ouvre `vitrineappli.fr/app/` où l'on choisit son offre (Stripe sur le web).
+- Applis des stores : bouton « Renvoyer l'e-mail » = `POST {action:'resend'}` (patron connecté), 3 fois par heure au plus (table `trial_email_resends`, migration `20261127200000_trial_email_resends.sql`).
 
 ## Fabriquer et envoyer (GitHub Actions, sans Mac ni Xcode)
 Onglet **Actions** > **Applis App Store et Google Play** > **Run workflow** (choisir Android, iPhone ou les deux, et le numéro de version).
@@ -36,7 +33,6 @@ Secrets GitHub (Settings > Secrets and variables > Actions) :
 | `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD` | Clé de signature Android (fichier fourni à Kelian, gardé hors de Git) |
 | `APPLE_TEAM_ID` | developer.apple.com > Account > Membership details > Team ID |
 | `APPSTORE_KEY_ID`, `APPSTORE_ISSUER_ID`, `APPSTORE_KEY_P8` | App Store Connect > Users and Access > Integrations > App Store Connect API > clé avec le rôle **Admin** (contenu du fichier `.p8`) |
-| `CRON_SECRET` | Le même que dans Supabase |
 
 ## Mises à jour
 Une modification du code arrive tout de suite sur le site, mais **pas** dans les applis : il faut relancer la fabrication puis envoyer la nouvelle version aux stores (vérification Apple ≈ 1 jour).

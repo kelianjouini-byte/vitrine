@@ -114,7 +114,7 @@ export function comparisonText(s: MonthSummary): string {
   if (s.count === 0 && s.previousCount === 0) return `Aucun post publié en ${monthName(s.month)} ni en ${monthName(s.previous)}.`;
   if (s.trend === 'first') return `${prev} ${now}, vous avez repris : bravo !`;
   if (s.trend === 'same') return `${prev} ${now} aussi : vous êtes régulier.`;
-  if (s.trend === 'up') return `${prev} ${now}, c'est ${plural(diff, 'post', 'posts')} de plus. Bravo ! 👏`;
+  if (s.trend === 'up') return `${prev} ${now}, c'est ${plural(diff, 'post', 'posts')} de plus. Bravo !`;
   // Baisse : on reste encourageant, et on rappelle qu'il reste du temps si le mois n'est pas fini.
   return s.inProgress
     ? `${prev} Pour l'instant, ${plural(diff, 'post', 'posts')} de moins, mais il reste ${plural(s.daysLeft, 'jour', 'jours')} pour rattraper.`

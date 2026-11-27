@@ -3,7 +3,9 @@
 //   - 'login'       : {email, code} -> {access_token, refresh_token}  (l'employé se connecte avec le code donné par son patron)
 //  Connecté (tout le monde) :
 //   - 'context'     : rôle, prénom, boutiques accessibles, posts à valider / en attente
-//   - 'submit'      : un employé envoie son post (ou sa story) au patron
+//   - 'submit'      : un employé envoie son post (ou sa story) au patron (+10 points)
+//   - 'points'      : {post_id?} -> mes points, l'objectif de l'équipe, et ce qu'un post m'a rapporté
+//   - 'my_posts'    : un employé : ses envois (à refaire, en attente, publiés), sur tous ses téléphones
 //  Patrons seulement :
 //   - 'members'     : l'équipe, avec le code de chaque personne
 //   - 'add'         : {firstName, email, role, shopIds} -> la personne et son code
@@ -15,6 +17,9 @@
 //   - 'reject'      : {post_id, note?}
 //   - 'add_shop'    : {businessName, businessType, trade?, city, postalCode} -> la boutique ajoutée (prix mis à jour chez Stripe)
 //   - 'remove_shop' : {shopId}
+//   - 'set_goal'    : {points, reward} -> l'objectif de toute l'équipe (remplace le précédent), sans date
+//   - 'stop_goal'   : arrête l'objectif en cours
+//   - 'set_note'    : {note} -> le petit mot affiché sur l'accueil des employés (vide = rien)
 // Déployée avec verify_jwt = false (à cause de 'login') : le jeton est vérifié ici pour toutes les autres actions.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { handler, json, HttpError, env } from '../_shared/http.ts';
@@ -26,6 +31,7 @@ import { readImagePaths, readReelPaths, postImagePaths } from '../_shared/photos
 import { readPlatforms } from '../_shared/publish.ts';
 import { publishSavedPost, publishSavedStory } from '../_shared/publishCore.ts';
 import { decryptCode, encryptCode, newLoginCode, strongPassword, syncExtraShops } from '../_shared/teamServer.ts';
+import { MAX_SENT_PER_DAY, parisDayStart, POINTS, readGoal, sentPoints } from '../_shared/points.ts';
 import { isLockedOut, isPatron, LOCK_MINUTES, looksLikeEmail, looksLikeLoginCode, normalizeEmail, normalizeLoginCode, sameCode } from '../_shared/team.ts';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -43,15 +49,27 @@ Deno.serve(handler(async (req) => {
 
   if (action === 'context') return json(await context(ctx));
   if (action === 'submit') return json(await submit(ctx, body));
+  if (action === 'points') {
+    const summary = await pointsSummary(db, company.id, userId);
+    const pid = String(body.post_id ?? '');
+    let gained = 0;
+    if (summary && UUID.test(pid)) {
+      const { data } = await db.from('team_points').select('points').eq('post_id', pid).eq('user_id', userId);
+      gained = (data ?? []).reduce((a, r) => a + (r.points as number), 0);
+    }
+    return json({ points: summary, gained, maxPerDay: MAX_SENT_PER_DAY });
+  }
+  if (action === 'my_posts') return json({ posts: await myPosts(ctx) });
 
   requirePatron(member);
 
   if (action === 'members') {
     const { data: rows } = await db.from('team_members').select('*').eq('company_id', company.id).order('created_at');
     const { data: owner } = await db.auth.admin.getUserById(company.owner_id);
+    const stats = await monthStats(db, company.id, (rows ?? []).map((r) => r.user_id as string));
     const list = await Promise.all((rows ?? []).map(async (r) => ({
       id: r.id, firstName: r.first_name, email: r.email, role: r.role, shopIds: r.shop_ids ?? [], canPublish: r.can_publish,
-      code: await decryptCode(r.encrypted_code), isMe: r.user_id === userId,
+      code: await decryptCode(r.encrypted_code), isMe: r.user_id === userId, stats: stats[r.user_id] ?? null,
     })));
     return json({
       owner: { firstName: company.owner_first_name, email: owner?.user?.email ?? null, isMe: company.owner_id === userId },
@@ -138,7 +156,17 @@ Deno.serve(handler(async (req) => {
     const ok = publications.some((p) => p.status === 'published');
     // Rien n'est parti (réseau pas connecté…) : le post reste à valider, le patron pourra réessayer.
     await db.from('posts').update(ok ? { review_state: 'approved', reviewed_by: userId } : { status: 'awaiting_approval' }).eq('id', post.id);
-    return json({ publications });
+    // Publié : +50 points pour l'employé qui l'a préparé (et pour la barre de l'équipe).
+    let points = null;
+    if (ok && post.created_by) {
+      const { data: author } = await db.from('team_members').select('first_name, role').eq('user_id', post.created_by).eq('company_id', company.id).maybeSingle();
+      if (author?.role === 'employe') {
+        const gained = await award(db, company.id, post.created_by, post.id, 'published', POINTS.published);
+        const summary = await pointsSummary(db, company.id, post.created_by);
+        if (summary) points = { by: author.first_name, gained, ...summary };
+      }
+    }
+    return json({ publications, points });
   }
 
   if (action === 'add_shop') {
@@ -188,8 +216,104 @@ Deno.serve(handler(async (req) => {
     return json({ ok: true });
   }
 
+  if (action === 'set_goal') {
+    const goal = readGoal(body.points, body.reward);
+    if (!goal) throw new HttpError(400, 'bad_goal', 'Choisissez un nombre de points et écrivez la récompense.');
+    await db.from('team_goals').update({ stopped_at: new Date().toISOString() }).eq('company_id', company.id).is('stopped_at', null);
+    const { error } = await db.from('team_goals').insert({ company_id: company.id, points: goal.points, reward: goal.reward, created_by: userId });
+    if (error) throw new HttpError(500, 'db', 'L\'objectif n\'a pas pu être enregistré. Réessayez.');
+    return json({ points: await pointsSummary(db, company.id, userId) });
+  }
+
+  if (action === 'stop_goal') {
+    await db.from('team_goals').update({ stopped_at: new Date().toISOString() }).eq('company_id', company.id).is('stopped_at', null);
+    return json({ ok: true });
+  }
+
+  if (action === 'set_note') {
+    const note = str(body.note, 160).replace(/\s+/g, ' ');
+    const { error } = await db.from('team_settings').upsert({ company_id: company.id, note: note || null, note_by: userId, note_at: new Date().toISOString() });
+    if (error) throw new HttpError(500, 'db', 'Le message n\'a pas pu être enregistré. Réessayez.');
+    return json({ ok: true });
+  }
+
   throw new HttpError(400, 'bad_action', 'Action inconnue.');
 }));
+
+// deno-lint-ignore no-explicit-any
+type Db = any;
+
+/**
+ * Donne des points (une seule fois par post et par type). Renvoie les points vraiment donnés.
+ * Si la table n'existe pas encore (SQL pas encore lancé), rien n'est donné et rien ne casse.
+ */
+async function award(db: Db, companyId: string, userId: string, postId: string, reason: 'sent' | 'published', points: number): Promise<number> {
+  if (points <= 0) return 0;
+  const { error } = await db.from('team_points').insert({ company_id: companyId, user_id: userId, post_id: postId, reason, points });
+  if (error) return 0;
+  // L'objectif de l'équipe vient-il d'être atteint ?
+  const goal = await activeGoal(db, companyId);
+  if (goal && !goal.reached_at && (await sumPoints(db, companyId, goal.created_at)) >= goal.points) {
+    await db.from('team_goals').update({ reached_at: new Date().toISOString() }).eq('id', goal.id);
+  }
+  return points;
+}
+
+async function activeGoal(db: Db, companyId: string) {
+  const { data, error } = await db.from('team_goals').select('*').eq('company_id', companyId).is('stopped_at', null).maybeSingle();
+  return error ? null : data;
+}
+
+/** Points de toute l'équipe depuis une date (ou ceux d'une personne si userId). */
+async function sumPoints(db: Db, companyId: string, since: string | null, userId?: string): Promise<number> {
+  let q = db.from('team_points').select('points').eq('company_id', companyId);
+  if (since) q = q.gte('created_at', since);
+  if (userId) q = q.eq('user_id', userId);
+  const { data, error } = await q.limit(20000);
+  if (error) throw error;
+  return (data ?? []).reduce((a: number, r: { points: number }) => a + r.points, 0);
+}
+
+/** Mes points (depuis le début) et l'objectif de l'équipe. null si les points ne sont pas encore installés. */
+async function pointsSummary(db: Db, companyId: string, userId: string) {
+  try {
+    const mine = await sumPoints(db, companyId, null, userId);
+    const goal = await activeGoal(db, companyId);
+    const progress = goal ? await sumPoints(db, companyId, goal.created_at) : 0;
+    return {
+      mine,
+      goal: goal ? { id: goal.id, points: goal.points, reward: goal.reward, reachedAt: goal.reached_at, progress: Math.min(progress, goal.points) } : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Pour le patron : ce que chaque personne a préparé et publié ce mois-ci, ses points du mois et depuis le début. */
+async function monthStats(db: Db, companyId: string, userIds: string[]) {
+  const out: Record<string, { prepared: number; published: number; monthPoints: number; totalPoints: number }> = {};
+  if (!userIds.length) return out;
+  const d = new Date();
+  const since = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)).toISOString();
+  const [{ data: posts }, pts] = await Promise.all([
+    db.from('posts').select('created_by, review_state, status').in('created_by', userIds).gte('created_at', since).limit(5000),
+    db.from('team_points').select('user_id, points, created_at').in('user_id', userIds).limit(50000),
+  ]);
+  for (const id of userIds) out[id] = { prepared: 0, published: 0, monthPoints: 0, totalPoints: 0 };
+  for (const p of posts ?? []) {
+    const s = out[p.created_by];
+    if (!s) continue;
+    if (p.review_state) s.prepared++;
+    if (p.status === 'published' || p.status === 'partially_published') s.published++;
+  }
+  for (const r of (pts?.error ? [] : pts?.data) ?? []) {
+    const s = out[r.user_id];
+    if (!s) continue;
+    s.totalPoints += r.points;
+    if (r.created_at >= since) s.monthPoints += r.points;
+  }
+  return out;
+}
 
 type Ctx = Awaited<ReturnType<typeof requireMerchant>>;
 
@@ -218,7 +342,15 @@ async function context({ db, userId, company, member }: Ctx) {
     mine = { pending: p ?? 0, rejected: r ?? 0 };
   }
   const { count: team } = await db.from('team_members').select('id', { count: 'exact', head: true }).eq('company_id', company.id);
+  const { data: settings } = await db.from('team_settings').select('note, note_by').eq('company_id', company.id).maybeSingle();
+  let noteBy: string | null = null;
+  if (settings?.note) {
+    const { data: who } = await db.from('team_members').select('first_name').eq('user_id', settings.note_by).maybeSingle();
+    noteBy = who?.first_name ?? company.owner_first_name;
+  }
   return {
+    points: await pointsSummary(db, company.id, userId),
+    note: settings?.note ? { text: settings.note as string, by: noteBy } : null,
     role: member.role,
     firstName: member.firstName,
     canPublish: member.canPublish,
@@ -250,8 +382,39 @@ async function pendingPosts({ db, company, member }: Ctx) {
   }));
 }
 
+/** Les envois d'un employé (60 derniers), avec photo, réponse du patron et points gagnés. Sur tous ses téléphones. */
+async function myPosts({ db, userId }: Ctx) {
+  const { data: posts } = await db.from('posts').select('*').eq('created_by', userId).not('review_state', 'is', null)
+    .order('submitted_at', { ascending: false, nullsFirst: false }).limit(60);
+  if (!posts?.length) return [];
+  const ids = posts.map((p) => p.id);
+  const { data: pts } = await db.from('team_points').select('post_id, points').in('post_id', ids).eq('user_id', userId);
+  return Promise.all(posts.map(async (p) => {
+    const path = p.kind === 'story' ? (p.media_type === 'video' ? null : p.image_url) : p.media_type === 'video' ? (p.image_urls?.[0] ?? null) : postImagePaths(p)[0];
+    const { data: signed } = path ? await db.storage.from('post-images').createSignedUrl(path, 3600) : { data: null };
+    return {
+      id: p.id, kind: p.kind, mediaType: p.media_type, caption: p.instagram_caption ?? '', reviewState: p.review_state, reviewNote: p.review_note,
+      status: p.status, submittedAt: p.submitted_at, publishedAt: p.published_at ?? null, shopId: p.business_id,
+      points: (pts ?? []).filter((x) => x.post_id === p.id).reduce((a, x) => a + x.points, 0),
+      thumbUrl: signed?.signedUrl ?? null,
+    };
+  }));
+}
+
 /** Un employé envoie son post (ou sa story) au patron. Rien n'est publié ici. */
-async function submit({ db, userId, business, company }: Ctx, body: Record<string, unknown>) {
+async function submit(ctx: Ctx, body: Record<string, unknown>) {
+  const res = await submitPost(ctx, body);
+  // Un employé gagne +10 points par envoi (3 envois comptés par jour au plus). Un patron ne gagne rien.
+  if (ctx.member.role === 'employe') {
+    const id = String(body.kind === 'story' ? body.story_id : body.post_id);
+    const { count } = await ctx.db.from('team_points').select('id', { count: 'exact', head: true })
+      .eq('user_id', ctx.userId).eq('reason', 'sent').gte('created_at', parisDayStart(new Date()).toISOString());
+    await award(ctx.db, ctx.company.id, ctx.userId, id, 'sent', sentPoints(count ?? 0));
+  }
+  return res;
+}
+
+async function submitPost({ db, userId, business, company }: Ctx, body: Record<string, unknown>) {
   const platforms = readPlatforms(body.platforms);
   const key = String(body.idempotency_key ?? '');
   if (!platforms.length || key.length < 16) throw new HttpError(400, 'bad_request', 'Choisissez au moins un réseau.');

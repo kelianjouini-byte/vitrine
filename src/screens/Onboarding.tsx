@@ -9,7 +9,9 @@ import { GlassBackground } from '../components/GlassBackground';
 import { DEFAULT_TONE, TONES } from '../lib/business';
 import { TradePicker } from '../components/TradePicker';
 import { IdentityFields } from '../components/IdentityFields';
-import { matchTrade } from '../lib/trades';
+import { guessTrade, matchTrade } from '../lib/trades';
+import { ShopFinder } from '../components/ShopFinder';
+import type { ShopMatch } from '../lib/shopLookup';
 import { occasionCatalog } from '../lib/events';
 import { colors, fonts } from '../lib/theme';
 import { useApp } from '../lib/store';
@@ -52,14 +54,30 @@ export function Onboarding() {
   const [detected, setDetected] = useState(false);
   const [foundOnline, setFoundOnline] = useState(false);
   const triedFor = useRef('');
+  const [pickedShop, setPickedShop] = useState<ShopMatch | null>(null);
 
-  // Dès que le nom et la ville sont écrits, l'IA cherche la boutique sur internet pour pré-remplir le métier.
+  // Le commerçant a touché sa boutique dans la liste de l'annuaire : on remplit ville, code postal et métier.
+  function pickShop(shop: ShopMatch) {
+    const t = guessTrade(shop.names, shop.naf);
+    setPickedShop(shop);
+    setForm((f) => ({
+      ...f,
+      city: shop.city || f.city,
+      postalCode: shop.postalCode || f.postalCode,
+      ...(t ? { businessType: t.id, trade: t.label } : {}),
+    }));
+    setErrors((e) => ({ ...e, city: '', postalCode: '', ...(t ? { businessType: '' } : {}) }));
+    if (t) setDetected(true);
+  }
+
+  // Dès que le nom et la ville sont écrits, l'IA cherche la boutique sur internet pour pré-remplir
+  // le métier (s'il n'est pas déjà choisi) et la carte d'identité (produits, points forts, clients).
   useEffect(() => {
     const name = form.businessName?.trim() ?? '';
     const city = form.city?.trim() ?? '';
     const cp = form.postalCode?.trim() ?? '';
     const key = `${name}|${city}|${cp}`.toLowerCase();
-    if (!isBackendConfigured || form.businessType || name.length < 2 || city.length < 2 || triedFor.current === key) return;
+    if (!isBackendConfigured || name.length < 2 || city.length < 2 || triedFor.current === key) return;
     const t = setTimeout(async () => {
       triedFor.current = key;
       setDetecting(true);
@@ -67,16 +85,16 @@ export function Onboarding() {
         const found = await detectBusiness({ businessName: name, city, postalCode: cp });
         if (found?.trade) {
           const m = matchTrade(found.trade);
-          // On pré-remplit seulement ce que le commerçant n'a pas déjà écrit.
-          setForm((f) => (f.businessType ? f : {
+          // On pré-remplit seulement ce que le commerçant n'a pas déjà écrit (ni choisi dans l'annuaire).
+          const hadTrade = Boolean(form.businessType);
+          setForm((f) => ({
             ...f,
-            businessType: m?.id ?? 'autre',
-            trade: m?.label ?? found.trade!,
+            ...(f.businessType ? {} : { businessType: m?.id ?? 'autre', trade: m?.label ?? found.trade! }),
             specialties: f.specialties || found.products || undefined,
             strengths: f.strengths || found.strengths || undefined,
             audience: f.audience || found.audience || undefined,
           }));
-          setDetected(true);
+          if (!hadTrade) setDetected(true);
           setFoundOnline(Boolean(found.products || found.strengths || found.audience));
         }
       } catch {
@@ -86,7 +104,8 @@ export function Onboarding() {
       }
     }, 1200);
     return () => clearTimeout(t);
-  }, [form.businessName, form.city, form.postalCode, form.businessType]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.businessName, form.city, form.postalCode]);
 
   function validateStep1(): boolean {
     const e: Record<string, string> = {};
@@ -114,6 +133,7 @@ export function Onboarding() {
       description: form.description?.trim() || undefined,
       specialties: form.specialties?.trim() || undefined,
       strengths: form.strengths?.trim() || undefined,
+      employeeCount: form.employeeCount,
     };
     try {
       // Métier hors liste : l'IA choisit les occasions qui lui conviennent (sinon, toutes restent proposées).
@@ -185,14 +205,22 @@ export function Onboarding() {
               <Title size={26} style={{ color: colors.green }}>Vitrine</Title>
             </View>
             <Title size={30}>Votre boutique</Title>
-            <Body soft>Quelques informations pour écrire des posts qui vous ressemblent.</Body>
+            <Body soft>Écrivez le nom et le code postal : Vitrine retrouve votre boutique et remplit le reste.</Body>
             {noShopYet ? <Body size={15}>Vous êtes connecté. Aucune boutique n'est encore enregistrée sur ce compte : créez-la ci-dessous.</Body> : null}
             <Field label="Votre prénom" value={form.ownerFirstName} onChangeText={(v) => set('ownerFirstName', v)} placeholder="Ex. : Marie" error={errors.ownerFirstName} autoComplete="given-name" />
-            <Field label="Nom de la boutique" value={form.businessName} onChangeText={(v) => set('businessName', v)} placeholder="Ex. : Fleurs de Marie" error={errors.businessName} />
+            <Field label="Nom de la boutique" value={form.businessName} onChangeText={(v) => { set('businessName', v); }} placeholder="Ex. : Fleurs de Marie" error={errors.businessName} />
             <View style={{ flexDirection: 'row', gap: 12 }}>
-              <View style={{ flex: 2 }}><Field label="Ville" value={form.city} onChangeText={(v) => set('city', v)} placeholder="Ex. : Lyon" error={errors.city} /></View>
-              <View style={{ flex: 1.3 }}><Field label="Code postal" value={form.postalCode} onChangeText={(v) => set('postalCode', v.replace(/\D/g, '').slice(0, 5))} placeholder="Ex. : 69002" keyboardType="number-pad" error={errors.postalCode} /></View>
+              <View style={{ flex: 1.3 }}><Field label="Code postal" value={form.postalCode} onChangeText={(v) => { set('postalCode', v.replace(/\D/g, '').slice(0, 5)); setPickedShop(null); }} placeholder="Ex. : 13100" keyboardType="number-pad" error={errors.postalCode} /></View>
+              <View style={{ flex: 2 }}><Field label="Ville" value={form.city} onChangeText={(v) => { set('city', v); setPickedShop(null); }} placeholder="Ex. : Aix-en-Provence" error={errors.city} /></View>
             </View>
+            <ShopFinder
+              name={form.businessName}
+              postalCode={form.postalCode}
+              city={form.city}
+              picked={pickedShop}
+              onPick={pickShop}
+              onUnpick={() => setPickedShop(null)}
+            />
             <TradePicker
               value={{ businessType: form.businessType, trade: form.trade }}
               onChange={(v) => { setForm((f) => ({ ...f, businessType: v.businessType, trade: v.trade })); setErrors((e) => ({ ...e, businessType: '' })); setDetected(false); }}

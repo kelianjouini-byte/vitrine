@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { BackButton, Body, Button, Card, Field, Notice, Title } from '../components/ui';
 import { TradePicker, type TradeValue } from '../components/TradePicker';
+import { ShopFinder } from '../components/ShopFinder';
+import { guessTrade } from '../lib/trades';
+import type { ShopMatch } from '../lib/shopLookup';
 import { PlusIcon } from '../components/icons';
 import { colors } from '../lib/theme';
 import { useApp } from '../lib/store';
@@ -18,7 +21,17 @@ export function ShopAdd() {
   const [trade, setTrade] = useState<TradeValue>({ businessType: business?.businessType, trade: business?.trade });
   const [city, setCity] = useState('');
   const [postalCode, setPostalCode] = useState('');
+  const [picked, setPicked] = useState<ShopMatch | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // Boutique touchée dans la liste de l'annuaire : ville, code postal et métier se remplissent.
+  function pick(shop: ShopMatch) {
+    const t = guessTrade(shop.names, shop.naf);
+    setPicked(shop);
+    if (shop.city) setCity(shop.city);
+    if (shop.postalCode) setPostalCode(shop.postalCode);
+    if (t) setTrade({ businessType: t.id, trade: t.label });
+  }
   const [error, setError] = useState<string | null>(null);
 
   const access = billing?.access;
@@ -62,9 +75,10 @@ export function ShopAdd() {
             <Body soft size={15}>Chaque boutique a ses propres posts, son planning et ses comptes Instagram et Facebook. Vos employés restent gratuits.</Body>
           </Card>
           <Field label="Nom de la boutique" value={name} onChangeText={setName} placeholder="Ex. : Fleurs de Marie" />
+          <Field label="Code postal" value={postalCode} onChangeText={(v) => { setPostalCode(v.replace(/\D/g, '').slice(0, 5)); setPicked(null); }} keyboardType="number-pad" placeholder="Ex. : 13001" />
+          <Field label="Ville" value={city} onChangeText={(v) => { setCity(v); setPicked(null); }} placeholder="Ex. : Marseille" />
+          <ShopFinder name={name} postalCode={postalCode} city={city} picked={picked} onPick={pick} onUnpick={() => setPicked(null)} />
           <TradePicker value={trade} onChange={setTrade} />
-          <Field label="Ville" value={city} onChangeText={setCity} placeholder="Ex. : Marseille" />
-          <Field label="Code postal" value={postalCode} onChangeText={(v) => setPostalCode(v.replace(/\D/g, '').slice(0, 5))} keyboardType="number-pad" placeholder="Ex. : 13001" />
           {error && <Notice tone="red" title={error} />}
           <Button title="Ajouter la boutique" icon={<PlusIcon size={22} color={colors.white} />} loading={busy} disabled={!valid} onPress={submit} style={{ minHeight: 60 }} />
           <Body soft size={14} center>Le prix est ajouté à votre abonnement, au prorata des jours restants ce mois-ci.</Body>
