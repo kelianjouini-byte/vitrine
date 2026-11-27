@@ -16,6 +16,7 @@ import type { RemotePost } from './sync';
 import type { BillingStatus, PlanId } from './billing';
 import type { ReferralInfo } from './referral';
 import type { MySentPost, PendingPost, PointsSummary, TeamContext, TeamList } from './team';
+import { parseShopResults, shopSearchUrl, type ShopMatch } from './shopLookup';
 
 export class NotConfiguredError extends Error {
   constructor(public what: 'serveur' | 'ia' | 'meta' | 'compte' | 'paiement') {
@@ -241,6 +242,7 @@ export function toBusiness(data: BusinessRow): Business {
     description: data.description ?? undefined,
     specialties: data.specialties ?? undefined,
     strengths: data.strengths ?? undefined,
+    employeeCount: data.employee_count ?? undefined,
   };
 }
 
@@ -326,16 +328,22 @@ export async function saveBusinessRemote(b: Business): Promise<string | undefine
     description: b.description ?? null,
     specialties: b.specialties ?? null,
     strengths: b.strengths?.trim() || null,
+    ...(b.employeeCount ? { employee_count: b.employeeCount } : {}),
   };
+  // Colonne employee_count pas encore créée dans la base : on enregistre le reste sans bloquer.
+  const missingColumn = (e: { message?: string; code?: string } | null) => Boolean(e && 'employee_count' in fields && (e.code === 'PGRST204' || /employee_count/.test(e.message ?? '')));
+  const lean = () => { const { employee_count: _drop, ...rest } = fields as typeof fields & { employee_count?: string }; return rest; };
   // Boutique déjà enregistrée (principale ou ajoutée) : on la met à jour par son id.
   // Un patron ajouté à l'équipe modifie ainsi la boutique de l'entreprise, sans s'en créer une.
   if (b.id) {
-    const { data, error } = await supabase.from('businesses').update(fields).eq('id', b.id).select('id').maybeSingle();
+    let { data, error } = await supabase.from('businesses').update(fields).eq('id', b.id).select('id').maybeSingle();
+    if (missingColumn(error)) ({ data, error } = await supabase.from('businesses').update(lean()).eq('id', b.id).select('id').maybeSingle());
     if (!error && data) return data.id as string;
     if (b.mainBusinessId) throw new FriendlyError("La boutique n'a pas pu être enregistrée. Réessayez.");
   }
-  const { data, error } = await supabase.from('businesses').upsert({ owner_id: userId, ...fields }, { onConflict: 'owner_id' }).select('id').single();
-  if (error) throw new FriendlyError("Votre boutique n'a pas pu être enregistrée. Réessayez.");
+  let { data, error } = await supabase.from('businesses').upsert({ owner_id: userId, ...fields }, { onConflict: 'owner_id' }).select('id').single();
+  if (missingColumn(error)) ({ data, error } = await supabase.from('businesses').upsert({ owner_id: userId, ...lean() }, { onConflict: 'owner_id' }).select('id').single());
+  if (error || !data) throw new FriendlyError("Votre boutique n'a pas pu être enregistrée. Réessayez.");
   return data.id as string;
 }
 
@@ -450,6 +458,16 @@ export async function detectBusiness(input: { businessName: string; city: string
   });
   if (!res?.trade) return null;
   return { trade: res.trade, products: res.products ?? null, strengths: res.strengths ?? null, audience: res.audience ?? null };
+}
+
+/**
+ * Cherche la boutique dans l'annuaire public des entreprises (gratuit, sans clé, sans compte Vitrine).
+ * Fonctionne même sans serveur Vitrine. Rien trouvé ou pas de réseau : liste vide, le commerçant tape lui-même.
+ */
+export async function findShops(input: { name: string; postalCode?: string; city?: string }, signal?: AbortSignal): Promise<ShopMatch[]> {
+  const res = await fetch(shopSearchUrl(input), { signal, headers: { Accept: 'application/json' } });
+  if (!res.ok) return [];
+  return parseShopResults(await res.json(), input.postalCode);
 }
 
 /** Pour un métier hors liste : l'IA choisit les occasions qui lui conviennent. */
