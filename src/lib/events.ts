@@ -213,15 +213,60 @@ function slug(s: string): string {
   return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 }
 
+/**
+ * Métiers sans calendrier propre : ils reprennent les fêtes d'un métier proche
+ * (ex. glacier → pâtisserie). Ajoutés le 27 nov. 2026.
+ */
+const CALENDAR_LIKE: Partial<Record<BusinessType, BusinessType>> = {
+  glacier: 'patisserie',
+  creperie: 'restaurant',
+  pizzeria: 'restaurant',
+  snack: 'restaurant',
+  asiatique: 'restaurant',
+  foodtruck: 'restaurant',
+  salondethe: 'patisserie',
+  torrefacteur: 'epicerie',
+  bio: 'epicerie',
+  tabac: 'cadeaux',
+  parfumerie: 'beaute',
+  spa: 'beaute',
+  pharmacie: 'opticien',
+  fitness: 'coiffure',
+  yoga: 'coiffure',
+  lingerie: 'vetements',
+  modeenfant: 'vetements',
+  friperie: 'vetements',
+  mariage: 'vetements',
+  mercerie: 'cadeaux',
+  papeterie: 'librairie',
+  disquaire: 'librairie',
+  quincaillerie: 'jardinerie',
+  sport: 'chaussures',
+  telephonie: 'cadeaux',
+  electromenager: 'cadeaux',
+  meubles: 'cadeaux',
+  artsdelatable: 'cadeaux',
+  antiquaire: 'artisan',
+  galerie: 'artisan',
+  photographe: 'artisan',
+  hotel: 'restaurant',
+  garage: 'cordonnerie',
+  autoecole: 'cordonnerie',
+  immobilier: 'cordonnerie',
+  batiment: 'cordonnerie',
+  paysagiste: 'jardinerie',
+};
+
 /** Ce qui définit le calendrier d'un commerce : son métier, et ses occasions choisies s'il est hors liste. */
 export type CalendarProfile = BusinessType | { businessType: BusinessType; occasionKeys?: string[] };
 
 export function isRelevant(e: CommercialEvent, profile: CalendarProfile): boolean {
-  const type = typeof profile === 'string' ? profile : profile.businessType;
+  const own = typeof profile === 'string' ? profile : profile.businessType;
+  const like = CALENDAR_LIKE[own];
   const keys = typeof profile === 'string' ? undefined : profile.occasionKeys;
   if (e.relevantFor === 'all') return true;
   if (keys?.length) return keys.includes(e.key);
-  return e.relevantFor.includes(type) || type === 'autre';
+  return e.relevantFor.includes(own) || (like ? e.relevantFor.includes(like) : false) || own === 'autre';
 }
 
 /** Toutes les occasions possibles (une par clé), pour que l'IA choisisse celles d'un métier hors liste. */

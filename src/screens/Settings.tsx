@@ -153,11 +153,11 @@ export function Settings() {
 function IdentityCard() {
   const { business, saveBusiness } = useApp();
   const b = business!;
-  const initial: Identity = { specialties: b.specialties ?? '', strengths: b.strengths ?? '', audience: b.audience ?? '', description: b.description ?? '' };
+  const initial: Identity = { specialties: b.specialties ?? '', strengths: b.strengths ?? '', audience: b.audience ?? '', description: b.description ?? '', employeeCount: b.employeeCount };
   const [form, setForm] = useState<Identity>(initial);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
-  const changed = (Object.keys(initial) as (keyof Identity)[]).some((k) => (form[k] ?? '').trim() !== (initial[k] ?? '').trim());
+  const changed = (Object.keys(initial) as (keyof Identity)[]).some((k) => (form[k] ?? '').trim() !== (initial[k] ?? '').trim()) || form.employeeCount !== initial.employeeCount;
 
   async function submit() {
     setSaving(true);
