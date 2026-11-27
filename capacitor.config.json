@@ -1,0 +1,19 @@
+{
+  "appId": "fr.vitrineappli.app",
+  "appName": "Vitrine",
+  "webDir": "dist-store",
+  "backgroundColor": "#F8FAF7",
+  "ios": {
+    "contentInset": "never",
+    "scheme": "Vitrine"
+  },
+  "android": {
+    "backgroundColor": "#F8FAF7"
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_vitrine",
+      "iconColor": "#2F7658"
+    }
+  }
+}

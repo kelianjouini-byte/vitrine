@@ -10,6 +10,7 @@ import { isBackendConfigured } from '../lib/config';
 import { chooseMetaPage, metaConfigured, metaLoginUrl, metaPendingPages, NotConfiguredError, FriendlyError, type MetaPageChoice } from '../lib/api';
 import type { Platform } from '../lib/types';
 import { takeMetaReturn } from '../lib/metaReturn';
+import { isStoreApp, openMetaLogin, STORE_APP_META_RETURN } from '../lib/native';
 
 /**
  * Connexion Instagram / Facebook via l'OAuth officiel de Meta.
@@ -21,6 +22,7 @@ import { takeMetaReturn } from '../lib/metaReturn';
  * Appli : vitrine://meta-connected. Web : la page de Vitrine elle-même (ex. vitrineappli.fr/app/meta-connected).
  */
 function redirectUri(): string {
+  if (isStoreApp) return STORE_APP_META_RETURN;
   if (RNPlatform.OS === 'web' && typeof window !== 'undefined') {
     const base = window.location.pathname.replace(/[^/]*$/, ''); // « /app/ »
     return `${window.location.origin}${base}meta-connected`;
@@ -78,6 +80,14 @@ export function NetworkCards() {
     try {
       const redirect = redirectUri();
       const url = await metaLoginUrl(redirect);
+      if (isStoreApp) {
+        // Appli des stores : la page Facebook s'ouvre dans le navigateur du téléphone, par-dessus Vitrine.
+        const back = await openMetaLogin(url);
+        if (back) await handleResult(back);
+        else await refreshConnections();
+        setBusy(false);
+        return;
+      }
       if (RNPlatform.OS === 'web' && typeof window !== 'undefined') {
         // Même onglet : une fenêtre à part serait bloquée par le navigateur (Safari surtout).
         window.location.assign(url);

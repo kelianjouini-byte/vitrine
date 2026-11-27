@@ -68,6 +68,21 @@ function results(d: TrialEmailData): string | null {
   return d.views > 0 ? `Pendant votre essai : ${posts}, vues ${nb(d.views)} fois.` : `Pendant votre essai : ${posts}.`;
 }
 
+/**
+ * Les offres en HTML : l'offre fondateur (si des places restent) dans un encadré orange « Très rare »,
+ * pour montrer qu'elle est rare (demande de Kelian, 23 nov. 2026) ; Mensuel et Annuel en liste dessous.
+ */
+function offersHtml(list: string[], hasFounder: boolean): string {
+  const [first, ...rest] = list;
+  const founder = hasFounder
+    ? `<div style="margin:0 0 14px;background:#FCEFD9;border:2px solid #F2B66D;border-radius:12px;padding:12px 14px">
+<div style="display:inline-block;background:#F2B66D;color:#5A3A0C;font-size:13px;font-weight:bold;padding:3px 10px;border-radius:999px;margin-bottom:6px">Très rare</div>
+<div style="color:#8A5A12;font-weight:bold">${esc(first)}</div></div>`
+    : '';
+  const others = hasFounder ? rest : list;
+  return `${founder}<ul style="margin:0 0 22px;padding-left:20px">${others.map((o) => `<li style="margin:0 0 6px">${esc(o)}</li>`).join('')}</ul>`;
+}
+
 /** Texte des deux e-mails : phrases courtes, vouvoiement, aucune formule de vendeur. */
 export function trialEmail(kind: TrialEmailKind, d: TrialEmailData, now = new Date()): TrialEmail {
   const hello = `Bonjour ${d.firstName.trim() || ''}`.trim() + ',';
@@ -94,7 +109,7 @@ export function trialEmail(kind: TrialEmailKind, d: TrialEmailData, now = new Da
 <p style="margin:0 0 22px;font-family:Georgia,serif;font-size:26px;font-weight:bold;color:#2F7658">Vitrine</p>
 <div style="background:#FFFFFF;border-radius:16px;padding:26px 22px">
 ${p(hello)}${lines.map(p).join('')}
-<ul style="margin:0 0 22px;padding-left:20px">${list.map((o) => `<li style="margin:0 0 6px">${esc(o)}</li>`).join('')}</ul>
+${offersHtml(list, d.founderLeft > 0)}
 <p style="margin:0 0 6px;text-align:center"><a href="${esc(d.appUrl)}" style="display:inline-block;background:#2F7658;color:#FFFFFF;text-decoration:none;font-weight:bold;padding:15px 28px;border-radius:12px">${button}</a></p>
 </div>
 <p style="margin:20px 0 4px;color:#758078;font-size:15px">${esc(after)}</p>

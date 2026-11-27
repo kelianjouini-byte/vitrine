@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Linking, Pressable, ScrollView, Switch, View } from 'react-native';
+import { Pressable, ScrollView, Switch, View } from 'react-native';
 import { Body, Button, Card, Chevron, Chip, Field, IconTile, Label, Notice, Title, BackButton } from '../components/ui';
 import { BackIcon, PeopleIcon, PersonIcon, PlusIcon, StoreIcon } from '../components/icons';
 import { NetworkCards } from '../components/NetworkCards';
@@ -10,6 +10,7 @@ import { subscriptionSummary } from '../lib/billing';
 import { toneLabel, tradeLabel } from '../lib/business';
 import { isBackendConfigured } from '../lib/config';
 import { notificationsSupported } from '../lib/notifications';
+import { isStoreApp, openExternal } from '../lib/native';
 import { accountState, FriendlyError, protectAccount, removeShop, saveBusinessRemote, signOut, type AccountState } from '../lib/api';
 import { EmailPasswordForm } from '../components/AccountForms';
 import { DeleteAccount } from '../components/DeleteAccount';
@@ -64,12 +65,13 @@ export function Settings() {
       <Label>Mon abonnement</Label>
       <Card onPress={() => go({ name: 'offers' })} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         <View style={{ flex: 1, gap: 2 }}>
-          <Body style={{ fontWeight: '700' }}>Voir les offres</Body>
-          <Body soft size={15}>{subscriptionSummary(billing)}</Body>
+          <Body style={{ fontWeight: '700' }}>{isStoreApp ? 'Où en est mon abonnement' : 'Voir les offres'}</Body>
+          <Body soft size={15}>{isStoreApp ? 'Essai gratuit, abonnement, e-mail de suivi.' : subscriptionSummary(billing)}</Body>
         </View>
         <Chevron />
       </Card>
 
+      {!isStoreApp && <>
       <Label>Parler de Vitrine</Label>
       <Card onPress={() => go({ name: 'referral' })} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         <IconTile size={44}><PeopleIcon size={24} color={colors.green} /></IconTile>
@@ -79,6 +81,7 @@ export function Settings() {
         </View>
         <Chevron />
       </Card>
+      </>}
 
       <Label>Mes réseaux</Label>
       <NetworkCards />
@@ -142,8 +145,8 @@ export function Settings() {
       <Body soft size={15}>Vos photos et vos textes vous appartiennent. Vous pouvez tout supprimer à tout moment : votre boutique, vos posts et vos connexions.</Body>
       <DeleteAccount />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' }}>
-        <Button title="Confidentialité" kind="ghost" onPress={() => Linking.openURL(`${LEGAL_SITE}/confidentialite/`)} />
-        <Button title="Conditions d'utilisation" kind="ghost" onPress={() => Linking.openURL(`${LEGAL_SITE}/conditions/`)} />
+        <Button title="Confidentialité" kind="ghost" onPress={() => openExternal(`${LEGAL_SITE}/confidentialite/`)} />
+        <Button title="Conditions d'utilisation" kind="ghost" onPress={() => openExternal(`${LEGAL_SITE}/conditions/`)} />
       </View>
     </ScrollView>
   );
@@ -276,11 +279,11 @@ function Shops() {
         </View>
       ))}
       {error && <Notice tone="red" title={error} />}
-      <Pressable onPress={() => go({ name: 'shopAdd' })} accessibilityRole="button" style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderTopWidth: 1, borderTopColor: 'rgba(36,51,43,0.08)' }}>
+      {!isStoreApp && <Pressable onPress={() => go({ name: 'shopAdd' })} accessibilityRole="button" style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderTopWidth: 1, borderTopColor: 'rgba(36,51,43,0.08)' }}>
         <IconTile size={40}><PlusIcon size={20} color={colors.green} /></IconTile>
         <Body style={{ flex: 1, fontWeight: '700', color: colors.green }}>Ajouter une boutique</Body>
         <Chevron />
-      </Pressable>
+      </Pressable>}
     </Card>
   );
 }

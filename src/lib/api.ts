@@ -29,6 +29,9 @@ export class FriendlyError extends Error {}
 /** Le compte n'a pas encore d'e-mail : il faut le protéger avant de s'abonner. */
 export class AccountNotProtectedError extends FriendlyError {}
 
+/** Le bouton « Renvoyer l'e-mail » alors que l'abonnement est déjà payé (l'appli va se rouvrir). */
+export class AlreadySubscribedError extends FriendlyError {}
+
 /** L'essai gratuit est terminé et il n'y a pas d'abonnement. */
 export class TrialOverError extends FriendlyError {}
 
@@ -726,6 +729,19 @@ export async function deleteAccountRemote(): Promise<void> {
 export async function billingStatus(): Promise<BillingStatus> {
   if (!(await ensureSession())) throw new NotConfiguredError('compte');
   return callFunction<BillingStatus>('billing', { action: 'status' });
+}
+
+/** Renvoie l'e-mail de fin d'essai tout de suite. Renvoie l'adresse utilisée. */
+export async function resendTrialEmail(): Promise<string> {
+  if (!(await ensureSession())) throw new NotConfiguredError('compte');
+  try {
+    const { email } = await callFunction<{ email: string }>('trial-emails', { action: 'resend' });
+    return email;
+  } catch (e) {
+    if (e instanceof FriendlyError && /pas encore branché/.test(e.message)) throw new NotConfiguredError('serveur');
+    if (e instanceof FriendlyError && /déjà en place/.test(e.message)) throw new AlreadySubscribedError(e.message);
+    throw e;
+  }
 }
 
 /** Lien vers la page de paiement Stripe (la carte est enregistrée, 1er prélèvement à la fin de l'essai gratuit). */

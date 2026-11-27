@@ -40,3 +40,12 @@ test("e-mail de fin : publications gardées, offre fondateur si des places reste
   assert.match(m.text, /plus que 1 place\)/);
   assert.doesNotMatch(m.text, /Pendant votre essai/);
 });
+
+test("offre fondateur : encadré orange « Très rare » dans l'e-mail", () => {
+  const m = trialEmail('reminder', { ...data, founderLeft: 9 }, at('2026-11-14T09:00:00Z'));
+  assert.match(m.html, /#FCEFD9/);
+  assert.match(m.html, /Très rare/);
+  assert.match(m.html, /plus que 9 places/);
+  assert.match(m.html, /Annuel : 29 €/);
+  assert.doesNotMatch(trialEmail('reminder', data, at('2026-11-14T09:00:00Z')).html, /Très rare/);
+});

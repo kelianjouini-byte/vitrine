@@ -15,6 +15,7 @@ import {
   monthKey, monthLabel, monthName, monthOf, ofMonth, summarize, type Month,
 } from '../lib/report';
 import { bestPost, formatCount, statsLine, sumOf, totalOf, viewsOf, type StatsMap } from '../lib/stats';
+import { isStoreApp } from '../lib/native';
 
 type AdviceState =
   | { kind: 'loading' }
@@ -202,7 +203,7 @@ export function Report({ initialMonth }: { initialMonth?: Month }) {
 
       <Body soft size={15} center>Ces chiffres viennent de vos vrais posts et stories publiés avec Vitrine. Le temps gagné est une estimation.</Body>
       </>}
-      {!firstTime && <ReferralAsk monthKey={monthKey(month)} eligible={!s.inProgress && s.count > 0 && compareMonths(month, addMonths(current, -1)) === 0} onSend={() => go({ name: 'referral' })} />}
+      {!firstTime && !isStoreApp && <ReferralAsk monthKey={monthKey(month)} eligible={!s.inProgress && s.count > 0 && compareMonths(month, addMonths(current, -1)) === 0} onSend={() => go({ name: 'referral' })} />}
     </ScrollView>
   );
 }

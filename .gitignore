@@ -36,12 +36,11 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
-# generated native folders
-/ios
-/android
+# ios/ et android/ = projets des applis App Store / Google Play (Capacitor) : gardés dans Git.
 
 # Vitrine
 .env
 dist/
 demo/
 .site-tmp/
+dist-store/

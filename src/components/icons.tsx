@@ -136,6 +136,8 @@ export const ChevronDownIcon = ({ size, color = '#000' }: P) => (
 export const TextIcon = ({ size, color = '#000' }: P) => (<S size={size}><Path d="M5 6.5V5h14v1.5M12 5v14M9 19h6" {...st(color)} /></S>);
 /** Style du texte : une lettre A. */
 export const LetterIcon = ({ size, color = '#000' }: P) => (<S size={size}><Path d="m5 19 6-14h2l6 14M7.5 13.5h9" {...st(color)} /></S>);
+/** Enveloppe (e-mail). */
+export const MailIcon = ({ size, color = '#000' }: P) => (<S size={size}><Path d="M3.5 6.5h17v11h-17zM3.5 7l8.5 6.5L20.5 7" {...st(color)} /></S>);
 /** Placer le texte : flèches haut et bas. */
 export const MoveIcon = ({ size, color = '#000' }: P) => (<S size={size}><Path d="M12 3v18M8 7l4-4 4 4M8 17l4 4 4-4" {...st(color)} /></S>);
 /** Reel : un téléphone debout avec le triangle « lecture ». */

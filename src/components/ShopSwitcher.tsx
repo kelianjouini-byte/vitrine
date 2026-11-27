@@ -5,6 +5,7 @@ import { CheckIcon, ChevronDownIcon, PlusIcon, StoreIcon } from './icons';
 import { colors, fonts, glassSurface } from '../lib/theme';
 import { useApp } from '../lib/store';
 import { shopLabel } from '../lib/team';
+import { isStoreApp } from '../lib/native';
 
 /**
  * Bouton en haut de l'accueil : la boutique ouverte. On appuie dessus pour en changer, ou en ajouter une (patron).
@@ -53,7 +54,7 @@ export function ShopSwitcher() {
                 </Pressable>
               );
             })}
-            {isPatron && (
+            {isPatron && !isStoreApp && (
               <Pressable onPress={() => { setOpen(false); go({ name: 'shopAdd' }); }} accessibilityRole="button" style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderTopWidth: 1, borderTopColor: 'rgba(36,51,43,0.08)' }}>
                 <IconTile size={42}><PlusIcon size={20} color={colors.green} /></IconTile>
                 <Text style={{ flex: 1, color: colors.green, fontWeight: '700', fontSize: 16, fontFamily: fonts.body }}>Ajouter une boutique</Text>

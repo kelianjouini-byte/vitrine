@@ -1,28 +1,80 @@
 import { Platform } from 'react-native';
 import { trialReminders } from './billing';
 import * as Notifications from 'expo-notifications';
+import { LocalNotifications } from '@capacitor/local-notifications';
+import { isStoreApp } from './native';
 import { upcomingEvents, upcomingHolidays, type CommercialEvent } from './events';
 import type { Business, NotificationPrefs, Post } from './types';
 import { planReminders, type PlanChoices } from './planning';
 import { monthKey, reportReminderDates, reportReminderText } from './report';
 
-/** Les rappels de fêtes sont des notifications LOCALES programmées sur le téléphone :
- *  elles fonctionnent même sans serveur. Les notifications serveur (publication en ligne,
- *  compte à reconnecter) passeront par Expo Push en phase 2. */
-export const notificationsSupported = Platform.OS !== 'web';
+/** Les rappels (fêtes, planning, idées du lundi, bilan du mois, fin de l'essai) sont des notifications
+ *  LOCALES programmées sur le téléphone : elles fonctionnent même sans serveur.
+ *  - Appli des stores (iPhone / Android, Capacitor) : extension « local-notifications ».
+ *  - Appli Expo native : expo-notifications.
+ *  - Site internet : pas de rappels (les navigateurs ne savent pas les programmer à l'avance). */
+const expoNative = Platform.OS !== 'web';
+export const notificationsSupported = expoNative || isStoreApp;
 
-if (notificationsSupported) {
+if (expoNative) {
   Notifications.setNotificationHandler({
     handleNotification: async () => ({ shouldShowBanner: true, shouldShowList: true, shouldPlaySound: false, shouldSetBadge: false }),
   });
 }
 
 export async function askPermission(): Promise<boolean> {
-  if (!notificationsSupported) return false;
+  if (isStoreApp) {
+    const current = await LocalNotifications.checkPermissions();
+    if (current.display === 'granted') return true;
+    return (await LocalNotifications.requestPermissions()).display === 'granted';
+  }
+  if (!expoNative) return false;
   const current = await Notifications.getPermissionsAsync();
   if (current.granted) return true;
   const asked = await Notifications.requestPermissionsAsync();
   return asked.granted;
+}
+
+/** Un rappel à programmer : à une date précise, ou chaque semaine (weekday : 1 = dimanche, 2 = lundi…). */
+type Reminder = { title: string; body: string; data: Record<string, unknown> } & ({ date: Date } | { weekly: { weekday: number; hour: number } });
+
+/** iOS garde au plus 64 rappels programmés : on garde les premiers de la liste (les plus importants). */
+const MAX_REMINDERS = 60;
+
+async function cancelAll(): Promise<void> {
+  if (isStoreApp) {
+    const pending = await LocalNotifications.getPending();
+    if (pending.notifications.length) await LocalNotifications.cancel({ notifications: pending.notifications.map((n) => ({ id: n.id })) });
+    return;
+  }
+  await Notifications.cancelAllScheduledNotificationsAsync();
+}
+
+async function scheduleAll(list: Reminder[]): Promise<void> {
+  const kept = list.slice(0, MAX_REMINDERS);
+  if (isStoreApp) {
+    if (!kept.length) return;
+    await LocalNotifications.schedule({
+      notifications: kept.map((r, i) => ({
+        id: i + 1,
+        title: r.title,
+        body: r.body,
+        extra: r.data,
+        schedule: 'date' in r
+          ? { at: r.date, allowWhileIdle: true }
+          : { on: { weekday: r.weekly.weekday, hour: r.weekly.hour, minute: 0 }, allowWhileIdle: true },
+      })),
+    });
+    return;
+  }
+  for (const r of kept) {
+    await Notifications.scheduleNotificationAsync({
+      content: { title: r.title, body: r.body, data: r.data },
+      trigger: 'date' in r
+        ? { type: Notifications.SchedulableTriggerInputTypes.DATE, date: r.date }
+        : { type: Notifications.SchedulableTriggerInputTypes.WEEKLY, weekday: r.weekly.weekday, hour: r.weekly.hour, minute: 0 },
+    });
+  }
 }
 
 export function reminderText(e: CommercialEvent): { title: string; body: string } {
@@ -39,7 +91,11 @@ export const WEEKLY_IDEAS_TEXT = {
 
 /** Appelle fn quand le commerçant touche une notification. Retourne de quoi arrêter l'écoute. */
 export function onNotificationTap(fn: (data: Record<string, unknown> | undefined) => void): () => void {
-  if (!notificationsSupported) return () => {};
+  if (isStoreApp) {
+    const sub = LocalNotifications.addListener('localNotificationActionPerformed', (a) => fn(a.notification.extra as Record<string, unknown> | undefined));
+    return () => { sub.then((h) => h.remove()).catch(() => {}); };
+  }
+  if (!expoNative) return () => {};
   const read = (r: Notifications.NotificationResponse) => fn(r.notification.request.content.data as Record<string, unknown> | undefined);
   // App ouverte par la notification alors qu'elle était fermée.
   Notifications.getLastNotificationResponseAsync().then((r) => r && read(r)).catch(() => {});
@@ -50,58 +106,45 @@ export function onNotificationTap(fn: (data: Record<string, unknown> | undefined
 /** Reprogramme tous les rappels selon les préférences. Retourne le nombre de rappels programmés. */
 export async function scheduleReminders(b: Business, prefs: NotificationPrefs, plan?: { posts: Post[]; choices: PlanChoices; trialEndsAt?: string | null }): Promise<number> {
   if (!notificationsSupported) return 0;
-  await Notifications.cancelAllScheduledNotificationsAsync();
+  await cancelAll();
   if (!prefs.enabled) return 0;
   if (!(await askPermission())) return 0;
-  const now = new Date();
-  let count = 0;
+  const list = buildReminders(b, prefs, plan);
+  await scheduleAll(list);
+  return Math.min(list.length, MAX_REMINDERS);
+}
+
+/** Tous les rappels à programmer, du plus important au moins important. */
+function buildReminders(b: Business, prefs: NotificationPrefs, plan?: { posts: Post[]; choices: PlanChoices; trialEndsAt?: string | null }, now = new Date()): Reminder[] {
+  const list: Reminder[] = [];
   // Tout en premier : la fin de l'essai gratuit (le commerçant ne doit pas être surpris par le blocage).
   if (plan?.trialEndsAt) {
-    for (const r of trialReminders(plan.trialEndsAt, prefs.hour, now)) {
-      await Notifications.scheduleNotificationAsync({
-        content: { title: r.title, body: r.body, data: { route: 'offers' } },
-        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: r.date },
-      });
-      count++;
+    for (const r of trialReminders(plan.trialEndsAt, prefs.hour, now, isStoreApp)) {
+      list.push({ title: r.title, body: r.body, data: { route: 'offers' }, date: r.date });
     }
   }
-  // En premier : les rappels du planning (le téléphone garde un nombre limité de rappels).
+  // Ensuite : les rappels du planning.
   if (plan && prefs.planReminders !== false) {
     for (const r of planReminders(b, plan.posts, plan.choices, upcomingEvents(b, now, 2, b.postalCode), prefs.hour, now, 14, upcomingHolidays(now, 12, b.postalCode))) {
-      await Notifications.scheduleNotificationAsync({
-        content: { title: r.title, body: r.body, data: { route: 'planDay', day: r.day } },
-        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: r.date },
-      });
-      count++;
+      list.push({ title: r.title, body: r.body, data: { route: 'planDay', day: r.day }, date: r.date });
     }
   }
   if (prefs.weeklyIdeas !== false) {
-    // Chaque lundi (weekday 2 : 1 = dimanche pour Expo), à l'heure choisie.
-    await Notifications.scheduleNotificationAsync({
-      content: { ...WEEKLY_IDEAS_TEXT, data: { route: 'ideas' } },
-      trigger: { type: Notifications.SchedulableTriggerInputTypes.WEEKLY, weekday: 2, hour: prefs.hour, minute: 0 },
-    });
-    count++;
+    // Chaque lundi (weekday 2 : 1 = dimanche), à l'heure choisie.
+    list.push({ ...WEEKLY_IDEAS_TEXT, data: { route: 'ideas' }, weekly: { weekday: 2, hour: prefs.hour } });
   }
-  if (prefs.monthlyReport !== false) {
-    // Le 1er de chaque mois : « Votre bilan d'octobre est prêt ». Programmé un an à l'avance
-    // (le nom du mois change chaque fois : une notification par mois).
-    for (const r of reportReminderDates(now, prefs.hour, 12)) {
-      await Notifications.scheduleNotificationAsync({
-        content: { ...reportReminderText(r.month), data: { route: 'report', month: monthKey(r.month) } },
-        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: r.date },
-      });
-      count++;
-    }
-  }
+  // Les fêtes du métier, quelques jours avant.
   for (const e of upcomingEvents(b, now, 12, b.postalCode)) {
     const when = new Date(e.date.getFullYear(), e.date.getMonth(), e.date.getDate() - Math.max(prefs.daysBefore, 1), prefs.hour, 0);
     if (when <= now) continue;
-    await Notifications.scheduleNotificationAsync({
-      content: { ...reminderText(e), data: { eventId: e.id } },
-      trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: when },
-    });
-    count++;
+    list.push({ ...reminderText(e), data: { eventId: e.id }, date: when });
   }
-  return count;
+  if (prefs.monthlyReport !== false) {
+    // Le 1er de chaque mois : « Votre bilan d'octobre est prêt » (une notification par mois, un an à l'avance).
+    for (const r of reportReminderDates(now, prefs.hour, 12)) {
+      list.push({ ...reportReminderText(r.month), data: { route: 'report', month: monthKey(r.month) }, date: r.date });
+    }
+  }
+  // Les rappels à date sont rangés par ordre d'importance ci-dessus ; s'il faut en couper, ce sont les plus lointains.
+  return list;
 }

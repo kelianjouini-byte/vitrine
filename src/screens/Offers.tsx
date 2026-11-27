@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, Platform as RNPlatform, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Platform as RNPlatform, Pressable, ScrollView, Text, View } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { BackButton, Badge, Body, Button, Card, Field, IconTile, Label, Notice, Title } from '../components/ui';
 import { StarIcon } from '../components/icons';
@@ -16,6 +16,8 @@ import {
 import {
   daysLeft, euros, frenchDate, isLiveStatus, offersFrom, offersToShow, offerTitle, placesLeftText, statusText, TRIAL_DAYS, TRIAL_REPORT_DAYS_BEFORE, yearlySaving, type BillingStatus, type FounderOffer, type Offer, type PlanId,
 } from '../lib/billing';
+import { isStoreApp, openExternal } from '../lib/native';
+import { StoreSubscription } from './StoreSubscription';
 import { loadPendingCode, normalizeCode, REFEREE_DISCOUNT_CENTS, REFEREE_DISCOUNT_MONTHS } from '../lib/referral';
 
 const SITE = 'https://vitrineappli.fr/app';
@@ -43,7 +45,12 @@ async function openStripe(url: string, onBack: () => void) {
  * Mon abonnement : les deux offres, l'essai gratuit de 15 jours, puis le paiement par Stripe.
  * blocked : l'essai est terminé sans abonnement. Cet écran est alors le seul de l'appli (avec « Supprimer mon compte »).
  */
-export function Offers({ payment, blocked }: { payment?: 'ok' | 'annule'; blocked?: boolean }) {
+export function Offers(props: { payment?: 'ok' | 'annule'; blocked?: boolean }) {
+  // Applis App Store / Google Play : ni prix ni paiement (règles d'Apple et de Google), tout passe par e-mail.
+  return isStoreApp ? <StoreSubscription blocked={props.blocked} /> : <WebOffers {...props} />;
+}
+
+function WebOffers({ payment, blocked }: { payment?: 'ok' | 'annule'; blocked?: boolean }) {
   const { back, refreshBilling } = useApp();
   const [status, setStatus] = useState<BillingStatus | null>(null);
   const [account, setAccount] = useState<AccountState | null>(null);
@@ -253,7 +260,7 @@ export function Offers({ payment, blocked }: { payment?: 'ok' | 'annule'; blocke
 
       <Body soft size={15} center>TVA non applicable, art. 293 B du CGI.</Body>
       {blocked && <DeleteAccount />}
-      <Button title="Conditions d'utilisation" kind="ghost" onPress={() => Linking.openURL(`${SITE}/conditions/`)} />
+      <Button title="Conditions d'utilisation" kind="ghost" onPress={() => openExternal(`${SITE}/conditions/`)} />
     </ScrollView>
   );
 }
