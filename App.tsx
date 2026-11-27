@@ -89,7 +89,7 @@ function Root() {
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <GlassBackground />
       <View style={{ flex: 1, paddingTop: insets.top, width: '100%', maxWidth: 560, alignSelf: 'center' }}>
-        {route.name === 'home' && <Home />}
+        {route.name === 'home' && <Home key={route.openAt ?? 'home'} open={Boolean(route.openAt)} />}
         {route.name === 'planning' && <Planning />}
         {route.name === 'planDay' && <PlanDay key={route.day} day={route.day} />}
         {route.name === 'fetes' && <Fetes />}

@@ -99,6 +99,10 @@ Fonction `team` (déployée avec `verify_jwt = false`, le jeton est vérifié da
 - Un employé prépare les posts et les stories, puis « Envoyer au patron » (`review_state = pending`). Le patron publie, modifie le texte ou refuse avec un petit mot (écran « Posts à valider »). Interrupteur « Publie seul » dans la liste « Mon équipe », éteint par défaut.
 - La boutique ouverte dans l'appli est envoyée dans l'en-tête `x-vitrine-shop`, toujours vérifiée côté serveur.
 
+### Le petit rappel du jour (notifications)
+- Une notification chaque jour où la boutique est ouverte, à l'heure choisie (10 h par défaut), dans Réglages → « Le petit rappel du jour ». Plus de 100 textes : surtout des rappels courts (« Postez aujourd'hui », « Une petite story ? »), parfois une fête proche, un mot après plusieurs jours sans post, une idée du métier. Textes et choix : `supabase/functions/_shared/nudges.ts`.
+- Rappels locaux programmés par l'application (14 prochains jours d'ouverture, reprogrammés à chaque ouverture et à chaque post : celui du jour saute si un post est fait). Aucun serveur, aucun compte Firebase. Toucher la notification ouvre l'accueil sur Photo / Vidéo. Pas de rappel sur la version internet.
+
 ## 7. Déploiement
 
 - Serveur : `supabase db push` + `supabase functions deploy`.

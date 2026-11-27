@@ -4,6 +4,7 @@ import * as Notifications from 'expo-notifications';
 import { upcomingEvents, upcomingHolidays, type CommercialEvent } from './events';
 import type { Business, NotificationPrefs, Post } from './types';
 import { planReminders, type PlanChoices } from './planning';
+import { localNudges } from './dailyNudge';
 import { monthKey, reportReminderDates, reportReminderText } from './report';
 
 /** Les rappels de fêtes sont des notifications LOCALES programmées sur le téléphone :
@@ -51,10 +52,21 @@ export function onNotificationTap(fn: (data: Record<string, unknown> | undefined
 export async function scheduleReminders(b: Business, prefs: NotificationPrefs, plan?: { posts: Post[]; choices: PlanChoices; trialEndsAt?: string | null }): Promise<number> {
   if (!notificationsSupported) return 0;
   await Notifications.cancelAllScheduledNotificationsAsync();
-  if (!prefs.enabled) return 0;
-  if (!(await askPermission())) return 0;
   const now = new Date();
   let count = 0;
+  // En tout premier, le petit rappel du jour (14 prochains jours d'ouverture) : il a son propre interrupteur.
+  const nudges = plan ? localNudges(b, prefs, plan.posts, now) : [];
+  if (nudges.length && (await askPermission())) {
+    for (const r of nudges) {
+      await Notifications.scheduleNotificationAsync({
+        content: { title: r.title, body: r.body, data: { route: 'create' } },
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: r.date },
+      });
+      count++;
+    }
+  }
+  if (!prefs.enabled) return count;
+  if (!(await askPermission())) return count;
   // Tout en premier : la fin de l'essai gratuit (le commerçant ne doit pas être surpris par le blocage).
   if (plan?.trialEndsAt) {
     for (const r of trialReminders(plan.trialEndsAt, prefs.hour, now)) {

@@ -125,6 +125,10 @@ export interface NotificationPrefs {
   monthlyReport?: boolean;
   /** Rappels du planning : « Votre post est prêt », « Idée de story du jour » (activé si absent). */
   planReminders?: boolean;
+  /** « Le petit rappel du jour » : une notification par jour d'ouverture pour publier (activé si absent). */
+  dailyNudge?: boolean;
+  /** Heure du rappel du jour (10 h si absent). */
+  nudgeHour?: number;
   /** Petits sons des points de l'équipe (activés si absent). Le téléphone en silencieux les coupe aussi. */
   sounds?: boolean;
 }

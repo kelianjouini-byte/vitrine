@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Linking, Pressable, ScrollView, Switch, View } from 'react-native';
-import { Body, Button, Card, Chevron, Chip, Field, IconTile, Label, Notice, Title, BackButton } from '../components/ui';
+import { Body, Button, Card, Chevron, Chip, ClosedDaysPicker, Field, IconTile, Label, Notice, Title, BackButton } from '../components/ui';
 import { BackIcon, PeopleIcon, PersonIcon, PlusIcon, StoreIcon } from '../components/icons';
 import { NetworkCards } from '../components/NetworkCards';
 import { IdentityFields, type Identity } from '../components/IdentityFields';
@@ -10,6 +10,8 @@ import { subscriptionSummary } from '../lib/billing';
 import { toneLabel, tradeLabel } from '../lib/business';
 import { isBackendConfigured } from '../lib/config';
 import { notificationsSupported } from '../lib/notifications';
+import { nudgeHour } from '../lib/dailyNudge';
+import { NUDGE_HOURS } from '../../supabase/functions/_shared/nudges';
 import { accountState, FriendlyError, protectAccount, removeShop, saveBusinessRemote, signOut, type AccountState } from '../lib/api';
 import { EmailPasswordForm } from '../components/AccountForms';
 import { DeleteAccount } from '../components/DeleteAccount';
@@ -86,6 +88,8 @@ export function Settings() {
       <Label>Carte d'identité de la boutique</Label>
       <IdentityCard />
       </>}
+
+      <DailyNudge />
 
       <Label>Rappels avant les fêtes</Label>
       <Card style={{ gap: 14 }}>
@@ -282,5 +286,41 @@ function Shops() {
         <Chevron />
       </Pressable>
     </Card>
+  );
+}
+
+/** « Le petit rappel du jour » : oui / non, heure du rappel, jours de fermeture. */
+function DailyNudge() {
+  const { business, prefs, setPrefs, saveBusiness, isPatron } = useApp();
+  const b = business!;
+  const on = prefs.dailyNudge !== false;
+  const hour = nudgeHour(prefs);
+  return (
+    <>
+      <Label>Le petit rappel du jour</Label>
+      <Card style={{ gap: 14 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <View style={{ flex: 1 }}>
+            <Body style={{ fontWeight: '600' }}>Me rappeler de publier</Body>
+            <Body soft size={15}>Un petit message chaque jour où vous êtes ouvert, pour penser à poster. Rien si vous avez déjà posté.</Body>
+          </View>
+          <Switch value={on} onValueChange={(v) => setPrefs({ ...prefs, dailyNudge: v })} trackColor={{ true: colors.green, false: '#C9D1CB' }} thumbColor="#fff" {...({ activeThumbColor: '#fff' } as object)} accessibilityLabel="Me rappeler de publier" />
+        </View>
+        {on && (
+          <>
+            <Body soft size={15}>À quelle heure ?</Body>
+            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+              {NUDGE_HOURS.map((h) => <Chip key={h} label={`${h} h`} selected={hour === h} onPress={() => setPrefs({ ...prefs, nudgeHour: h })} />)}
+            </View>
+            {isPatron && (
+              <>
+                <Body soft size={15}>Les jours où vous êtes fermé (pas de rappel)</Body>
+                <ClosedDaysPicker value={b.closedDays ?? []} onChange={(next) => saveBusiness({ ...b, closedDays: next })} />
+              </>
+            )}
+          </>
+        )}
+      </Card>
+    </>
   );
 }

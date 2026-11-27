@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
-import { Badge, Body, Card, Chevron, Label, PostThumb, Title } from '../components/ui';
+import { Badge, Body, Card, Chevron, ClosedDaysPicker, Label, PostThumb, Title } from '../components/ui';
 import { BackIcon, ChevronIcon } from '../components/icons';
 import { colors, fonts, glassSurface, radius } from '../lib/theme';
 import { useApp } from '../lib/store';
@@ -25,11 +25,6 @@ export function Planning() {
   const days = useMemo(() => buildWeek(b, start, planChoices, upcomingEvents(b, start, 2, b.postalCode), upcomingHolidays(start, 2, b.postalCode)), [b, start, planChoices]);
   const count = weekCount(posts, days);
   const closed = b.closedDays ?? [];
-
-  const toggleClosed = (i: number) => {
-    const next = closed.includes(i) ? closed.filter((x) => x !== i) : [...closed, i].sort();
-    saveBusiness({ ...b, closedDays: next });
-  };
 
   return (
     <ScrollView contentContainerStyle={{ padding: 20, gap: 12, paddingBottom: 32 }}>
@@ -61,17 +56,7 @@ export function Planning() {
       <Label>Vos jours de fermeture</Label>
       <Card style={{ gap: 10 }}>
         <Body soft size={15}>Vitrine n'y conseille rien : ce sont vos jours de repos.</Body>
-        <View style={{ flexDirection: 'row', gap: 6 }}>
-          {DAY_NAMES.map((n, i) => {
-            const on = closed.includes(i);
-            return (
-              <Pressable key={n} onPress={() => toggleClosed(i)} accessibilityRole="checkbox" accessibilityState={{ checked: on }} accessibilityLabel={`${n} : boutique fermée`}
-                style={{ flex: 1, minHeight: 48, borderRadius: 12, borderWidth: 1.5, borderColor: on ? colors.green : 'rgba(36,51,43,0.10)', backgroundColor: on ? colors.greenSoft : 'rgba(255,255,255,0.82)', alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ fontWeight: '700', fontSize: 15, color: on ? colors.green : colors.text, fontFamily: fonts.body }}>{n.slice(0, 3)}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
+        <ClosedDaysPicker value={closed} onChange={(next) => saveBusiness({ ...b, closedDays: next })} />
       </Card>
     </ScrollView>
   );

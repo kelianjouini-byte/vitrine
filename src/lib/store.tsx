@@ -16,7 +16,8 @@ import type { Month } from './report';
 import type { StatsMap } from './stats';
 
 export type Route =
-  | { name: 'home' }
+  /** openAt : ouvert par le rappel du jour, le choix Photo / Vidéo s'affiche tout de suite. */
+  | { name: 'home'; openAt?: number }
   | { name: 'fetes' }
   | { name: 'posts' }
   | { name: 'planning' }
@@ -167,6 +168,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Appui sur une notification : le rappel du lundi ouvre les idées, celui du 1er du mois ouvre le bilan.
   useEffect(() => onNotificationTap((data) => {
+    if (data?.route === 'create') setStack([{ name: 'home', openAt: Date.now() }]);
     if (data?.route === 'offers') setStack([{ name: 'home' }, { name: 'offers' }]);
     if (data?.route === 'ideas') setStack([{ name: 'home' }, { name: 'ideas' }]);
     if (data?.route === 'planDay' && typeof data.day === 'string') setStack([{ name: 'planning' }, { name: 'planDay', day: data.day }]);
