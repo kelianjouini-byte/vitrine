@@ -3,7 +3,7 @@
   "short_name": "Vitrine",
   "start_url": "/app/",
   "scope": "/app/",
-  "display": "standalone",
+  "display": "browser",
   "background_color": "#2F7658",
   "theme_color": "#2F7658",
   "icons": [

@@ -10,9 +10,9 @@ import { subscriptionSummary } from '../lib/billing';
 import { toneLabel, tradeLabel } from '../lib/business';
 import { isBackendConfigured } from '../lib/config';
 import { notificationsSupported } from '../lib/notifications';
-import { enablePush, nudgeHour, pushState, testPush, type PushState } from '../lib/push';
+import { nudgeHour } from '../lib/dailyNudge';
 import { NUDGE_HOURS } from '../../supabase/functions/_shared/nudges';
-import { accountState, FriendlyError, NotConfiguredError, protectAccount, removeShop, saveBusinessRemote, signOut, type AccountState } from '../lib/api';
+import { accountState, FriendlyError, protectAccount, removeShop, saveBusinessRemote, signOut, type AccountState } from '../lib/api';
 import { EmailPasswordForm } from '../components/AccountForms';
 import { DeleteAccount } from '../components/DeleteAccount';
 
@@ -139,7 +139,7 @@ export function Settings() {
             <Switch value={prefs.sounds !== false} onValueChange={(v) => setPrefs({ ...prefs, sounds: v })} trackColor={{ true: colors.green, false: '#C9D1CB' }} thumbColor="#fff" {...({ activeThumbColor: '#fff' } as object)} accessibilityLabel="Sons des points" />
           </View>
         ) : null}
-        {!notificationsSupported && <Notice tone="orange" title="Ces rappels arriveront avec l'application" text="Sur la version internet, seul le petit rappel du jour arrive pour l'instant. Les rappels des fêtes, du planning et du bilan arriveront avec l'application Vitrine à installer." />}
+        {!notificationsSupported && <Notice tone="orange" title="Sur la version internet, les rappels n'arrivent pas encore" text="Ils arriveront avec l'application Vitrine à installer sur votre téléphone. En attendant, ouvrez Vitrine de temps en temps : l'accueil et le planning vous disent quoi publier." />}
       </Card>
 
       <Label>Mes données</Label>
@@ -289,43 +289,12 @@ function Shops() {
   );
 }
 
-/** « Le petit rappel du jour » : oui / non, horaires de la boutique, heure du rappel, et activation sur ce téléphone. */
+/** « Le petit rappel du jour » : oui / non, heure du rappel, jours de fermeture. */
 function DailyNudge() {
   const { business, prefs, setPrefs, saveBusiness, isPatron } = useApp();
   const b = business!;
-  const web = !notificationsSupported;
-  const [state, setState] = useState<PushState | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<{ tone: 'green' | 'orange' | 'red'; title: string; text?: string } | null>(null);
-  useEffect(() => { if (web) pushState().then(setState).catch(() => setState('unsupported')); }, [web]);
-
   const on = prefs.dailyNudge !== false;
   const hour = nudgeHour(prefs);
-  const switchStyle = { trackColor: { true: colors.green, false: '#C9D1CB' }, thumbColor: '#fff', ...({ activeThumbColor: '#fff' } as object) };
-
-  const fail = (e: unknown) => setMsg(e instanceof NotConfiguredError
-    ? { tone: 'orange', title: "Le serveur n'est pas encore prêt", text: 'Les notifications ne peuvent pas encore être activées. Réessayez plus tard.' }
-    : { tone: 'red', title: "Ça n'a pas marché", text: e instanceof FriendlyError ? e.message : 'Vérifiez votre connexion et réessayez.' });
-
-  const activate = async () => {
-    setBusy(true); setMsg(null);
-    try {
-      const s = await enablePush(b, prefs);
-      setState(s);
-      if (s === 'on') {
-        if (prefs.dailyNudge === false) setPrefs({ ...prefs, dailyNudge: true });
-        setMsg({ tone: 'green', title: "C'est activé", text: `Le premier rappel arrivera le prochain jour d'ouverture, vers ${hour} h.` });
-      }
-    } catch (e) { fail(e); } finally { setBusy(false); }
-  };
-  const sendExample = async () => {
-    setBusy(true); setMsg(null);
-    try {
-      const r = await testPush();
-      setMsg(r ? { tone: 'green', title: 'Exemple envoyé', text: `Regardez vos notifications : « ${r.title} ».` } : { tone: 'orange', title: "Les notifications ne sont pas activées sur ce téléphone" });
-    } catch (e) { fail(e); } finally { setBusy(false); }
-  };
-
   return (
     <>
       <Label>Le petit rappel du jour</Label>
@@ -335,7 +304,7 @@ function DailyNudge() {
             <Body style={{ fontWeight: '600' }}>Me rappeler de publier</Body>
             <Body soft size={15}>Un petit message chaque jour où vous êtes ouvert, pour penser à poster. Rien si vous avez déjà posté.</Body>
           </View>
-          <Switch value={on} onValueChange={(v) => setPrefs({ ...prefs, dailyNudge: v })} {...switchStyle} accessibilityLabel="Me rappeler de publier" />
+          <Switch value={on} onValueChange={(v) => setPrefs({ ...prefs, dailyNudge: v })} trackColor={{ true: colors.green, false: '#C9D1CB' }} thumbColor="#fff" {...({ activeThumbColor: '#fff' } as object)} accessibilityLabel="Me rappeler de publier" />
         </View>
         {on && (
           <>
@@ -349,17 +318,6 @@ function DailyNudge() {
                 <ClosedDaysPicker value={b.closedDays ?? []} onChange={(next) => saveBusiness({ ...b, closedDays: next })} />
               </>
             )}
-            {web && state === 'off' && <Button title="Activer sur ce téléphone" onPress={activate} loading={busy} />}
-            {web && state === 'on' && (
-              <>
-                <Notice tone="green" title="Activé sur ce téléphone" text={`Prochain rappel vers ${hour} h, le prochain jour où vous êtes ouvert.`} />
-                <Button title="M'envoyer un exemple maintenant" kind="secondary" onPress={sendExample} loading={busy} />
-              </>
-            )}
-            {web && state === 'ios-install' && <Notice tone="orange" title="Sur iPhone, une étape avant" text="Dans Safari, touchez le bouton Partager (le carré avec une flèche), puis « Sur l'écran d'accueil ». Ouvrez ensuite Vitrine avec la nouvelle icône et revenez ici." />}
-            {web && state === 'denied' && <Notice tone="orange" title="Les notifications sont bloquées" text="Autorisez les notifications pour Vitrine dans les réglages de votre navigateur, puis revenez ici." />}
-            {web && state === 'unsupported' && <Notice tone="orange" title="Ce navigateur ne reçoit pas les notifications" text="Ouvrez Vitrine sur votre téléphone, avec Chrome ou Safari." />}
-            {msg && <Notice tone={msg.tone} title={msg.title} text={msg.text} />}
           </>
         )}
       </Card>

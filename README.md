@@ -100,10 +100,8 @@ Fonction `team` (déployée avec `verify_jwt = false`, le jeton est vérifié da
 - La boutique ouverte dans l'appli est envoyée dans l'en-tête `x-vitrine-shop`, toujours vérifiée côté serveur.
 
 ### Le petit rappel du jour (notifications)
-- Une notification par jour d'ouverture, à l'heure choisie (10 h par défaut ; envoyée à cette heure ou l'heure suivante, jamais plus tard), dans Réglages → « Le petit rappel du jour ». Plus de 100 textes : surtout des rappels courts (« Postez aujourd'hui », « Une petite story ? »), parfois une fête proche, des jours sans publication, une idée du métier, jamais si un post a déjà été fait ce jour-là, jamais après la fin de l'essai sans abonnement. Toucher la notification ouvre l'accueil sur Photo / Vidéo.
-- Version web : « web push » (Android : Chrome ; iPhone : iOS 16.4+, Vitrine ajoutée à l'écran d'accueil). Service worker `public/push-sw.js`. Aucune variable à ajouter : les clés VAPID sont créées automatiquement par le serveur au premier usage (table `app_secrets`, ligne `vapid_keys`).
-- Serveur : migration `20261127180000_daily_nudges.sql` (tables `push_subscriptions`, `daily_nudges`, tâche pg_cron horaire), fonctions `push-subscribe` (abonnement, réglages, exemple) et `daily-nudge` (envoi, `verify_jwt = false`, en-tête `x-cron-secret`). Textes et règles : `supabase/functions/_shared/nudges.ts`.
-- Applis des stores (plus tard) : il faudra brancher Firebase (Android) et APNs (Apple).
+- Une notification chaque jour où la boutique est ouverte, à l'heure choisie (10 h par défaut), dans Réglages → « Le petit rappel du jour ». Plus de 100 textes : surtout des rappels courts (« Postez aujourd'hui », « Une petite story ? »), parfois une fête proche, un mot après plusieurs jours sans post, une idée du métier. Textes et choix : `supabase/functions/_shared/nudges.ts`.
+- Rappels locaux programmés par l'application (14 prochains jours d'ouverture, reprogrammés à chaque ouverture et à chaque post : celui du jour saute si un post est fait). Aucun serveur, aucun compte Firebase. Toucher la notification ouvre l'accueil sur Photo / Vidéo. Pas de rappel sur la version internet.
 
 ## 7. Déploiement
 

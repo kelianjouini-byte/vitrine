@@ -10,7 +10,6 @@ import { isBackendConfigured } from './config';
 import { mergePosts } from './sync';
 import { codeFromUrl, savePendingCode } from './referral';
 import { Platform } from 'react-native';
-import { disablePush, onPushOpen, pushSettings, syncPush } from './push';
 import type { Business, NotificationPrefs, Post, PostIdea, SocialConnection } from './types';
 import type { Captured, RawPhoto } from './photo';
 import type { Month } from './report';
@@ -178,8 +177,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setStack([{ name: 'home' }, { name: 'report', month: y && m ? { year: y, month: m - 1 } : undefined }]);
     }
   }), []);
-  // Appui sur « le petit rappel du jour » (version web) : l'accueil, choix Photo / Vidéo déjà ouvert.
-  useEffect(() => onPushOpen(() => setStack([{ name: 'home', openAt: Date.now() }])), []);
   const back = useCallback(() => setStack((s) => (s.length > 1 ? s.slice(0, -1) : s)), []);
   const replace = useCallback((r: Route) => setStack((s) => [...s.slice(0, -1), r]), []);
 
@@ -313,20 +310,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(t);
   }, [ready, business, prefs, posts, planChoices, billing]);
 
-  // Le rappel du jour est envoyé par le serveur : on lui redonne les horaires, l'heure choisie et les prochaines fêtes.
-  const pushSent = useRef('');
-  useEffect(() => {
-    if (!ready || !business || !isBackendConfigured) return;
-    const key = JSON.stringify(pushSettings(business, prefs));
-    if (key === pushSent.current) return;
-    const t = setTimeout(() => syncPush(business, prefs).then(() => { pushSent.current = key; }).catch(() => {}), 1500);
-    return () => clearTimeout(t);
-  }, [ready, business, prefs]);
-
   const refreshConnections = useCallback(async () => setConnections(await socialConnections()), []);
 
   const resetAll = useCallback(async () => {
-    await disablePush().catch(() => {});
     await clearAll();
     setBusiness(null);
     setPosts([]);

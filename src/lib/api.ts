@@ -347,36 +347,6 @@ export async function saveBusinessRemote(b: Business): Promise<string | undefine
   return data.id as string;
 }
 
-// ---------------------------------------------------------------- Rappel du jour (notifications)
-
-/** Réglages envoyés au serveur avec l'abonnement aux notifications de ce téléphone. */
-export interface PushSettings {
-  enabled: boolean;
-  hour: number;
-  closedDays: number[];
-  closedDates: string[];
-  occasions: { name: string; date: string }[];
-}
-
-/** Clé publique du serveur, nécessaire au navigateur pour s'abonner. */
-export async function pushPublicKey(): Promise<string> {
-  const res = await callFunction<{ publicKey: string }>('push-subscribe', { action: 'key' });
-  return res.publicKey;
-}
-
-export async function savePushSubscription(subscription: unknown, settings: PushSettings): Promise<void> {
-  await callFunction('push-subscribe', { action: 'save', subscription, settings });
-}
-
-export async function removePushSubscription(endpoint: string): Promise<void> {
-  await callFunction('push-subscribe', { action: 'remove', endpoint });
-}
-
-/** Envoie tout de suite le rappel du jour sur ce téléphone, pour voir à quoi il ressemble. */
-export async function sendTestPush(endpoint: string): Promise<{ title: string; body: string }> {
-  return callFunction('push-subscribe', { action: 'test', endpoint });
-}
-
 // ---------------------------------------------------------------- Photo + IA
 
 function base64ToBytes(b64: string): Uint8Array {
