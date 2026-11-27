@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { defaultNudgeHour, nudgeCount, nudgeDue, nudgeHourChoices, parisDayStart, parisNow, pickNudge, type NudgeContext } from '../supabase/functions/_shared/nudges.ts';
+import { DEFAULT_NUDGE_HOUR, NUDGE_HOURS, nudgeCount, nudgeDue, parisDayStart, parisNow, pickNudge, type NudgeContext } from '../supabase/functions/_shared/nudges.ts';
 import { encryptPayload, fromB64url, generateVapidKeys, isPushEndpoint, vapidHeader, b64url } from '../supabase/functions/_shared/webpush.ts';
 
 const ctx = (o: Partial<NudgeContext> = {}): NudgeContext => ({
@@ -9,7 +9,7 @@ const ctx = (o: Partial<NudgeContext> = {}): NudgeContext => ({
 });
 
 test('une grande réserve de textes, sans emoji, sans variable oubliée', () => {
-  assert.ok(nudgeCount() >= 50, `seulement ${nudgeCount()} textes`);
+  assert.ok(nudgeCount() >= 100, `seulement ${nudgeCount()} textes`);
   const seen = new Set<string>();
   for (let i = 0; i < 400; i++) {
     for (const type of ['fleuriste', 'boulangerie', 'coiffure', 'caviste', 'boucherie', 'restaurant', 'vetements', 'artisan', 'autre']) {
@@ -42,7 +42,8 @@ test('une fête toute proche passe en premier', () => {
 });
 
 test('jamais publié : texte de première publication ; long silence : texte doux', () => {
-  assert.match(pickNudge(ctx({ daysSincePost: null })).id, /^p-premier/);
+  const never = Array.from({ length: 30 }, (_, i) => pickNudge(ctx({ daysSincePost: null, seed: `n${i}` })).id);
+  assert.ok(never.filter((id) => id.startsWith('p-premier')).length >= 10);
   const ids = Array.from({ length: 30 }, (_, i) => pickNudge(ctx({ daysSincePost: 12, seed: `x${i}` })).id);
   assert.ok(ids.some((id) => id === 'p-douceur' || id === 'p-revenir'));
   for (const i of [0, 1, 2]) {
@@ -62,29 +63,29 @@ test('heure de Paris (hiver et été)', () => {
   assert.equal(parisDayStart(new Date('2026-07-06T10:00:00Z')).toISOString(), '2026-07-05T22:00:00.000Z');
 });
 
-test("envoi : jours d'ouverture, pendant les horaires, une fois, et pas si déjà publié", () => {
-  const h = { openHour: 9, closeHour: 19, hour: 10, closedDays: [6], closedDates: ['2026-12-25'] };
+test("envoi : jours d'ouverture, à l'heure choisie, une fois, et pas si déjà publié", () => {
+  const h = { hour: 10, closedDays: [6], closedDates: ['2026-12-25'] };
   const free = { sentToday: false, postedToday: false };
   // Vendredi 27 novembre 2026, heures de Paris (UTC+1).
   assert.equal(nudgeDue(h, new Date('2026-11-27T08:05:00Z'), free), 'not_yet'); // 9 h
   assert.equal(nudgeDue(h, new Date('2026-11-27T09:05:00Z'), free), true); // 10 h
-  assert.equal(nudgeDue(h, new Date('2026-11-27T13:05:00Z'), free), true); // 14 h : passage manqué, on rattrape
-  assert.equal(nudgeDue(h, new Date('2026-11-27T18:05:00Z'), free), 'after_closing'); // 19 h
+  assert.equal(nudgeDue(h, new Date('2026-11-27T10:05:00Z'), free), true); // 11 h : passage manqué, on rattrape
+  assert.equal(nudgeDue(h, new Date('2026-11-27T11:05:00Z'), free), 'too_late'); // 12 h : trop tard (boutique peut-être fermée)
   assert.equal(nudgeDue(h, new Date('2026-11-27T09:05:00Z'), { sentToday: true, postedToday: false }), 'already_sent');
   assert.equal(nudgeDue(h, new Date('2026-11-27T09:05:00Z'), { sentToday: false, postedToday: true }), 'already_posted');
-  assert.equal(nudgeDue(h, new Date('2026-11-29T10:05:00Z'), free), 'closed_day'); // dimanche fermé
-  assert.equal(nudgeDue(h, new Date('2026-12-25T10:05:00Z'), free), 'closed_day'); // Noël fermé
+  assert.equal(nudgeDue(h, new Date('2026-11-29T09:05:00Z'), free), 'closed_day'); // dimanche fermé
+  assert.equal(nudgeDue(h, new Date('2026-12-25T09:05:00Z'), free), 'closed_day'); // Noël fermé
 });
 
-test("heure du rappel : pendant l'ouverture seulement", () => {
-  assert.equal(defaultNudgeHour(9, 19), 10);
-  assert.equal(defaultNudgeHour(7, 13), 10);
-  assert.equal(defaultNudgeHour(11, 23), 14);
-  assert.equal(defaultNudgeHour(14, 15), 14);
-  assert.deepEqual(nudgeHourChoices(9, 19), [10, 11, 14, 16, 18]);
-  assert.deepEqual(nudgeHourChoices(9, 12), [10, 11]);
-  assert.ok(nudgeHourChoices(9, 19).includes(defaultNudgeHour(9, 19)));
-  assert.ok(nudgeHourChoices(18, 23).every((x) => x >= 18 && x < 23));
+test('heure du rappel : 10 h par défaut, choix simples', () => {
+  assert.equal(DEFAULT_NUDGE_HOUR, 10);
+  assert.ok(NUDGE_HOURS.includes(DEFAULT_NUDGE_HOUR));
+});
+
+test('surtout des rappels courts « postez » : au moins 6 jours sur 10', () => {
+  let short = 0;
+  for (let i = 0; i < 1000; i++) if (pickNudge(ctx({ seed: `k${i}` })).id.startsWith('s-')) short++;
+  assert.ok(short >= 600, `${short} / 1000`);
 });
 
 test('web push : le message chiffré se déchiffre avec les clés du navigateur (RFC 8291)', async () => {

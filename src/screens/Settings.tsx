@@ -10,8 +10,8 @@ import { subscriptionSummary } from '../lib/billing';
 import { toneLabel, tradeLabel } from '../lib/business';
 import { isBackendConfigured } from '../lib/config';
 import { notificationsSupported } from '../lib/notifications';
-import { enablePush, nudgeHour, pushState, shopHours, testPush, type PushState } from '../lib/push';
-import { nudgeHourChoices } from '../../supabase/functions/_shared/nudges';
+import { enablePush, nudgeHour, pushState, testPush, type PushState } from '../lib/push';
+import { NUDGE_HOURS } from '../../supabase/functions/_shared/nudges';
 import { accountState, FriendlyError, NotConfiguredError, protectAccount, removeShop, saveBusinessRemote, signOut, type AccountState } from '../lib/api';
 import { EmailPasswordForm } from '../components/AccountForms';
 import { DeleteAccount } from '../components/DeleteAccount';
@@ -300,8 +300,7 @@ function DailyNudge() {
   useEffect(() => { if (web) pushState().then(setState).catch(() => setState('unsupported')); }, [web]);
 
   const on = prefs.dailyNudge !== false;
-  const { openHour, closeHour } = shopHours(b);
-  const hour = nudgeHour(b, prefs);
+  const hour = nudgeHour(prefs);
   const switchStyle = { trackColor: { true: colors.green, false: '#C9D1CB' }, thumbColor: '#fff', ...({ activeThumbColor: '#fff' } as object) };
 
   const fail = (e: unknown) => setMsg(e instanceof NotConfiguredError
@@ -334,34 +333,26 @@ function DailyNudge() {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <View style={{ flex: 1 }}>
             <Body style={{ fontWeight: '600' }}>Me rappeler de publier</Body>
-            <Body soft size={15}>Les jours où vous êtes ouvert, pendant vos horaires. Un message différent chaque jour, avec une idée. Rien si vous avez déjà publié.</Body>
+            <Body soft size={15}>Un petit message chaque jour où vous êtes ouvert, pour penser à poster. Rien si vous avez déjà posté.</Body>
           </View>
           <Switch value={on} onValueChange={(v) => setPrefs({ ...prefs, dailyNudge: v })} {...switchStyle} accessibilityLabel="Me rappeler de publier" />
         </View>
         {on && (
           <>
+            <Body soft size={15}>À quelle heure ?</Body>
+            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+              {NUDGE_HOURS.map((h) => <Chip key={h} label={`${h} h`} selected={hour === h} onPress={() => setPrefs({ ...prefs, nudgeHour: h })} />)}
+            </View>
             {isPatron && (
               <>
-                <Body soft size={15}>Vous ouvrez à</Body>
-                <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-                  {[7, 8, 9, 10, 11, 14].map((h) => <Chip key={h} label={`${h} h`} selected={openHour === h} onPress={() => saveBusiness({ ...b, openHour: h, closeHour: Math.max(h + 1, closeHour) })} />)}
-                </View>
-                <Body soft size={15}>Vous fermez à</Body>
-                <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-                  {[13, 17, 18, 19, 20, 22].filter((h) => h > openHour).map((h) => <Chip key={h} label={`${h} h`} selected={closeHour === h} onPress={() => saveBusiness({ ...b, openHour, closeHour: h })} />)}
-                </View>
-                <Body soft size={15}>Vos jours de fermeture</Body>
+                <Body soft size={15}>Les jours où vous êtes fermé (pas de rappel)</Body>
                 <ClosedDaysPicker value={b.closedDays ?? []} onChange={(next) => saveBusiness({ ...b, closedDays: next })} />
               </>
             )}
-            <Body soft size={15}>Le rappel arrive à</Body>
-            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-              {nudgeHourChoices(openHour, closeHour).map((h) => <Chip key={h} label={`${h} h`} selected={hour === h} onPress={() => setPrefs({ ...prefs, nudgeHour: h })} />)}
-            </View>
             {web && state === 'off' && <Button title="Activer sur ce téléphone" onPress={activate} loading={busy} />}
             {web && state === 'on' && (
               <>
-                <Notice tone="green" title="Activé sur ce téléphone" text={`Prochain rappel vers ${hour} h, un jour où vous êtes ouvert.`} />
+                <Notice tone="green" title="Activé sur ce téléphone" text={`Prochain rappel vers ${hour} h, le prochain jour où vous êtes ouvert.`} />
                 <Button title="M'envoyer un exemple maintenant" kind="secondary" onPress={sendExample} loading={busy} />
               </>
             )}

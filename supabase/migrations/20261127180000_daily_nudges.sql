@@ -10,10 +10,8 @@ create table if not exists public.push_subscriptions (
   p256dh text not null check (char_length(p256dh) <= 200),
   auth text not null check (char_length(auth) <= 100),
   enabled boolean not null default true,
-  -- Horaires de la boutique et heure choisie pour le rappel (heure de Paris).
-  hour smallint not null default 10 check (hour between 0 and 23),
-  open_hour smallint not null default 9 check (open_hour between 0 and 23),
-  close_hour smallint not null default 19 check (close_hour between 1 and 24),
+  -- Heure choisie pour le rappel (heure de Paris) et jours de fermeture de la boutique.
+  hour smallint not null default 10 check (hour between 6 and 21),
   closed_days smallint[] not null default '{}',
   closed_dates date[] not null default '{}',
   -- Prochaines occasions du métier (nom + date), envoyées par l'appli : pour « Noël dans 3 jours ».
@@ -42,7 +40,7 @@ insert into public.app_secrets (name, value)
   values ('daily_nudge_cron', encode(extensions.gen_random_bytes(24), 'hex'))
   on conflict (name) do nothing;
 
--- Toutes les heures, 5 minutes après l'heure pile : la fonction envoie à chaque boutique ouverte
+-- Toutes les heures, 5 minutes après l'heure pile : la fonction envoie à chaque boutique ouverte ce jour-là
 -- dont c'est l'heure du rappel (heure de Paris).
 create extension if not exists pg_cron;
 create extension if not exists pg_net;

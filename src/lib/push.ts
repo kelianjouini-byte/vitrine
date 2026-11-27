@@ -1,14 +1,14 @@
 /**
  * « Le petit rappel du jour » sur la version internet (navigateur, ou appli ajoutée à l'écran d'accueil).
  * Le téléphone s'abonne une fois ; ensuite c'est le serveur (fonction daily-nudge) qui envoie
- * le rappel chaque jour d'ouverture, pendant les horaires, même quand Vitrine est fermée.
+ * le rappel chaque jour d'ouverture, à l'heure choisie, même quand Vitrine est fermée.
  */
 import { Platform } from 'react-native';
 import { pushPublicKey, removePushSubscription, savePushSubscription, sendTestPush, type PushSettings } from './api';
 import { upcomingEvents, upcomingHolidays } from './events';
 import { dayKey } from './planning';
 import type { Business, NotificationPrefs } from './types';
-import { DEFAULT_HOURS, defaultNudgeHour, pickNudge } from '../../supabase/functions/_shared/nudges';
+import { DEFAULT_NUDGE_HOUR, NUDGE_HOURS, pickNudge } from '../../supabase/functions/_shared/nudges';
 
 export type PushState =
   /** Prêt : ce téléphone reçoit le rappel. */
@@ -59,26 +59,19 @@ export async function pushState(): Promise<PushState> {
   return (await currentSubscription()) ? 'on' : 'off';
 }
 
-/** Heures de la boutique (9 h - 19 h si le commerçant ne les a pas encore données). */
-export function shopHours(b: Business): { openHour: number; closeHour: number } {
-  const openHour = b.openHour ?? DEFAULT_HOURS.openHour;
-  return { openHour, closeHour: Math.max(openHour + 1, b.closeHour ?? DEFAULT_HOURS.closeHour) };
-}
-
-export function nudgeHour(b: Business, prefs: NotificationPrefs): number {
-  const { openHour, closeHour } = shopHours(b);
+/** Heure du rappel : celle choisie dans Réglages, 10 h sinon. */
+export function nudgeHour(prefs: NotificationPrefs): number {
   const h = prefs.nudgeHour;
-  return h !== undefined && h >= openHour && h < closeHour ? h : defaultNudgeHour(openHour, closeHour);
+  return h !== undefined && (NUDGE_HOURS as readonly number[]).includes(h) ? h : DEFAULT_NUDGE_HOUR;
 }
 
-/** Ce que le serveur doit savoir : horaires, jours fermés (y compris fériés où la boutique ferme), prochaines fêtes. */
+/** Ce que le serveur doit savoir : heure du rappel, jours fermés (y compris fériés où la boutique ferme), prochaines fêtes. */
 export function pushSettings(b: Business, prefs: NotificationPrefs, now = new Date()): PushSettings {
   const closedDates = upcomingHolidays(now, 3, b.postalCode).filter((h) => b.holidays?.[h.id]?.open === false).map((h) => dayKey(h.date));
   const occasions = upcomingEvents(b, now, 2, b.postalCode).slice(0, 8).map((e) => ({ name: e.name, date: dayKey(e.date) }));
   return {
     enabled: prefs.dailyNudge !== false,
-    hour: nudgeHour(b, prefs),
-    ...shopHours(b),
+    hour: nudgeHour(prefs),
     closedDays: b.closedDays ?? [],
     closedDates,
     occasions,

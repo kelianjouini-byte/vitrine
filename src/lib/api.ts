@@ -353,8 +353,6 @@ export async function saveBusinessRemote(b: Business): Promise<string | undefine
 export interface PushSettings {
   enabled: boolean;
   hour: number;
-  openHour: number;
-  closeHour: number;
   closedDays: number[];
   closedDates: string[];
   occasions: { name: string; date: string }[];

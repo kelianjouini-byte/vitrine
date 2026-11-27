@@ -1,5 +1,5 @@
 // POST { action: 'key' }                         -> { publicKey }  (clé publique VAPID pour s'abonner)
-// POST { action: 'save', subscription, settings } -> { ok }        (ce téléphone + horaires + heure du rappel)
+// POST { action: 'save', subscription, settings } -> { ok }        (ce téléphone + heure du rappel + jours fermés)
 // POST { action: 'remove', endpoint }             -> { ok }        (plus de notifications sur ce téléphone)
 // POST { action: 'test', endpoint }               -> { ok, title, body } (envoie tout de suite un exemple)
 // « Le petit rappel du jour » : voir daily-nudge pour l'envoi quotidien.
@@ -7,6 +7,7 @@ import { handler, HttpError, json } from '../_shared/http.ts';
 import { requireMerchant } from '../_shared/db.ts';
 import { isPushEndpoint } from '../_shared/webpush.ts';
 import { nudgeFor, pushTo, vapidKeys } from '../_shared/pushServer.ts';
+import { DEFAULT_NUDGE_HOUR } from '../_shared/nudges.ts';
 
 const hourOf = (v: unknown, min: number, max: number, fallback: number) => {
   const n = Math.floor(Number(v));
@@ -28,8 +29,6 @@ Deno.serve(handler(async (req) => {
     if (!isPushEndpoint(endpoint) || endpoint.length > 1000) throw new HttpError(400, 'bad_endpoint', 'Ce navigateur ne peut pas recevoir de notifications.');
     if (!/^[A-Za-z0-9_-]{80,100}$/.test(p256dh) || !/^[A-Za-z0-9_-]{16,40}$/.test(auth)) throw new HttpError(400, 'bad_keys', 'Abonnement invalide.');
     const st = body.settings ?? {};
-    const openHour = hourOf(st.openHour, 0, 23, 9);
-    const closeHour = Math.max(openHour + 1, hourOf(st.closeHour, 1, 24, 19));
     const days = (Array.isArray(st.closedDays) ? st.closedDays : []).map(Number).filter((d: number) => Number.isInteger(d) && d >= 0 && d <= 6);
     const dates = (Array.isArray(st.closedDates) ? st.closedDates : []).map(String).filter((d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d)).slice(0, 30);
     const occasions = (Array.isArray(st.occasions) ? st.occasions : []).slice(0, 12)
@@ -38,8 +37,7 @@ Deno.serve(handler(async (req) => {
     const row = {
       user_id: userId, business_id: business.id, kind: 'web', endpoint, p256dh, auth,
       enabled: st.enabled !== false,
-      hour: Math.min(closeHour - 1, Math.max(openHour, hourOf(st.hour, 0, 23, 10))),
-      open_hour: openHour, close_hour: closeHour,
+      hour: hourOf(st.hour, 6, 21, DEFAULT_NUDGE_HOUR),
       closed_days: [...new Set(days)], closed_dates: dates, occasions,
       updated_at: new Date().toISOString(),
     };

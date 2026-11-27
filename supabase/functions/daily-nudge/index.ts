@@ -1,6 +1,6 @@
 // POST (appelée toutes les heures par pg_cron, en-tête x-cron-secret = app_secrets 'daily_nudge_cron') -> { sent, skipped, failed }
 // « Le petit rappel du jour » : une notification différente chaque jour pour donner envie de publier.
-// Seulement les jours d'ouverture, pendant les horaires de la boutique, à l'heure choisie (heure de Paris),
+// Seulement les jours d'ouverture, à l'heure choisie (heure de Paris, 10 h par défaut),
 // une seule fois par jour, et rien si le commerçant a déjà publié aujourd'hui ou si son essai est terminé.
 // ?dry=1 : dit seulement à qui ce serait envoyé, sans rien envoyer.
 import { handler, HttpError, json } from '../_shared/http.ts';
@@ -26,7 +26,7 @@ Deno.serve(handler(async (req) => {
   for (const sub of subs ?? []) {
     try {
       // Vérifications rapides d'abord (heure, jour fermé), la base ensuite.
-      const hours = { openHour: sub.open_hour, closeHour: sub.close_hour, hour: sub.hour, closedDays: sub.closed_days ?? [], closedDates: sub.closed_dates ?? [] };
+      const hours = { hour: sub.hour, closedDays: sub.closed_days ?? [], closedDates: sub.closed_dates ?? [] };
       const early = nudgeDue(hours, now, { sentToday: false, postedToday: false });
       if (early !== true) { skip(early); continue; }
       const { data: already } = await db.from('daily_nudges').select('day').eq('subscription_id', sub.id).eq('day', day).maybeSingle();
