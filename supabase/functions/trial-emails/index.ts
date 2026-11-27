@@ -1,9 +1,9 @@
-// POST (appelée une fois par jour par pg_cron, en-tête x-cron-secret) -> { sent, skipped, failed }
+// POST (appelée une fois par jour par pg_cron, en-tête x-cron-secret = app_secrets 'trial_emails_cron') -> { sent, skipped, failed }
 // E-mails de fin d'essai : rappel quelques jours avant la fin, puis « essai terminé » le jour même.
 // Envoi par l'API Brevo (expéditeur Vitrine <contact@vitrineappli.fr>, domaine authentifié chez Brevo).
 // Jamais deux fois le même e-mail : la ligne trial_emails est écrite AVANT l'envoi (clé unique boutique + type).
-import { handler, HttpError, json, env } from '../_shared/http.ts';
-import { admin } from '../_shared/db.ts';
+import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { env, handler, HttpError, json } from '../_shared/http.ts';
 import { accessState, founderOffer } from '../_shared/billing.ts';
 import { trialEmail, trialEmailDue } from '../_shared/trialEmails.ts';
 
@@ -22,13 +22,15 @@ async function sendBrevo(apiKey: string, to: string, name: string, mail: { subje
 }
 
 Deno.serve(handler(async (req) => {
-  const secret = env('CRON_SECRET');
-  if (!secret || req.headers.get('x-cron-secret') !== secret) throw new HttpError(401, 'unauthorized', 'Accès refusé.');
+  const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
+  // Mot de passe de la tâche pg_cron : tiré au hasard dans la base (table app_secrets, jamais lisible par l'appli).
+  const { data: row } = await db.from('app_secrets').select('value').eq('name', 'trial_emails_cron').maybeSingle();
+  const given = req.headers.get('x-cron-secret') ?? '';
+  if (!row?.value || given !== row.value) throw new HttpError(401, 'unauthorized', 'Accès refusé.');
   const apiKey = env('BREVO_API_KEY');
   if (!apiKey) throw new HttpError(503, 'not_configured', 'Brevo n\'est pas configuré (BREVO_API_KEY).');
   const dryRun = new URL(req.url).searchParams.get('dry') === '1';
 
-  const db = admin();
   const now = new Date();
   const appUrl = 'https://vitrineappli.fr/app/';
 

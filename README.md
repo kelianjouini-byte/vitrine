@@ -39,7 +39,6 @@ npx expo start --web        # ou l'ouvrir dans le navigateur
 | `STRIPE_SECRET_KEY` | secrets Supabase | Paiement des abonnements (clé secrète Stripe, `sk_test_…` ou `sk_live_…`) |
 | `STRIPE_WEBHOOK_SECRET` | secrets Supabase | Vérifie que les messages du webhook viennent bien de Stripe (`whsec_…`) |
 | `BREVO_API_KEY` | secrets Supabase | Envoie les e-mails de fin d'essai par Brevo (`xkeysib-…`) |
-| `CRON_SECRET` | secrets Supabase | Mot de passe de la tâche quotidienne pg_cron qui appelle `trial-emails` |
 
 **Aucune clé secrète ne doit jamais être mise dans l'app ou dans Git.**
 

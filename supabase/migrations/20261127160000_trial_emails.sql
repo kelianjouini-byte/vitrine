@@ -11,13 +11,25 @@ create table if not exists public.trial_emails (
 alter table public.trial_emails enable row level security;
 revoke all on public.trial_emails from anon, authenticated;
 
--- Lancement quotidien (10 h, heure de Paris en hiver = 9 h UTC) : à faire UNE fois, avec le vrai secret,
--- dans Dashboard > SQL Editor (le secret n'est jamais écrit dans Git) :
---   create extension if not exists pg_cron;
---   create extension if not exists pg_net;
---   select cron.schedule('vitrine-trial-emails', '0 9 * * *', $$
---     select net.http_post(
---       url := 'https://<projet>.supabase.co/functions/v1/trial-emails',
---       headers := jsonb_build_object('Content-Type', 'application/json', 'x-cron-secret', '<CRON_SECRET>'),
---       body := '{}'::jsonb)
---   $$);
+-- Petits secrets internes tirés au hasard dans la base (jamais dans Git, jamais lisibles par l'appli).
+create table if not exists public.app_secrets (
+  name text primary key,
+  value text not null
+);
+alter table public.app_secrets enable row level security;
+revoke all on public.app_secrets from anon, authenticated;
+insert into public.app_secrets (name, value)
+  values ('trial_emails_cron', encode(extensions.gen_random_bytes(24), 'hex'))
+  on conflict (name) do nothing;
+
+-- Lancement quotidien à 9 h UTC (10 h à Paris en hiver). Le mot de passe est relu dans app_secrets à chaque fois.
+create extension if not exists pg_cron;
+create extension if not exists pg_net;
+select cron.unschedule('vitrine-trial-emails') where exists (select 1 from cron.job where jobname = 'vitrine-trial-emails');
+select cron.schedule('vitrine-trial-emails', '0 9 * * *', $$
+  select net.http_post(
+    url := 'https://fcnkaomxrmcprqrmpycu.supabase.co/functions/v1/trial-emails',
+    headers := jsonb_build_object('Content-Type', 'application/json',
+      'x-cron-secret', (select value from public.app_secrets where name = 'trial_emails_cron')),
+    body := '{}'::jsonb)
+$$);
