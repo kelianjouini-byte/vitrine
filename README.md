@@ -38,6 +38,7 @@ npx expo start --web        # ou l'ouvrir dans le navigateur
 | `PUBLIC_APP_URL` | secrets Supabase | Facultatif : adresse de la version web, seule adresse https autorisée au retour de la connexion Meta (par défaut `https://vitrineappli.fr/` ; l'ancienne adresse `https://kelianjouini-byte.github.io/vitrine/` reste acceptée) |
 | `STRIPE_SECRET_KEY` | secrets Supabase | Paiement des abonnements (clé secrète Stripe, `sk_test_…` ou `sk_live_…`) |
 | `STRIPE_WEBHOOK_SECRET` | secrets Supabase | Vérifie que les messages du webhook viennent bien de Stripe (`whsec_…`) |
+| `BREVO_API_KEY` | secrets Supabase | Envoie les e-mails de fin d'essai par Brevo (`xkeysib-…`) |
 
 **Aucune clé secrète ne doit jamais être mise dans l'app ou dans Git.**
 
