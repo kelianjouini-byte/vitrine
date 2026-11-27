@@ -18,7 +18,7 @@ import { PersonIcon, SendIcon } from '../components/icons';
 import { Bar, PointsPill } from '../components/PointsScene';
 import { frNumber, levelOf, postsLeft } from '../lib/points';
 
-export function Home() {
+export function Home({ open = false }: { open?: boolean } = {}) {
   const { business, posts, connections, go, billing, team, isPatron } = useApp();
   const trialLeft = isPatron && billing?.access === 'trial' && !isLiveStatus(billing.subscription?.status) ? daysLeft(billing.trialEndsAt) : null;
   const b = business!;
@@ -38,7 +38,7 @@ export function Home() {
   const days = next ? daysUntil(next.date) : 0;
   const [photoError, setPhotoError] = useState<string | null>(null);
   // Le gros bouton propose 2 choix : Photo (post ou story) ou Vidéo (Reel ou story).
-  const [choosing, setChoosing] = useState(false);
+  const [choosing, setChoosing] = useState(open);
   // La carte touchée reste en couleur pleine pendant que la caméra s'ouvre.
   const [opening, setOpening] = useState<'photo' | 'video' | null>(null);
   // Compte sans e-mail : après le 1er post, on propose de le protéger (sinon, perdu en changeant de téléphone).

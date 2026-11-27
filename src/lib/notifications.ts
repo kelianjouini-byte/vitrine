@@ -4,6 +4,7 @@ import * as Notifications from 'expo-notifications';
 import { upcomingEvents, upcomingHolidays, type CommercialEvent } from './events';
 import type { Business, NotificationPrefs, Post } from './types';
 import { planReminders, type PlanChoices } from './planning';
+import { localNudges } from './push';
 import { monthKey, reportReminderDates, reportReminderText } from './report';
 
 /** Les rappels de fêtes sont des notifications LOCALES programmées sur le téléphone :
@@ -60,6 +61,16 @@ export async function scheduleReminders(b: Business, prefs: NotificationPrefs, p
     for (const r of trialReminders(plan.trialEndsAt, prefs.hour, now)) {
       await Notifications.scheduleNotificationAsync({
         content: { title: r.title, body: r.body, data: { route: 'offers' } },
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: r.date },
+      });
+      count++;
+    }
+  }
+  // Le petit rappel du jour : chaque jour d'ouverture, pendant les horaires, avec un texte différent.
+  if (plan) {
+    for (const r of localNudges(b, prefs, plan.posts, now)) {
+      await Notifications.scheduleNotificationAsync({
+        content: { title: r.title, body: r.body, data: { route: 'create' } },
         trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: r.date },
       });
       count++;

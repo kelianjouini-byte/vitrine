@@ -41,6 +41,9 @@ export interface Business {
   employeeCount?: EmployeeCount;
   /** Jours de fermeture (0 = lundi ... 6 = dimanche) : le planning y met « Repos ». */
   closedDays?: number[];
+  /** Horaires d'ouverture (heures pleines, ex. 9 et 19) : le rappel du jour arrive seulement pendant l'ouverture. */
+  openHour?: number;
+  closeHour?: number;
   /** Réponses aux jours fériés (« ferie-11-novembre-2026 ») : ouvert ou fermé, et horaires si le commerçant les a écrits. */
   holidays?: Record<string, HolidayAnswer>;
 }
@@ -125,6 +128,10 @@ export interface NotificationPrefs {
   monthlyReport?: boolean;
   /** Rappels du planning : « Votre post est prêt », « Idée de story du jour » (activé si absent). */
   planReminders?: boolean;
+  /** « Le petit rappel du jour » : une notification par jour d'ouverture pour publier (activé si absent). */
+  dailyNudge?: boolean;
+  /** Heure du rappel du jour (pendant les horaires d'ouverture). */
+  nudgeHour?: number;
   /** Petits sons des points de l'équipe (activés si absent). Le téléphone en silencieux les coupe aussi. */
   sounds?: boolean;
 }

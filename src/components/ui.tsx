@@ -114,6 +114,24 @@ export function Chip({ label, selected, onPress }: { label: string; selected: bo
   );
 }
 
+/** Les 7 jours de la semaine à cocher : jours de fermeture de la boutique (0 = lundi). */
+export function ClosedDaysPicker({ value, onChange }: { value: number[]; onChange: (days: number[]) => void }) {
+  const names = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+  return (
+    <View style={{ flexDirection: 'row', gap: 6 }}>
+      {names.map((n, i) => {
+        const on = value.includes(i);
+        return (
+          <Pressable key={n} onPress={() => onChange(on ? value.filter((x) => x !== i) : [...value, i].sort())} accessibilityRole="checkbox" accessibilityState={{ checked: on }} accessibilityLabel={`${n} : boutique fermée`}
+            style={{ flex: 1, minHeight: 48, borderRadius: 12, borderWidth: 1.5, borderColor: on ? colors.green : 'rgba(36,51,43,0.10)', backgroundColor: on ? colors.greenSoft : 'rgba(255,255,255,0.82)', alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ fontWeight: '700', fontSize: 15, color: on ? colors.green : colors.text, fontFamily: fonts.body }}>{n.slice(0, 3)}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 /** Bandeau d'information honnête : fonctionnalité pas encore branchée, erreur, etc. */
 export function Notice({ tone = 'orange', title, text }: { tone?: 'orange' | 'red' | 'green'; title: string; text?: string }) {
   const bg = { orange: colors.orangeSoft, red: colors.redSoft, green: colors.greenSoft }[tone];

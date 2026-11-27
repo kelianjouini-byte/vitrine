@@ -99,6 +99,12 @@ Fonction `team` (déployée avec `verify_jwt = false`, le jeton est vérifié da
 - Un employé prépare les posts et les stories, puis « Envoyer au patron » (`review_state = pending`). Le patron publie, modifie le texte ou refuse avec un petit mot (écran « Posts à valider »). Interrupteur « Publie seul » dans la liste « Mon équipe », éteint par défaut.
 - La boutique ouverte dans l'appli est envoyée dans l'en-tête `x-vitrine-shop`, toujours vérifiée côté serveur.
 
+### Le petit rappel du jour (notifications)
+- Une notification par jour d'ouverture, pendant les horaires de la boutique, à l'heure choisie (Réglages → « Le petit rappel du jour »). Texte différent chaque jour (plus de 50, par métier, fêtes proches, jours sans publication), jamais si un post a déjà été fait ce jour-là, jamais après la fin de l'essai sans abonnement. Toucher la notification ouvre l'accueil sur Photo / Vidéo.
+- Version web : « web push » (Android : Chrome ; iPhone : iOS 16.4+, Vitrine ajoutée à l'écran d'accueil). Service worker `public/push-sw.js`. Aucune variable à ajouter : les clés VAPID sont créées automatiquement par le serveur au premier usage (table `app_secrets`, ligne `vapid_keys`).
+- Serveur : migration `20261127180000_daily_nudges.sql` (tables `push_subscriptions`, `daily_nudges`, tâche pg_cron horaire), fonctions `push-subscribe` (abonnement, réglages, exemple) et `daily-nudge` (envoi, `verify_jwt = false`, en-tête `x-cron-secret`). Textes et règles : `supabase/functions/_shared/nudges.ts`.
+- Applis des stores (plus tard) : il faudra brancher Firebase (Android) et APNs (Apple).
+
 ## 7. Déploiement
 
 - Serveur : `supabase db push` + `supabase functions deploy`.

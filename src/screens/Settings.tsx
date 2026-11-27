@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Linking, Pressable, ScrollView, Switch, View } from 'react-native';
-import { Body, Button, Card, Chevron, Chip, Field, IconTile, Label, Notice, Title, BackButton } from '../components/ui';
+import { Body, Button, Card, Chevron, Chip, ClosedDaysPicker, Field, IconTile, Label, Notice, Title, BackButton } from '../components/ui';
 import { BackIcon, PeopleIcon, PersonIcon, PlusIcon, StoreIcon } from '../components/icons';
 import { NetworkCards } from '../components/NetworkCards';
 import { IdentityFields, type Identity } from '../components/IdentityFields';
@@ -10,7 +10,9 @@ import { subscriptionSummary } from '../lib/billing';
 import { toneLabel, tradeLabel } from '../lib/business';
 import { isBackendConfigured } from '../lib/config';
 import { notificationsSupported } from '../lib/notifications';
-import { accountState, FriendlyError, protectAccount, removeShop, saveBusinessRemote, signOut, type AccountState } from '../lib/api';
+import { enablePush, nudgeHour, pushState, shopHours, testPush, type PushState } from '../lib/push';
+import { nudgeHourChoices } from '../../supabase/functions/_shared/nudges';
+import { accountState, FriendlyError, NotConfiguredError, protectAccount, removeShop, saveBusinessRemote, signOut, type AccountState } from '../lib/api';
 import { EmailPasswordForm } from '../components/AccountForms';
 import { DeleteAccount } from '../components/DeleteAccount';
 
@@ -87,6 +89,8 @@ export function Settings() {
       <IdentityCard />
       </>}
 
+      <DailyNudge />
+
       <Label>Rappels avant les fêtes</Label>
       <Card style={{ gap: 14 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -135,7 +139,7 @@ export function Settings() {
             <Switch value={prefs.sounds !== false} onValueChange={(v) => setPrefs({ ...prefs, sounds: v })} trackColor={{ true: colors.green, false: '#C9D1CB' }} thumbColor="#fff" {...({ activeThumbColor: '#fff' } as object)} accessibilityLabel="Sons des points" />
           </View>
         ) : null}
-        {!notificationsSupported && <Notice tone="orange" title="Sur la version internet, les rappels n'arrivent pas encore" text="Ils arriveront avec l'application Vitrine à installer sur votre téléphone. En attendant, ouvrez Vitrine de temps en temps : l'accueil et le planning vous disent quoi publier." />}
+        {!notificationsSupported && <Notice tone="orange" title="Ces rappels arriveront avec l'application" text="Sur la version internet, seul le petit rappel du jour arrive pour l'instant. Les rappels des fêtes, du planning et du bilan arriveront avec l'application Vitrine à installer." />}
       </Card>
 
       <Label>Mes données</Label>
@@ -282,5 +286,92 @@ function Shops() {
         <Chevron />
       </Pressable>
     </Card>
+  );
+}
+
+/** « Le petit rappel du jour » : oui / non, horaires de la boutique, heure du rappel, et activation sur ce téléphone. */
+function DailyNudge() {
+  const { business, prefs, setPrefs, saveBusiness, isPatron } = useApp();
+  const b = business!;
+  const web = !notificationsSupported;
+  const [state, setState] = useState<PushState | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ tone: 'green' | 'orange' | 'red'; title: string; text?: string } | null>(null);
+  useEffect(() => { if (web) pushState().then(setState).catch(() => setState('unsupported')); }, [web]);
+
+  const on = prefs.dailyNudge !== false;
+  const { openHour, closeHour } = shopHours(b);
+  const hour = nudgeHour(b, prefs);
+  const switchStyle = { trackColor: { true: colors.green, false: '#C9D1CB' }, thumbColor: '#fff', ...({ activeThumbColor: '#fff' } as object) };
+
+  const fail = (e: unknown) => setMsg(e instanceof NotConfiguredError
+    ? { tone: 'orange', title: "Le serveur n'est pas encore prêt", text: 'Les notifications ne peuvent pas encore être activées. Réessayez plus tard.' }
+    : { tone: 'red', title: "Ça n'a pas marché", text: e instanceof FriendlyError ? e.message : 'Vérifiez votre connexion et réessayez.' });
+
+  const activate = async () => {
+    setBusy(true); setMsg(null);
+    try {
+      const s = await enablePush(b, prefs);
+      setState(s);
+      if (s === 'on') {
+        if (prefs.dailyNudge === false) setPrefs({ ...prefs, dailyNudge: true });
+        setMsg({ tone: 'green', title: "C'est activé", text: `Le premier rappel arrivera le prochain jour d'ouverture, vers ${hour} h.` });
+      }
+    } catch (e) { fail(e); } finally { setBusy(false); }
+  };
+  const sendExample = async () => {
+    setBusy(true); setMsg(null);
+    try {
+      const r = await testPush();
+      setMsg(r ? { tone: 'green', title: 'Exemple envoyé', text: `Regardez vos notifications : « ${r.title} ».` } : { tone: 'orange', title: "Les notifications ne sont pas activées sur ce téléphone" });
+    } catch (e) { fail(e); } finally { setBusy(false); }
+  };
+
+  return (
+    <>
+      <Label>Le petit rappel du jour</Label>
+      <Card style={{ gap: 14 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <View style={{ flex: 1 }}>
+            <Body style={{ fontWeight: '600' }}>Me rappeler de publier</Body>
+            <Body soft size={15}>Les jours où vous êtes ouvert, pendant vos horaires. Un message différent chaque jour, avec une idée. Rien si vous avez déjà publié.</Body>
+          </View>
+          <Switch value={on} onValueChange={(v) => setPrefs({ ...prefs, dailyNudge: v })} {...switchStyle} accessibilityLabel="Me rappeler de publier" />
+        </View>
+        {on && (
+          <>
+            {isPatron && (
+              <>
+                <Body soft size={15}>Vous ouvrez à</Body>
+                <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                  {[7, 8, 9, 10, 11, 14].map((h) => <Chip key={h} label={`${h} h`} selected={openHour === h} onPress={() => saveBusiness({ ...b, openHour: h, closeHour: Math.max(h + 1, closeHour) })} />)}
+                </View>
+                <Body soft size={15}>Vous fermez à</Body>
+                <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                  {[13, 17, 18, 19, 20, 22].filter((h) => h > openHour).map((h) => <Chip key={h} label={`${h} h`} selected={closeHour === h} onPress={() => saveBusiness({ ...b, openHour, closeHour: h })} />)}
+                </View>
+                <Body soft size={15}>Vos jours de fermeture</Body>
+                <ClosedDaysPicker value={b.closedDays ?? []} onChange={(next) => saveBusiness({ ...b, closedDays: next })} />
+              </>
+            )}
+            <Body soft size={15}>Le rappel arrive à</Body>
+            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+              {nudgeHourChoices(openHour, closeHour).map((h) => <Chip key={h} label={`${h} h`} selected={hour === h} onPress={() => setPrefs({ ...prefs, nudgeHour: h })} />)}
+            </View>
+            {web && state === 'off' && <Button title="Activer sur ce téléphone" onPress={activate} loading={busy} />}
+            {web && state === 'on' && (
+              <>
+                <Notice tone="green" title="Activé sur ce téléphone" text={`Prochain rappel vers ${hour} h, un jour où vous êtes ouvert.`} />
+                <Button title="M'envoyer un exemple maintenant" kind="secondary" onPress={sendExample} loading={busy} />
+              </>
+            )}
+            {web && state === 'ios-install' && <Notice tone="orange" title="Sur iPhone, une étape avant" text="Dans Safari, touchez le bouton Partager (le carré avec une flèche), puis « Sur l'écran d'accueil ». Ouvrez ensuite Vitrine avec la nouvelle icône et revenez ici." />}
+            {web && state === 'denied' && <Notice tone="orange" title="Les notifications sont bloquées" text="Autorisez les notifications pour Vitrine dans les réglages de votre navigateur, puis revenez ici." />}
+            {web && state === 'unsupported' && <Notice tone="orange" title="Ce navigateur ne reçoit pas les notifications" text="Ouvrez Vitrine sur votre téléphone, avec Chrome ou Safari." />}
+            {msg && <Notice tone={msg.tone} title={msg.title} text={msg.text} />}
+          </>
+        )}
+      </Card>
+    </>
   );
 }

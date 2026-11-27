@@ -35,3 +35,7 @@ verify_jwt = false
 # Appelée par pg_cron (pas par l'app) une fois par jour : vérifie elle-même l'en-tête x-cron-secret.
 [functions.trial-emails]
 verify_jwt = false
+
+# Appelée par pg_cron toutes les heures (rappel du jour) : vérifie elle-même l'en-tête x-cron-secret.
+[functions.daily-nudge]
+verify_jwt = false
