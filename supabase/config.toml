@@ -31,3 +31,7 @@ verify_jwt = false
 # La fonction vérifie elle-même le jeton pour toutes les autres actions.
 [functions.team]
 verify_jwt = false
+
+# Appelée par pg_cron (pas par l'app) une fois par jour : vérifie elle-même l'en-tête x-cron-secret.
+[functions.trial-emails]
+verify_jwt = false
