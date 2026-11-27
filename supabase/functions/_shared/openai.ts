@@ -38,18 +38,18 @@ type Route = { label: string; baseUrl: string; apiKey: string; model: string; ge
 /**
  * Réglages des IA, lus dans les secrets du serveur. Plusieurs IA peuvent être branchées :
  * elles sont essayées dans l'ordre (la suivante démarre si la précédente échoue ou tarde).
- * - GROQ_API_KEY (facultatif, gratuit) : Groq en premier, très rapide. Modèle : GROQ_MODEL.
- * - AI_API_KEY : Google Gemini (clé qui ne commence pas par « sk- ») ou OpenAI (« sk- »),
+ * - AI_API_KEY (en premier) : Google Gemini, payant depuis le 25 nov. 2026 (clé qui ne commence pas par « sk- ») ou OpenAI (« sk- »),
  *   ou tout service « compatible OpenAI » via AI_BASE_URL + AI_MODEL.
+ * - GROQ_API_KEY (facultatif, gratuit) : secours si l'IA principale échoue ou tarde. Modèle : GROQ_MODEL.
  */
 function aiConfig() {
   const routes: Route[] = [];
   const groqKey = env('GROQ_API_KEY');
-  if (groqKey) {
-    routes.push({ label: 'groq', baseUrl: 'https://api.groq.com/openai/v1', apiKey: groqKey, model: env('GROQ_MODEL') ?? 'qwen/qwen3.8-27b', gemini: false,
+  const groq: Route | null = groqKey
+    ? { label: 'groq', baseUrl: 'https://api.groq.com/openai/v1', apiKey: groqKey, model: env('GROQ_MODEL') ?? 'qwen/qwen3.8-27b', gemini: false,
       // Le modèle Qwen « réfléchit » avant d'écrire : on cache cette réflexion (réponse JSON propre).
-      extra: { reasoning_format: 'hidden' } });
-  }
+      extra: { reasoning_format: 'hidden' } }
+    : null;
   const apiKey = env('AI_API_KEY') ?? env('OPENAI_API_KEY');
   // Les clés OpenAI commencent par « sk- ». Toute autre clé est traitée comme une clé Google Gemini.
   const isGeminiKey = !!apiKey && !apiKey.startsWith('sk-');
@@ -57,10 +57,14 @@ function aiConfig() {
     const baseUrl = (env('AI_BASE_URL') ?? (isGeminiKey ? 'https://generativelanguage.googleapis.com/v1beta/openai' : 'https://api.openai.com/v1')).replace(/\/$/, '');
     const gemini = baseUrl.includes('generativelanguage.googleapis.com');
     const model = env('AI_MODEL') ?? env('OPENAI_MODEL') ?? (gemini ? 'gemini-3.8-flash' : 'gpt-4.1-mini');
+    // L'IA principale (payante) passe en premier ; Groq (gratuit) ne sert plus que de secours (choix de Kelian, 25 nov. 2026).
     routes.push({ label: 'principal', baseUrl, apiKey, model, gemini });
+    if (groq) routes.push(groq);
     // Modèle de secours du même fournisseur (AI_FALLBACK_MODEL ; Gemini : gemini-3.5-flash-lite par défaut).
     const fallback = env('AI_FALLBACK_MODEL') ?? (gemini && !env('AI_MODEL') && !env('OPENAI_MODEL') ? 'gemini-3.5-flash-lite' : undefined);
     if (fallback && fallback !== model) routes.push({ label: 'secours', baseUrl, apiKey, model: fallback, gemini });
+  } else if (groq) {
+    routes.push(groq);
   }
   if (!routes.length) throw new HttpError(503, 'openai_not_configured', "L'écriture par l'IA n'est pas encore configurée.");
   // json_schema n'est compris que par OpenAI : ailleurs, JSON simple validé ici (AI_JSON_MODE=object pour forcer).
@@ -78,7 +82,7 @@ type Attempt = { ok: true; content: string; usage?: Usage } | { ok: false; statu
 
 /**
  * Appel « chat » rapide et fiable :
- * - on interroge la première IA branchée (Groq si sa clé existe, sinon Gemini) ;
+ * - on interroge la première IA branchée (Gemini, sinon Groq) ;
  * - s'il échoue (saturé, réponse illisible...) ou n'a pas répondu après 7 s, on interroge aussi la suivante, et ainsi de suite ;
  * - la première réponse VALIDE est gardée, l'autre appel est annulé.
  * `valid` vérifie la réponse : une réponse incomplète compte comme un échec (on passe au modèle suivant).
@@ -164,7 +168,7 @@ async function chatCompletion(
           clearTimeout(hedge);
           const busy = failures.some((f) => !f.ok && (f.status === 429 || f.status === 503 || f.status === 'timeout'));
           reject(busy
-            ? new HttpError(503, 'ai_busy', "L'IA gratuite est très demandée en ce moment. Réessayez dans une minute.")
+            ? new HttpError(503, 'ai_busy', "L'IA est très demandée en ce moment. Réessayez dans une minute.")
             : new HttpError(502, 'ai_failed', "L'IA n'a pas pu écrire votre texte. Réessayez."));
         }
       });
