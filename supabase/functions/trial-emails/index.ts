@@ -30,6 +30,10 @@ Deno.serve(handler(async (req) => {
   const apiKey = env('BREVO_API_KEY');
   if (!apiKey) throw new HttpError(503, 'not_configured', 'Brevo n\'est pas configuré (BREVO_API_KEY).');
   const dryRun = new URL(req.url).searchParams.get('dry') === '1';
+  // Un appel par jour garde la clé Brevo active (elle expire après 90 jours sans usage) et prévient si elle ne marche plus.
+  const check = await fetch('https://api.brevo.com/v3/account', { headers: { 'api-key': apiKey, Accept: 'application/json' } });
+  if (!check.ok) console.error('[vitrine] clé Brevo refusée', check.status);
+  const brevoOk = check.ok;
 
   const now = new Date();
   const appUrl = 'https://vitrineappli.fr/app/';
@@ -83,5 +87,5 @@ Deno.serve(handler(async (req) => {
       failed++;
     }
   }
-  return json(dryRun ? { dryRun: true, due } : { sent, skipped, failed });
+  return json(dryRun ? { dryRun: true, brevoOk, due } : { brevoOk, sent, skipped, failed });
 }));
